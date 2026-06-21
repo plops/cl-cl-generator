@@ -1,6 +1,7 @@
 (eval-when (:compile-toplevel :execute :load-toplevel)
-  ;; Load the local generator system
-  (push "/home/kiel/stage/cl-cl-generator/" asdf:*central-registry*)
+  ;; Load the local generator system relative to this file
+  (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
+    (push (merge-pathnames "../../" current-dir) asdf:*central-registry*))
   (ql:quickload :cl-cl-generator))
 
 (defpackage :cl-cl-generator/example

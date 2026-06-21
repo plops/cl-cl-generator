@@ -1,0 +1,19 @@
+name: Test Suite
+
+on:
+  release:
+    types: [published, created]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install SBCL and Quicklisp
+        uses: 40ants/setup-lisp@v4
+
+      - name: Run Test Suite
+        run: ./run-tests.sh

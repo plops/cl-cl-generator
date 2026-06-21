@@ -4,7 +4,7 @@ An elegant, robust, and highly condensed S-expression code generator for Common 
 
 ## Design Philosophy
 
-Unlike transpilers targeting other languages (like [cl-py-generator](file:///home/kiel/stage/cl-py-generator)), `cl-cl-generator` targets Common Lisp itself. Since the source S-expressions and target language share the same syntax, a custom recursive code emitter is redundant and fragile. 
+Unlike transpilers targeting other languages (like [cl-py-generator](https://github.com/plops/cl-py-generator)), `cl-cl-generator` targets Common Lisp itself. Since the source S-expressions and target language share the same syntax, a custom recursive code emitter is redundant and fragile. 
 
 Instead, `cl-cl-generator` is built around the standard Lisp pretty printer. It works by:
 1. **Leveraging Built-in Logic**: The standard Lisp `pprint` system already contains highly tuned formatting templates for `defun`, `let`, `cond`, `loop`, and all other standard constructs.

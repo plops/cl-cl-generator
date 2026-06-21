@@ -1,8 +1,10 @@
 #!/bin/bash
 # run-tests.sh - Run tests for cl-cl-generator
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 sbcl --disable-debugger \
-     --eval '(push "/home/kiel/stage/cl-cl-generator/" asdf:*central-registry*)' \
+     --eval "(push \"${SCRIPT_DIR}/\" asdf:*central-registry*)" \
      --eval '(ql:quickload :cl-cl-generator)' \
-     --load '/home/kiel/stage/cl-cl-generator/tests.lisp' \
+     --load "${SCRIPT_DIR}/tests.lisp" \
      --eval '(cl-cl-generator/tests:run-tests)'
