@@ -15,19 +15,38 @@
 ;; =========================================================================
 
 (defun make-fmt-clause (op prefix suffix separator)
+  "Formats a list of elements separated by a delimiter, wrapped inside a prefix and suffix.
+For example, (make-fmt-clause 'paren \"(\" \")\" \", \") expands to:
+  (paren (let ((args (cdr code)))
+           (format nil \"(~{~a~^, ~})\" (mapcar #'emit args))))"
   `(,op (let ((args (cdr code)))
           (format nil ,(format nil "~a~~{~~a~~^~a~~}~a" prefix separator suffix)
                   (mapcar #'emit args)))))
 
 (defun make-relation-clause (op py-op)
+  "Formats simple Python binary relations (e.g., identity and membership tests).
+For example, (make-relation-clause 'in \"in\") expands to:
+  (in (destructuring-bind (a b) (cdr code)
+        (format nil \"(~a in ~a)\" (emit a) (emit b))))"
   `(,op (destructuring-bind (a b) (cdr code)
           (format nil ,(format nil "(~~a ~a ~~a)" py-op) (emit a) (emit b)))))
 
 (defun make-assignment-op-clause (op op-str)
+  "Formats Python assignment operators (e.g., target += val).
+For example, (make-assignment-op-clause 'incf \"+=\") expands to:
+  (incf (destructuring-bind (target &optional (val 1)) (cdr code)
+          (format nil \"~a += ~a\" (emit target) (emit val))))"
   `(,op (destructuring-bind (target &optional (val 1)) (cdr code)
           (format nil ,(format nil "~~a ~a ~~a" op-str) (emit target) (emit val)))))
 
 (defun make-binary-op-clause (op py-op)
+  "Formats mathematical operations limited strictly to two operands (e.g. pow, mod, floor-div).
+Operands are optionally parenthesized to satisfy python operator precedence checks.
+For example, (make-binary-op-clause '** \"**\") expands to:
+  (** (let ((args (cdr code)))
+        (if omit-redundant-parentheses
+            (format nil \"~a**~a\" (emit `(paren* ** ,(first args))) (emit `(paren* ** ,(second args))))
+            (format nil \"((~a)**(~a))\" (emit (first args)) (emit (second args))))))"
   `(,op (let ((args (cdr code)))
           (if omit-redundant-parentheses
               (format nil ,(format nil "~~a~a~~a" py-op)
@@ -38,6 +57,13 @@
                       (emit (second args)))))))
 
 (defun make-unary-op-clause (op py-op &key space)
+  "Formats Python unary operations (e.g. bitwise not '~', logical 'not').
+Tildes (~) in the prefix are automatically escaped to '~~' to prevent Common Lisp format warnings.
+For example, (make-unary-op-clause 'not \"not\" :space t) expands to:
+  (not (destructuring-bind (arg) (cdr code)
+         (if omit-redundant-parentheses
+             (format nil \"not ~a\" (emit `(paren* not ,arg)))
+             (format nil \"(not ~a)\" (emit arg)))))"
   (let* ((sep (if space " " ""))
          (escaped-py-op (cl-ppcre:regex-replace-all "~" py-op "~~"))
          (fmt-omit (format nil "~a~a~~a" escaped-py-op sep))
@@ -47,11 +73,20 @@
                 (format nil ,fmt-omit (emit `(paren* ,',op ,arg)))
                 (format nil ,fmt-keep (emit arg)))))))
 
-
 (defun make-string-clause (op format-str)
+  "Formats Python string literals (including prefix modifiers like f-strings, byte-strings, and multi-line raw blocks).
+For example, (make-string-clause 'fstring \"f\\\"~a\\\"\") expands to:
+  (fstring (format nil \"f\\\"~a\\\"\" (cadr code)))"
   `(,op (format nil ,format-str (cadr code))))
 
 (defun make-op-clause (op py-op &key spaces)
+  "Formats mathematical and logical n-ary operations that support variable arguments (e.g. +, *, and, or).
+Delimiter separator string optionally pads spaces on both sides.
+For example, (make-op-clause '+ \"+\") expands to:
+  (+ (let ((args (cdr code)))
+       (if omit-redundant-parentheses
+           (format nil \"~{~a~^+~}\" (mapcar #'(lambda (x) (emit `(paren* + ,x))) args))
+           (format nil \"(~{(~a)~^+~})\" (mapcar #'emit args)))))"
   (let* ((sep (if spaces (format nil " ~a " py-op) py-op))
          (fmt-omit (format nil "~~{~~a~~^~a~~}" sep))
          (fmt-keep (format nil "(~~{(~~a)~~^~a~~})" sep)))
