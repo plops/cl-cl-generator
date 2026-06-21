@@ -1,0 +1,121 @@
+---
+name: cl-cl-generator
+description: Provides documentation and guidelines for using the cl-cl-generator S-expression code generator. Explains how to construct Common Lisp code dynamically, write helper macros/functions, and use generation-time loops (,@(loop ...)) to reduce boilerplate.
+---
+
+# CL-CL-Generator System Documentation
+
+This skill explains how to write Common Lisp code using `cl-cl-generator` S-expression templates. Since the generator language and the target language are both Common Lisp, the transpiler acts as a formatting printer that understands S-expression structures, code layout, comments, and file caching.
+
+## Core API
+
+The package `:cl-cl-generator` exports:
+- `emit-cl` : Converts an S-expression form into a formatted Common Lisp code string.
+- `write-source` : Takes a filename, an S-expression form, and an optional directory, and writes the formatted code to a file. It uses `sxhash` hashing to avoid touching the file's modification time (mtime) if the contents are identical.
+
+## DSL Keywords
+
+While standard Common Lisp constructs (like `defun`, `let`, `cond`, `loop`, `if`, etc.) write exactly as-is, the generator provides a few special keywords:
+
+1. **`toplevel` / `do0`**
+   - Groups a list of forms to be written one after another without outer parentheses.
+   - Example: `(toplevel (in-package :cl-user) (defun f () 1))`
+   - Emits:
+     ```lisp
+     (in-package :cl-user)
+
+     (defun f ()
+       1)
+     ```
+
+2. **`comment` / `comments`**
+   - Renders single or multi-line comments.
+   - Example: `(comment "Calculate square")`
+   - Emits: `;; Calculate square` (indented automatically to match the surrounding block).
+
+3. **`raw`**
+   - Inserts raw unquoted text directly into the code (e.g. for reader conditionals or custom literals).
+   - Example: `(raw "#+sbcl")`
+   - Emits: `#+sbcl`
+
+---
+
+## Reducing Boilerplate with Generation-Time Evaluation
+
+The true power of this generator comes from Lisp's standard list processing. Because the generator code is constructed inside a backquote (\`), you can evaluate normal Lisp code at generation time using comma (`,`) and comma-splice (`,@`) to build S-expressions dynamically.
+
+### 1. Generating S-Expressions in a Loop (`,@(loop ...)`)
+When you need to define multiple functions, structures, or properties that share a pattern, use `,@(loop ...)` to collect and splice S-expression forms at generation-time.
+
+#### Example:
+Instead of writing multiple similar metric helpers:
+```lisp
+(defun distance-x (a b) (abs (- (x a) (x b))))
+(defun distance-y (a b) (abs (- (y a) (y b))))
+(defun distance-z (a b) (abs (- (z a) (z b))))
+```
+Write a loop inside your S-expression template:
+```lisp
+`(toplevel
+   ,@(loop for axis in '(x y z)
+           collect
+           `(defun ,(intern (format nil "DISTANCE-~a" axis)) (a b)
+              (abs (- (,axis a) (,axis b))))))
+```
+
+This generates three clean, fully-compiled, and formatted functions in the output file without manual repetition.
+
+### 2. Helper Functions (S-Expression Builders)
+Define normal Lisp helper functions to wrap repetitive code patterns. Because templates are backquoted, you **must** call these functions with a leading comma (`,`) so they evaluate at generation-time and insert their returned S-expressions.
+
+#### Example:
+Define a builder for defining safe mathematical dividers:
+```lisp
+(defun make-safe-divider (name divisor-limit)
+  `(defun ,name (numerator denominator)
+     (cond
+       ((< (abs denominator) ,divisor-limit)
+        (comment "Avoid division by zero")
+        nil)
+       (t (/ numerator denominator)))))
+```
+
+Then, call it in your generator template:
+```lisp
+(write-source "math-helpers"
+  `(toplevel
+     ,(make-safe-divider 'safe-ratio 1d-6)
+     ,(make-safe-divider 'coarse-ratio 1d-3)))
+```
+
+This writes:
+```lisp
+(defun safe-ratio (numerator denominator)
+  (cond
+    ((< (abs denominator) 1.0d-6)
+     ;; Avoid division by zero
+     nil)
+    (t (/ numerator denominator))))
+
+(defun coarse-ratio (numerator denominator)
+  (cond
+    ((< (abs denominator) 0.001)
+     ;; Avoid division by zero
+     nil)
+    (t (/ numerator denominator))))
+```
+
+### 3. Named/Keyword Arguments via List Destructuring
+Inside generator helpers, you can use `destructuring-bind` with keyword parameters on a single flat list to simulate named parameters. This is highly readable and keeps code-building logic modular.
+
+#### Example:
+```lisp
+(defun make-test-defun (args-list)
+  (destructuring-bind (&key name params body) args-list
+    `(defun ,name ,params
+       ,@body)))
+
+;; Usage in template:
+`(toplevel
+   ,(make-test-defun '(:name hello :params (x) :body ((print x) x))))
+```

@@ -7,4 +7,4 @@
 \#*\#
 
 # Ignore generated output files in examples
-example/00_test/run_example.lisp
+example/**/run_*.lisp
