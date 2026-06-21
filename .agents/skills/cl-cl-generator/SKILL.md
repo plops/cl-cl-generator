@@ -119,3 +119,35 @@ Inside generator helpers, you can use `destructuring-bind` with keyword paramete
 `(toplevel
    ,(make-test-defun '(:name hello :params (x) :body ((print x) x))))
 ```
+
+---
+
+## Advanced Code Generation & Troubleshooting
+
+### 1. Bypassing Pretty-Printer Dispatch Rules
+The generator registers pprint dispatchers for common symbols like `do0` and `comments` which automatically format them (e.g. stripping outer parentheses, turning `(comments ...)` into raw `;;` blocks). If you want to print these symbols literally into your generated Lisp file, qualify them with the target package namespace (e.g., `target-pkg:do0` or `target-pkg:comments`). Since the dispatchers only match the exact package-local symbol of `cl-cl-generator`, the package-qualified target symbol will bypass the dispatcher and print literally, resolving to the correct local symbol once loaded under `in-package`.
+
+### 2. Format Control Strings and Unary Tilde Escaping
+When generating code that formats unary prefix operators (like `~`), be careful with Common Lisp `format` strings. In Lisp, `~~` prints as a literal tilde. If you dynamically generate format control strings for operators, ensure you escape any literal tilde (`~`) in operator strings to `~~`.
+
+For example:
+```lisp
+;; If py-op is "~"
+(let ((escaped-op (cl-ppcre:regex-replace-all "~" py-op "~~")))
+  (format nil "~a~~a" escaped-op val))
+```
+Otherwise, the generated format string will have zero directives (e.g., `"~~a"`) but receive arguments, triggering compiler style warnings.
+
+### 3. Preventing Reader Package Errors
+When evaluating code generators that reference external symbols (e.g. `jonathan:to-json` or `cl-ppcre:regex-replace-all`), the Lisp reader requires those packages to exist at read-time, even if they are inside unevaluated backquoted templates.
+
+Always ensure the generator script quickloads all dependencies of the target files inside an `eval-when` block:
+```lisp
+(eval-when (:compile-toplevel :execute :load-toplevel)
+  (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
+    ;; Register local project directories in central registry
+    (push (merge-pathnames "../../" current-dir) asdf:*central-registry*)
+    (push (merge-pathnames "../../../cl-py-generator/" current-dir) asdf:*central-registry*))
+  (ql:quickload '(:cl-cl-generator :cl-py-generator :jonathan :cl-ppcre)))
+```
+
