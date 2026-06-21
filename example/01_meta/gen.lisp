@@ -65,17 +65,6 @@
             (defun pprint-comment (stream list)
               (format stream ";; ~a" (second list)))
 
-            (defun comment-form-p (list)
-              (and (consp list)
-                   (eq (car list) 'comment)
-                   (consp (cdr list))
-                   (stringp (second list))))
-
-            (set-pprint-dispatch '(satisfies comment-form-p)
-                                 'pprint-comment
-                                 1
-                                 *cl-pprint-dispatch*)
-
             ;; -------------------------------------------------------------
             ;; PP-DISPATCH 3: pprint-comments
             ;; Formats a multi-line comment form: (comments "line1" "line2")
@@ -92,11 +81,6 @@
                    (eq (car list) 'comments)
                    (every #'stringp (cdr list))))
 
-            (set-pprint-dispatch '(satisfies comments-form-p)
-                                 'pprint-comments
-                                 1
-                                 *cl-pprint-dispatch*)
-
             ;; -------------------------------------------------------------
             ;; PP-DISPATCH 4: pprint-raw
             ;; Formats a raw code block: (raw "#+sbcl") -> #+sbcl without quotes.
@@ -104,16 +88,25 @@
             (defun pprint-raw (stream list)
               (write-string (second list) stream))
 
-            (defun raw-form-p (list)
-              (and (consp list)
-                   (eq (car list) 'raw)
-                   (consp (cdr list))
-                   (stringp (second list))))
+            ;; -------------------------------------------------------------
+            ;; GENERATION-TIME DUP ELIMINATION: Single-String DSL Predicates
+            ;; Generates 'comment-form-p' and 'raw-form-p' dynamically.
+            ;; -------------------------------------------------------------
+            ,@(loop for (op name) in '((comment comment-form-p)
+                                       (raw raw-form-p))
+                    collect `(defun ,name (list)
+                               (and (consp list)
+                                    (eq (car list) ',op)
+                                    (consp (cdr list))
+                                    (stringp (second list)))))
 
-            (set-pprint-dispatch '(satisfies raw-form-p)
-                                 'pprint-raw
-                                 1
-                                 *cl-pprint-dispatch*)
+            ;; -------------------------------------------------------------
+            ;; PP-DISPATCH REGISTRATION FOR DSL PREDICATES
+            ;; -------------------------------------------------------------
+            ,@(loop for (pred func) in '((comment-form-p pprint-comment)
+                                         (comments-form-p pprint-comments)
+                                         (raw-form-p pprint-raw))
+                    collect `(set-pprint-dispatch ',(list 'satisfies pred) ',func 1 *cl-pprint-dispatch*))
 
             ;; -------------------------------------------------------------
             ;; HELPER: list-position-p
@@ -173,7 +166,8 @@
             (defun contains-comment-p (list)
               (and (consp list)
                    (alexandria:proper-list-p list)
-                   (not (member (car list) '(toplevel do0)))
+                   (not (or (eq (car list) 'toplevel)
+                            (eq (car list) 'do0)))
                    (some (lambda (x)
                            (and (consp x)
                                 (member (car x) '(comment comments))))
