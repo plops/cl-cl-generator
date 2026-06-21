@@ -1,0 +1,6 @@
+# Ignore compiled Common Lisp binaries
+*.fasl
+*.dx64fsl
+
+# Ignore generated output files in examples
+example/00_test/run_example.lisp
