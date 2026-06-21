@@ -29,7 +29,13 @@
 (defun pprint-comment (stream list)
   (format stream ";; ~a" (second list)))
 
-(set-pprint-dispatch '(cons (member comment))
+(defun comment-form-p (list)
+  (and (consp list)
+       (eq (car list) 'comment)
+       (consp (cdr list))
+       (stringp (second list))))
+
+(set-pprint-dispatch '(satisfies comment-form-p)
                      'pprint-comment
                      1
                      *cl-pprint-dispatch*)
@@ -42,7 +48,12 @@
              (when rest
                (pprint-newline :mandatory stream)))))
 
-(set-pprint-dispatch '(cons (member comments))
+(defun comments-form-p (list)
+  (and (consp list)
+       (eq (car list) 'comments)
+       (every #'stringp (cdr list))))
+
+(set-pprint-dispatch '(satisfies comments-form-p)
                      'pprint-comments
                      1
                      *cl-pprint-dispatch*)
@@ -51,7 +62,13 @@
 (defun pprint-raw (stream list)
   (write-string (second list) stream))
 
-(set-pprint-dispatch '(cons (member raw))
+(defun raw-form-p (list)
+  (and (consp list)
+       (eq (car list) 'raw)
+       (consp (cdr list))
+       (stringp (second list))))
+
+(set-pprint-dispatch '(satisfies raw-form-p)
                      'pprint-raw
                      1
                      *cl-pprint-dispatch*)
@@ -106,6 +123,7 @@
 ;; Predicate to identify any list containing a comment or comments form, excluding top-level forms
 (defun contains-comment-p (list)
   (and (consp list)
+       (alexandria:proper-list-p list)
        (not (member (car list) '(toplevel do0)))
        (some (lambda (x)
                (and (consp x)
