@@ -1,8 +1,9 @@
 ;;;; transpiler-tests.lisp
 
-(ql:quickload :cl-py-generator)
-(ql:quickload "uiop")
-(ql:quickload "cl-ppcre")
+(eval-when (:compile-toplevel :execute :load-toplevel)
+  (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
+    (push current-dir asdf:*central-registry*))
+  (ql:quickload '(:cl-py-generator-example "uiop" "cl-ppcre")))
 
 (defpackage :cl-py-generator/tests
   (:use :cl :cl-py-generator))
@@ -694,7 +695,7 @@ def func():
      :description "Tests yield statement and yield function call variants."
      :lisp (do0 yield (yield x))
      :python "yield
-yield(x)"
+yield x"
      :tags '(:control-flow))
 
     (:name "lambda-variants"
@@ -923,7 +924,65 @@ except (
      :description "Tests raw code insertion inside an expression using a bare string."
      :lisp (- "1/8" x)
      :python "1/8 - x"
-     :tags '(:core :utility))))
+     :tags '(:core :utility))
+
+    (:name "decorator-basic"
+     :description "Tests explicit decorator emission without arguments."
+     :lisp (decorator my_decorator)
+     :python "@my_decorator"
+     :tags '(:core :decorator))
+
+    (:name "decorator-args"
+     :description "Tests explicit decorator emission with arguments."
+     :lisp (decorator (my_decorator 1 (string "a")))
+     :python "@my_decorator(1, \"a\")"
+     :tags '(:core :decorator))
+
+    (:name "decorated-def"
+     :description "Tests function definition with explicit decorators."
+     :lisp (decorated (my_decorator (my_decorator_with_args 1 2))
+                      (def foo (x) (return x)))
+     :python "@my_decorator
+@my_decorator_with_args(1, 2)
+def foo(x):
+    return x"
+     :tags '(:core :decorator))
+
+    (:name "yield-statement"
+     :description "Tests yield statement emission."
+     :lisp (yield x)
+     :python "yield x"
+     :tags '(:control-flow))
+
+    (:name "yield-empty"
+     :description "Tests yield statement without arguments."
+     :lisp (yield)
+     :python "yield"
+     :tags '(:control-flow))
+
+    (:name "yield-from-statement"
+     :description "Tests yield from statement emission."
+     :lisp (yield-from x)
+     :python "yield from x"
+     :tags '(:control-flow))
+
+    (:name "assert-statement"
+     :description "Tests assert statement without message."
+     :lisp (assert (> x 0))
+     :python "assert x > 0"
+     :tags '(:core :utility))
+
+    (:name "assert-message"
+     :description "Tests assert statement with a message."
+     :lisp (assert (> x 0) (string "x must be positive"))
+     :python "assert x > 0, \"x must be positive\""
+     :tags '(:core :utility))
+
+    (:name "fstring-interpolation"
+     :description "Tests f-string emission with expression interpolation."
+     :lisp (fstring "The result is: " (+ x 1) " and status: " (dot status name))
+     :python "f\"The result is: {x + 1} and status: {status.name}\""
+     :tags '(:core :string))))
 
 ;; ===================================================================
 ;; NEW HELPER FUNCTION TO RUN RUFF

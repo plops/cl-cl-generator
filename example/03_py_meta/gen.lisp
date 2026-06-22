@@ -459,10 +459,45 @@ entry `return-values` contains a list of return values. Currently supports `type
                           ,@(mapcar (lambda (args) (apply #'make-string-clause args))
                                     '((string "\"~a\"")
                                       (string-b "b\"~a\"")
-                                      (fstring "f\"~a\"")
-                                      (fstring3 "f\"\"\"~a\"\"\"")
                                       (string3 "\"\"\"~a\"\"\"")
                                       (rstring3 "r\"\"\"~a\"\"\"")))
+                           
+                          (fstring (let ((args (cdr code)))
+                                     (format nil "f\"~{~a~}\""
+                                             (mapcar (lambda (x)
+                                                       (if (stringp x)
+                                                           x
+                                                           (format nil "{~a}" (emit x))))
+                                                     args))))
+                          (fstring3 (let ((args (cdr code)))
+                                      (format nil "f\"\"\"~{~a~}\"\"\""
+                                              (mapcar (lambda (x)
+                                                        (if (stringp x)
+                                                            x
+                                                            (format nil "{~a}" (emit x))))
+                                                      args))))
+                           
+                          (decorator (destructuring-bind (dec) (cdr code)
+                                       (if (listp dec)
+                                           (format nil "@~a~%" (emit dec))
+                                           (format nil "@~a~%" dec))))
+                          (decorated (destructuring-bind (decs definition) (cdr code)
+                                       (with-output-to-string (s)
+                                         (loop for dec in decs
+                                               do (if (listp dec)
+                                                      (format s "@~a~%" (emit dec))
+                                                      (format s "@~a~%" dec)))
+                                         (format s "~a" (emit definition)))))
+                          (yield (let ((args (cdr code)))
+                                   (if args
+                                       (format nil "yield ~a" (emit (car args)))
+                                       "yield")))
+                          (yield-from (destructuring-bind (val) (cdr code)
+                                        (format nil "yield from ~a" (emit val))))
+                          (assert (destructuring-bind (condition &optional message) (cdr code)
+                                    (if message
+                                        (format nil "assert ~a, ~a" (emit condition) (emit message))
+                                        (format nil "assert ~a" (emit condition)))))
                           
                           ;; Factor N-ary mathematical & logical operators using generation-time helpers
                           ,@(mapcar (lambda (args) (apply #'make-op-clause args))

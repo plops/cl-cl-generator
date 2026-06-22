@@ -489,10 +489,53 @@ entry `return-values` contains a list of return values. Currently supports `type
                      (format nil "(~~~a)" (emit arg)))))
               (string (format nil "\"~a\"" (cadr code)))
               (string-b (format nil "b\"~a\"" (cadr code)))
-              (fstring (format nil "f\"~a\"" (cadr code)))
-              (fstring3 (format nil "f\"\"\"~a\"\"\"" (cadr code)))
               (string3 (format nil "\"\"\"~a\"\"\"" (cadr code)))
               (rstring3 (format nil "r\"\"\"~a\"\"\"" (cadr code)))
+              (fstring
+               (let ((args (cdr code)))
+                 (format nil "f\"~{~a~}\""
+                         (mapcar
+                          (lambda (x)
+                            (if (stringp x)
+                                x
+                                (format nil "{~a}" (emit x))))
+                          args))))
+              (fstring3
+               (let ((args (cdr code)))
+                 (format nil "f\"\"\"~{~a~}\"\"\""
+                         (mapcar
+                          (lambda (x)
+                            (if (stringp x)
+                                x
+                                (format nil "{~a}" (emit x))))
+                          args))))
+              (decorator
+               (destructuring-bind (dec) (cdr code)
+                 (if (listp dec)
+                     (format nil "@~a~%" (emit dec))
+                     (format nil "@~a~%" dec))))
+              (decorated
+               (destructuring-bind (decs definition) (cdr code)
+                 (with-output-to-string (s)
+                   (loop for dec in decs
+                         do (if (listp dec)
+                                (format s "@~a~%" (emit dec))
+                                (format s "@~a~%" dec)))
+                   (format s "~a" (emit definition)))))
+              (yield
+               (let ((args (cdr code)))
+                 (if args
+                     (format nil "yield ~a" (emit (car args)))
+                     "yield")))
+              (yield-from
+               (destructuring-bind (val) (cdr code)
+                 (format nil "yield from ~a" (emit val))))
+              (assert
+               (destructuring-bind (condition &optional message) (cdr code)
+                 (if message
+                     (format nil "assert ~a, ~a" (emit condition)
+                             (emit message))
+                     (format nil "assert ~a" (emit condition)))))
               (+
                (let ((args (cdr code)))
                  (if omit-redundant-parentheses
