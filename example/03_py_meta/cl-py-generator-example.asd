@@ -4,5 +4,4 @@
   :depends-on ("alexandria" "jonathan" "external-program")
   :serial t
   :components ((:file "package")
-               (:file "py")
-               #+sbcl (:file "pipe")))
+               (:file "py")))
