@@ -23,4 +23,40 @@ To run the full unit test suite from `cl-py-generator` using the generated `py.l
 ```bash
 ./example/03_py_meta/run-tests.sh
 ```
-This script dynamically registers the local `cl-py-generator` package path, quickloads it, swaps the compiler implementation with our generated `py.lisp`, and runs all 135 unit tests.
+This script dynamically registers the local `cl-py-generator` package path, quickloads it, swaps the compiler implementation with our generated `py.lisp`, and runs all 144 unit tests.
+
+---
+
+## New DSL Syntax & Features Reference
+
+The transpiler has been refactored to streamline S-expressions, remove deprecated constructs, and introduce advanced Python features.
+
+### 1. Core Syntax & keyword Renames
+- **`do` → `body`**: The construct for indenting/grouping block-level statements is now named `body`.
+- **`cl-py-generator:do0` → `progn`**: Simplified top-level/non-indented block statement grouping.
+- **`dictionary` → `dict*`**: Formats keyword arguments into a Python `dict(...)` constructor (e.g., `(dict* :a 1 :b 2)` → `dict(a=1, b=2)`).
+- **`~` → `lognot`**: Exported unary bitwise negation operator (e.g. `(lognot x)` → `~x`).
+- **`return` consolidation**: The `return_` construct has been removed. A single `return` statement now handles empty return `(return)`, single value `(return x)`, or multiple values `(return (ntuple x y))`.
+
+### 2. Streamlined Imports
+- **`import`**: Now variadic and supports aliases directly (e.g., `(import sys (np numpy))` → `import sys\nimport numpy as np`).
+- **`import-from`**: Imports symbols from a module (e.g., `(import-from math sin cos)` → `from math import sin, cos`). The older `imports` and `imports-from` wrapper constructs have been removed.
+
+### 3. Advanced String Handling
+The `string` construct now accepts optional keyword modifiers to produce different Python string types:
+- **Bytes Literal**: `(string :bytes "data")` → `b"data"`
+- **Triple-Quoted Block**: `(string :triple "block")` → `"""block"""`
+- **Raw string**: `(string :raw "data")` → `r"data"`
+- **f-string**: `(string :f "val={x}")` → `f"val={x}"`
+- **Combinations**: Modifiers can be combined, such as `(string :raw :triple "raw block")` → `r"""raw block"""`.
+- **F-string Auto-detection**: Bare strings at the block level now automatically analyze and format expression interpolation (e.g., `"The value is {x + 1}"` → `f"The value is {x + 1}"`).
+
+### 4. Raw Code & Statement Insertion
+- **`raw`**: Inserts arbitrary raw text directly into the generated Python file (e.g., `(raw "df = pd.read_csv('data.csv')")`).
+- **`assert`**: Emits an assert statement with optional message: `(assert condition)` or `(assert condition "Error message")`.
+- **`yield` / `yield-from`**: Native Python yield expressions: `(yield x)` or `(yield-from gen)`.
+- **`decorator` / `decorated`**: Native support for decorators and decorated functions.
+
+### 5. Precedence and Associativity Formatting
+The `paren*` precedence-aware grouping utility has been updated to accept `:side l` or `:side r` arguments, ensuring operators of identical precedence (like `+` and `-`) are parenthesized correctly according to Python's left/right associativity properties.
+
