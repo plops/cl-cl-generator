@@ -78,7 +78,7 @@ b = 2"
 
     (:name "dictionary-constructor"
      :description "Tests keyword-based dictionary constructor emission."
-     :lisp (dictionary :a 1 :b 2)
+     :lisp (dict* :a 1 :b 2)
      :python "dict(a=1, b=2)"
      :tags '(:core :collection))
 
@@ -327,31 +327,31 @@ except Exception as e:
 
     (:name "string-bytes-literal"
      :description "Tests byte string literal emission."
-     :lisp (string-b "data")
+     :lisp (string :bytes "data")
      :python "b\"data\""
      :tags '(:core :string))
 
     (:name "string3-literal"
      :description "Tests triple-quoted string literal emission."
-     :lisp (string3 "block")
+     :lisp (string :triple "block")
      :python "\"\"\"block\"\"\""
      :tags '(:core :string))
 
     (:name "rstring3-literal"
      :description "Tests raw triple-quoted string literal emission."
-     :lisp (rstring3 "raw")
+     :lisp (string :raw :triple "raw")
      :python "r\"\"\"raw\"\"\""
      :tags '(:core :string))
 
     (:name "fstring-literal"
      :description "Tests f-string emission."
-     :lisp (fstring "{x}")
+     :lisp (string :f "{x}")
      :python "f\"{x}\""
      :tags '(:core :string))
 
     (:name "fstring3-literal"
      :description "Tests triple-quoted f-string emission."
-     :lisp (fstring3 "{x}")
+     :lisp (string :triple :f "{x}")
      :python "f\"\"\"{x}\"\"\""
      :tags '(:core :string))
 
@@ -453,7 +453,7 @@ else:
 
     (:name "imports-basic"
      :description "Tests multiple import emissions with aliases."
-     :lisp (imports (sys (np numpy) (plt matplotlib.pyplot)))
+     :lisp (import sys (np numpy) (plt matplotlib.pyplot))
      :python "import sys
 import numpy as np
 import matplotlib.pyplot as plt"
@@ -467,7 +467,7 @@ import matplotlib.pyplot as plt"
 
     (:name "imports-from-basic"
      :description "Tests multiple from-import emissions."
-     :lisp (imports-from (math sin cos) (pathlib Path))
+     :lisp (progn (import-from math sin cos) (import-from pathlib Path))
      :python "from math import sin, cos
 from pathlib import Path"
      :tags '(:import))
@@ -488,7 +488,7 @@ from pathlib import Path"
 
     (:name "do0-basic"
      :description "Tests do0 emission without extra indentation."
-     :lisp (do0 (setf a 1) (setf b 2))
+     :lisp (progn (setf a 1) (setf b 2))
      :python "a=1
 b=2"
      :tags '(:core :utility))
@@ -530,9 +530,9 @@ else:
      :python "a if a > b else b"
      :tags '(:control-flow))
 
-    (:name "return_-basic"
-     :description "Tests return_ emission inside a function."
-     :lisp (def foo () (return_ (x)))
+    (:name "return-basic"
+     :description "Tests return emission inside a function."
+     :lisp (def foo () (return x))
      :python "def foo():
     return x"
      :tags '(:control-flow))
@@ -570,7 +570,7 @@ else:
 
     (:name "decorators"
      :description "Tests function decorators using the symbol fallback starting with @."
-     :lisp (do0 (@rt (string "/")) (def get (request) (return 1)))
+     :lisp (progn (@rt (string "/")) (def get (request) (return 1)))
      :python "@rt(\"/\")
 def get(request):
     return 1"
@@ -638,7 +638,7 @@ except Exception as e:
 
     (:name "unary-bitwise-not"
      :description "Tests unary bitwise negation operator."
-     :lisp (~ x)
+     :lisp (lognot x)
      :python "~x"
      :tags '(:operator :bitwise))
 
@@ -673,8 +673,8 @@ except Exception as e:
      :tags '(:core :utility))
 
     (:name "raw-code-insertion"
-     :description "Tests raw code insertion via bare strings at block level."
-     :lisp (do0 "df = pd.read_csv('data.csv')" "@threaded" (def func () (return 1)))
+     :description "Tests raw code insertion via raw constructs at block level."
+     :lisp (progn (raw "df = pd.read_csv('data.csv')") (raw "@threaded") (def func () (return 1)))
      :python "df = pd.read_csv('data.csv')
 @threaded
 def func():
@@ -683,7 +683,7 @@ def func():
 
     (:name "loop-control"
      :description "Tests loop control statements break and continue."
-     :lisp (do0 (for (i (range 5)) (if (== i 2) break continue)))
+     :lisp (progn (for (i (range 5)) (if (== i 2) break continue)))
      :python "for i in range(5):
     if i == 2:
         break
@@ -693,7 +693,7 @@ def func():
 
     (:name "yield-statements"
      :description "Tests yield statement and yield function call variants."
-     :lisp (do0 yield (yield x))
+     :lisp (progn yield (yield x))
      :python "yield
 yield x"
      :tags '(:control-flow))
@@ -750,7 +750,7 @@ a = 1"
 
     (:name "aref-raw-string"
      :description "Tests raw string index insertion inside aref."
-     :lisp (aref arr ":" 0)
+     :lisp (aref arr (raw ":") 0)
      :python "arr[:, 0]"
      :tags '(:core :indexing))
 
@@ -763,7 +763,7 @@ a = 1"
 
     (:name "empty-dictionary"
      :description "Tests empty dict literal and empty dictionary constructor."
-     :lisp (tuple (dict) (dictionary))
+     :lisp (tuple (dict) (dict*))
      :python "({}, dict(),)"
      :tags '(:core :collection))
 
@@ -787,7 +787,7 @@ a = 1"
 
     (:name "return-variants"
      :description "Tests return statement variants including empty return, single value, and multi-value returns."
-     :lisp (do0 (def f1 () (return))
+     :lisp (progn (def f1 () (return))
                 (def f2 () (return x))
                 (def f3 () (return (ntuple x y))))
      :python "def f1():
@@ -980,7 +980,7 @@ def foo(x):
 
     (:name "fstring-interpolation"
      :description "Tests f-string emission with expression interpolation."
-     :lisp (fstring "The result is: " (+ x 1) " and status: " (dot status name))
+     :lisp (string :f "The result is: " (+ x 1) " and status: " (dot status name))
      :python "f\"The result is: {x + 1} and status: {status.name}\""
      :tags '(:core :string))))
 
@@ -1005,7 +1005,9 @@ def foo(x):
 
     ;; 3. Run ruff format on the file, which now definitely exists.
     (multiple-value-bind (output error-output exit-code)
-        (uiop:run-program (list "ruff" "format" (uiop:native-namestring p))
+        (uiop:run-program (if (probe-file "/snap/bin/uvx")
+                              (list "/snap/bin/uvx" "ruff" "format" (uiop:native-namestring p))
+                              (list "ruff" "format" (uiop:native-namestring p)))
                           :output :string
                           :error-output :string
                           :ignore-error-status t)

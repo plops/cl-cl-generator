@@ -50,8 +50,8 @@ For example, (make-binary-op-clause '** \"**\") expands to:
   `(,op (let ((args (cdr code)))
           (if omit-redundant-parentheses
               (format nil ,(format nil "~~a~a~~a" py-op)
-                      (emit `(paren* ,',op ,(first args)))
-                      (emit `(paren* ,',op ,(second args))))
+                      (emit `(paren* ,',op ,(first args) :side l))
+                      (emit `(paren* ,',op ,(second args) :side r)))
               (format nil ,(format nil "((~~a)~a(~~a))" py-op)
                       (emit (first args))
                       (emit (second args)))))))
@@ -70,7 +70,7 @@ For example, (make-unary-op-clause 'not \"not\" :space t) expands to:
          (fmt-keep (format nil "(~a~a~~a)" escaped-py-op sep)))
     `(,op (destructuring-bind (arg) (cdr code)
             (if omit-redundant-parentheses
-                (format nil ,fmt-omit (emit `(paren* ,',op ,arg)))
+                (format nil ,fmt-omit (emit `(paren* ,',op ,arg :side r)))
                 (format nil ,fmt-keep (emit arg)))))))
 
 (defun make-string-clause (op format-str)
@@ -92,7 +92,8 @@ For example, (make-op-clause '+ \"+\") expands to:
          (fmt-keep (format nil "(~~{(~~a)~~^~a~~})" sep)))
     `(,op (let ((args (cdr code)))
             (if omit-redundant-parentheses
-                (format nil ,fmt-omit (mapcar #'(lambda (x) (emit `(paren* ,',op ,x))) args))
+                (format nil ,fmt-omit (loop for x in args and i from 0
+                                            collect (emit `(paren* ,',op ,x :side ,(if (= i 0) 'l 'r)))))
                 (format nil ,fmt-keep (mapcar #'emit args)))))))
 
 (let* ((output-dir (asdf:system-relative-pathname :cl-cl-generator "example/03_py_meta/"))
@@ -212,22 +213,21 @@ entry `return-values` contains a list of return values. Currently supports `type
                       (format s "def ~a~a~@[->~a~]:~%"
                               name
                               (funcall emit `(paren
-                                              ,@(loop for p in req-param collect
-                                                      (format nil "~a~@[: ~a~]"
-                                                              p
-                                                              (let ((type (gethash p env)))
-                                                                (when type
-                                                                  (funcall emit type)))))
-                                              ,@(loop for ((keyword-name name) init supplied-p) in key-param
-                                                      collect
-                                                      (progn
-                                                        (format nil "~a~a ~@[~a~]"
-                                                                name
-                                                                (let ((type (gethash name env)))
-                                                                  (if type
-                                                                      (format nil ": ~a" (funcall emit type))
-                                                                      ""))
-                                                                (format nil "= ~a" (funcall emit init)))))))
+                                               ,@(loop for p in req-param collect
+                                                       `(raw ,(format nil "~a~@[: ~a~]"
+                                                                      p
+                                                                      (let ((type (gethash p env)))
+                                                                        (when type
+                                                                          (funcall emit type))))))
+                                               ,@(loop for ((keyword-name name) init supplied-p) in key-param
+                                                       collect
+                                                       `(raw ,(format nil "~a~a ~@[~a~]"
+                                                                      name
+                                                                      (let ((type (gethash name env)))
+                                                                        (if type
+                                                                            (format nil ": ~a" (funcall emit type))
+                                                                            ""))
+                                                                      (format nil "= ~a" (funcall emit init)))))))
                       (let ((r (gethash 'return-values env)))
                                 (if (< 1 (length r))
                                     (break "multiple return values unsupported: ~a" r)
@@ -236,7 +236,7 @@ entry `return-values` contains a list of return values. Currently supports `type
                                           (:constructor "")
                                           (t (car r)))
                                         nil))))
-                      (format s "~a" (funcall emit `(do ,@body))))))))
+                      (format s "~a" (funcall emit `(body ,@body))))))))
 
             (defun write-source (name code &optional (dir (user-homedir-pathname)) ignore-hash)
               "Writes the Python source code to a file."
@@ -302,8 +302,100 @@ entry `return-values` contains a list of return values. Currently supports `type
                          (when (member operator op)
                            (return assoc)))))
 
-            (defparameter *env-functions* nil)
+                        (defparameter *env-functions* nil)
             (defparameter *env-macros* nil)
+
+            (defun parse-and-emit-fstring (str)
+              (let ((len (length str))
+                    (pos 0)
+                    (parts nil))
+                (labels ((scan-literal ()
+                           (let ((start pos))
+                             (loop while (< pos len)
+                                   do (cond
+                                        ((and (< (1+ pos) len)
+                                              (or (and (char= (char str pos) #\{) (char= (char str (1+ pos)) #\{))
+                                                  (and (char= (char str pos) #\}) (char= (char str (1+ pos)) #\}))))
+                                         (incf pos 2))
+                                        ((char= (char str pos) #\{)
+                                         (return))
+                                        (t (incf pos))))
+                             (when (> pos start)
+                               (push (subseq str start pos) parts))))
+                          (scan-expr ()
+                            (incf pos)
+                            (let ((start pos)
+                                  (depth 0))
+                              (loop while (< pos len)
+                                    do (cond
+                                         ((char= (char str pos) #\{)
+                                          (incf depth)
+                                          (incf pos))
+                                         ((char= (char str pos) #\})
+                                          (if (= depth 0)
+                                              (return)
+                                              (progn
+                                                (decf depth)
+                                                (incf pos))))
+                                         (t (incf pos))))
+                              (if (< pos len)
+                                  (let ((expr-str (subseq str start pos)))
+                                    (incf pos)
+                                    (let ((expr (read-from-string expr-str)))
+                                      (push (list :expr expr) parts)))
+                                  (error "Unmatched '{' in f-string: ~a" str)))))
+                  (loop while (< pos len)
+                        do (if (char= (char str pos) #\{)
+                               (scan-expr)
+                               (scan-literal)))
+                  (let ((has-expr (some (lambda (part) (and (listp part) (eq (car part) :expr))) parts)))
+                    (format nil "~a\"~{~a~}\""
+                            (if has-expr "f" "")
+                            (mapcar (lambda (part)
+                                      (if (and (listp part) (eq (car part) :expr))
+                                          (format nil "{~a}" (emit-py :code (cadr part)))
+                                          part))
+                                    (nreverse parts)))))))
+
+            (defun concat-string-prefixes (&key raw bytes force-f args)
+              (let ((has-expr (or force-f
+                                  (some (lambda (x) (not (stringp x))) args)
+                                  (some (lambda (x) (and (stringp x) (search "{" x))) args))))
+                (format nil "~{~a~}"
+                        (remove nil
+                                (list (when bytes "b")
+                                      (when raw "r")
+                                      (when has-expr "f"))))))
+
+            (defun format-string-body (args)
+              (with-output-to-string (s)
+                (dolist (x args)
+                  (cond
+                    ((stringp x)
+                     (write-string x s))
+                    (t
+                     (format s "{~a}" (emit-py :code x)))))))
+
+            (defun parse-explicit-string (args)
+              (let ((raw nil)
+                    (bytes nil)
+                    (triple nil)
+                    (force-f nil)
+                    (actual-args nil))
+                (loop for rest = args then (cdr rest)
+                      while rest
+                      do (let ((arg (car rest)))
+                           (cond
+                             ((eq arg :raw) (setf raw t))
+                             ((eq arg :bytes) (setf bytes t))
+                             ((eq arg :triple) (setf triple t))
+                             ((eq arg :f) (setf force-f t))
+                             (t (setf actual-args rest)
+                                (return)))))
+                (let* ((prefix (concat-string-prefixes :raw raw :bytes bytes :force-f force-f :args actual-args))
+                       (body (format-string-body actual-args))
+                       (quote-str (if triple "\"\"\"" "\"")))
+                  (format nil "~a~a~a~a" prefix quote-str body quote-str))))
 
             (defun emit-py (&key code (str nil) (clear-env nil) (level 0) (omit-redundant-parentheses t))
               "Emit Python code based on the given parameters."
@@ -328,40 +420,40 @@ entry `return-values` contains a list of return values. Currently supports `type
                                   (format nil "{~{~{(~a):(~a)~}~^, ~}}"
                                           (loop for (k v) in args
                                                 collect (list (emit k) (emit v))))))
-                          (dictionary (let* ((args (cdr code)))
-                                        (format nil "dict~a"
-                                                (emit `(paren ,@(loop for (e f) on args by #'cddr
-                                                                      collect `(= ,e ,f)))))))
+                          (dict* (let* ((args (cdr code)))
+                                   (format nil "dict~a"
+                                           (emit `(paren ,@(loop for (e f) on args by #'cddr
+                                                                 collect `(= ,e ,f)))))))
                           (indent (format nil "~{~a~}~a"
                                           (loop for i below level collect "    ")
                                           (emit (cadr code))))
-                          (do (with-output-to-string (s)
-                                (format s "~{~&~a~}" (mapcar #'(lambda (x) (emit `(indent ,x) 1)) (cdr code)))))
+                          (body (with-output-to-string (s)
+                                  (format s "~{~&~a~}" (mapcar #'(lambda (x) (emit `(indent ,x) 1)) (cdr code)))))
                           (class (destructuring-bind (name parents &rest body) (cdr code)
                                    (format nil "class ~a~a:~%~a"
                                            name
                                            (if (eq 0 (length parents))
                                                ""
                                                (emit `(paren ,@parents)))
-                                           (emit `(do ,@body)))))
-                          (cl-py-generator:do0 (with-output-to-string (s)
-                                                 (format s "~&~a~{~&~a~}"
-                                                         (emit (cadr code))
-                                                         (mapcar #'(lambda (x) (emit `(indent ,x) 0)) (cddr code)))))
+                                           (emit `(body ,@body)))))
+                          (progn (with-output-to-string (s)
+                                   (format s "~&~a~{~&~a~}"
+                                           (emit (cadr code))
+                                           (mapcar #'(lambda (x) (emit `(indent ,x) 0)) (cddr code)))))
                           (cell (with-output-to-string (s)
                                   (format s "~a~%"
-                                          (emit `(cl-py-generator:do0 (cl-py-generator:comments "export")
-                                                                      ,@(cdr code))))))
+                                          (emit `(progn (cl-py-generator::comments "export")
+                                                        ,@(cdr code))))))
                           (export (with-output-to-string (s)
                                     (format s "~a~%"
-                                            (emit `(cl-py-generator:do0 (cl-py-generator:comments "|export")
-                                                                        ,@(cdr code))))))
+                                            (emit `(progn (cl-py-generator::comments "|export")
+                                                          ,@(cdr code))))))
                           (space (with-output-to-string (s)
                                    (format s "~{~a~^ ~}"
                                            (mapcar #'(lambda (x) (emit x)) (cdr code)))))
                           (lambda (destructuring-bind (lambda-list &rest body) (cdr code)
                                     (multiple-value-bind (req-param opt-param res-param
-                                                          key-param other-key-p aux-param key-exist-p)
+                                                           key-param other-key-p aux-param key-exist-p)
                                         (parse-ordinary-lambda-list lambda-list)
                                       (declare (ignorable req-param opt-param res-param
                                                           key-param other-key-p aux-param key-exist-p))
@@ -373,8 +465,8 @@ entry `return-values` contains a list of return values. Currently supports `type
                                                                                    e
                                                                                  (declare (ignorable keyword-name suppliedp))
                                                                                  (if init
-                                                                                     `(= ,(emit name) ,init)
-                                                                                     `(= ,(emit name) "None")))))))
+                                                                                     `(= ,name ,init)
+                                                                                     `(= ,name None)))))))
                                                 (if (cdr body)
                                                     (break "body ~a should have only one entry" body)
                                                     (emit (car body))))))))
@@ -390,62 +482,55 @@ entry `return-values` contains a list of return values. Currently supports `type
                                 (format nil "~a as ~a" (emit a) (emit b))))
                           (setf (let ((args (cdr code)))
                                   (format nil "~a"
-                                          (emit `(cl-py-generator:do0 ,@(loop for i below (length args) by 2 collect
-                                                                              (let ((a (elt args i))
-                                                                                    (b (elt args (+ 1 i))))
-                                                                                `(= ,a ,b))))))))
+                                          (emit `(progn ,@(loop for i below (length args) by 2 collect
+                                                                (let ((a (elt args i))
+                                                                      (b (elt args (+ 1 i))))
+                                                                  `(= ,a ,b))))))))
                           
                           ;; Factor assignment operators using generation-time helpers
                           ,@(mapcar (lambda (args) (apply #'make-assignment-op-clause args))
                                     '((incf "+=") (decf "-=")))
                           
                           (aref (destructuring-bind (name &rest indices) (cdr code)
-                                  (format nil "~a[~{~a~^,~}]" (emit name) (mapcar #'emit indices))))
+                                   (format nil "~a[~{~a~^,~}]" (emit name) (mapcar #'emit indices))))
                           (slice (let ((args (cdr code)))
                                    (if (null args)
                                        (format nil ":")
-                                       (format nil "~{~a~^:~}" (mapcar #'emit args)))))
+                                       (format nil "~{~a~^:~}" (mapcar (lambda (a) (if (equal a "") "" (emit a))) args)))))
                           (dot (let ((args (cdr code)))
                                  (format nil "~{~a~^.~}" (mapcar #'emit (remove-if #'null args)))))
                           (paren*
-                           (if (not omit-redundant-parentheses)
-                               (destructuring-bind (parent-op &rest args) (cdr code)
-                                 (declare (ignore parent-op))
-                                 (format nil "(~{~a~^, ~})" (mapcar #'emit args)))
-                               (progn
-                                 (unless (eq 3 (length code))
-                                   (break "paren* expects only two arguments: ~a" code))
-                                 (destructuring-bind (parent-op arg &rest rest) (cdr code)
-                                   (declare (ignore rest))
-                                   (cond
-                                     ((symbolp arg) (format nil "~a" (emit arg)))
-                                     ((numberp arg) (if (<= 0 arg) (format nil "~a" (emit arg)) (format nil " ~a" (emit arg))))
-                                     ((stringp arg) (format nil "~a" arg))
-                                     ((listp arg)
-                                      (cond
-                                        ((<= (length arg) 2)
-                                         (let ((op0 (car arg)) (rest (cdr arg)))
-                                           (assert (or (symbolp op0) (stringp op0)))
-                                           (assert (listp rest))
-                                           (emit `(,op0 ,@rest))))
-                                        (t
-                                         (let ((op0 parent-op) (rest (cdr arg)))
-                                           (assert (or (symbolp op0) (stringp op0)))
-                                           (assert (listp rest))
-                                           (if (and (member op0 *operators*) (member (car arg) *operators*))
-                                               (let* ((p0 (lookup-precedence op0))
-                                                      (p0assoc (lookup-associativity op0))
-                                                      (op1 (car arg))
-                                                      (p1 (lookup-precedence op1))
-                                                      (p1assoc (lookup-associativity op1)))
-                                                 (if (or (< p0 p1)
-                                                         (and (eq p0 p1) (not (eq p0assoc p1assoc)))
-                                                         (member op0 '(/ // % - **))
-                                                         (member op1 '(/ // % - **)))
-                                                     (format nil "(~a)" (emit `(,op1 ,@rest)))
-                                                     (format nil "~a" (emit `(,op1 ,@rest)))))
-                                               (emit `(,(car arg) ,@rest)))))))
-                                     (t (break "unsupported argument for paren* '~a' type='~a'" arg (type-of arg))))))))
+                           (destructuring-bind (parent-op arg &key side) (cdr code)
+                             (if (not omit-redundant-parentheses)
+                                 (format nil "(~a)" (emit arg))
+                                 (cond
+                                   ((symbolp arg) (format nil "~a" (emit arg)))
+                                   ((numberp arg) (if (<= 0 arg) (format nil "~a" (emit arg)) (format nil " ~a" (emit arg))))
+                                   ((stringp arg) (format nil "~a" arg))
+                                   ((listp arg)
+                                    (cond
+                                      ((<= (length arg) 2)
+                                       (let ((op0 (car arg)) (rest (cdr arg)))
+                                         (assert (or (symbolp op0) (stringp op0)))
+                                         (assert (listp rest))
+                                         (emit `(,op0 ,@rest))))
+                                      (t
+                                       (let ((op0 parent-op))
+                                         (assert (or (symbolp op0) (stringp op0)))
+                                         (if (and (member op0 *operators*) (member (car arg) *operators*))
+                                             (let* ((p0 (lookup-precedence op0))
+                                                    (p0assoc (lookup-associativity op0))
+                                                    (op1 (car arg))
+                                                    (p1 (lookup-precedence op1)))
+                                               (if (or (< p0 p1)
+                                                       (and (= p0 p1)
+                                                            (or (and (eq p0assoc 'l)
+                                                                     (eq side 'r))
+                                                                (and (eq p0assoc 'r)
+                                                                     (eq side 'l)))))
+                                                   (format nil "(~a)" (emit arg))
+                                                   (emit arg)))
+                                             (emit arg))))))))))
                           
                           ;; Factor binary-only operators using generation-time helpers
                           ,@(mapcar (lambda (args) (apply #'make-binary-op-clause args))
@@ -453,29 +538,13 @@ entry `return-values` contains a list of return values. Currently supports `type
                           
                           ;; Factor unary operators using generation-time helpers
                           ,(make-unary-op-clause 'not "not" :space t)
-                          ,(make-unary-op-clause '~ "~")
+                          ,(make-unary-op-clause 'lognot "~")
+                          ,(make-unary-op-clause '~ "~")  ; alias: (~ x) => ~x
                           
-                          ;; Factor string clauses using generation-time helpers
-                          ,@(mapcar (lambda (args) (apply #'make-string-clause args))
-                                    '((string "\"~a\"")
-                                      (string-b "b\"~a\"")
-                                      (string3 "\"\"\"~a\"\"\"")
-                                      (rstring3 "r\"\"\"~a\"\"\"")))
-                           
-                          (fstring (let ((args (cdr code)))
-                                     (format nil "f\"~{~a~}\""
-                                             (mapcar (lambda (x)
-                                                       (if (stringp x)
-                                                           x
-                                                           (format nil "{~a}" (emit x))))
-                                                     args))))
-                          (fstring3 (let ((args (cdr code)))
-                                      (format nil "f\"\"\"~{~a~}\"\"\""
-                                              (mapcar (lambda (x)
-                                                        (if (stringp x)
-                                                            x
-                                                            (format nil "{~a}" (emit x))))
-                                                      args))))
+                          (string (let ((args (cdr code)))
+                                    (parse-explicit-string args)))
+                          (raw (destructuring-bind (val) (cdr code)
+                                 (format nil "~a" val)))
                            
                           (decorator (destructuring-bind (dec) (cdr code)
                                        (if (listp dec)
@@ -507,20 +576,22 @@ entry `return-values` contains a list of return values. Currently supports `type
                                       (and "and" :spaces t) (or "or" :spaces t)))
                           
                           ;; Handle minus specifically
-                          (- (let ((args (cdr code)))
-                               (if omit-redundant-parentheses
-                                   (if (eq 1 (length args))
-                                       (format nil "-~a" (emit `(paren* unary- ,(car args))))
-                                       (format nil "~{~a~^-~}" (mapcar #'(lambda (x) (emit `(paren* - ,x))) args)))
-                                   (format nil "(~{(~a)~^-~})" (mapcar #'emit args)))))
-                          
-                          ;; Handle division specifically
-                          (/ (let ((args (cdr code)))
-                               (if omit-redundant-parentheses
-                                   (if (eq 1 (length args))
-                                       (format nil "1.0/~a" (emit `(paren* / ,(car args))))
-                                       (format nil "~a/~a" (emit `(paren* / ,(first args))) (emit `(paren* / ,(second args)))))
-                                   (format nil "((~a)/(~a))" (emit (first args)) (emit (second args))))))
+                           (- (let ((args (cdr code)))
+                                (if omit-redundant-parentheses
+                                    (if (eq 1 (length args))
+                                        (format nil "-~a" (emit `(paren* - ,(car args) :side r)))
+                                        (format nil "~{~a~^-~}" (loop for x in args and i from 0
+                                                                      collect (emit `(paren* - ,x :side ,(if (= i 0) 'l 'r))))))
+                                    (format nil "(~{(~a)~^-~})" (mapcar #'emit args)))))
+                           
+                           ;; Handle division specifically
+                           (/ (let ((args (cdr code)))
+                                (if omit-redundant-parentheses
+                                    (if (eq 1 (length args))
+                                        (format nil "1.0 / ~a" (emit `(paren* / ,(car args) :side r)))
+                                        (format nil "~{~a~^/~}" (loop for x in args and i from 0
+                                                                      collect (emit `(paren* / ,x :side ,(if (= i 0) 'l 'r))))))
+                                    (format nil "(~{(~a)~^/~})" (mapcar #'emit args)))))
                           
                           (comment (format nil "# ~a~%" (cadr code)))
                           (comments (let ((args (cdr code)))
@@ -529,13 +600,14 @@ entry `return-values` contains a list of return values. Currently supports `type
                                                           (cl-ppcre:regex-replace-all "\\n" arg (format nil "~%# ")))
                                                       args))))
                           (symbol (substitute #\: #\- (format nil "~a" (cadr code))))
-                          (return_ (format nil "return ~a" (emit (caadr code))))
                           (return (let ((args (cdr code)))
-                                    (format nil "~a" (emit `(return_ ,args)))))
+                                    (if args
+                                        (format nil "return ~a" (emit `(ntuple ,@args)))
+                                        "return")))
                           (for (destructuring-bind ((vs ls) &rest body) (cdr code)
                                  (with-output-to-string (s)
                                    (format s "for ~a in ~a:~%" (emit vs) (emit ls))
-                                   (format s "~a" (emit `(do ,@body))))))
+                                   (format s "~a" (emit `(body ,@body))))))
                           (for-generator (destructuring-bind ((vs ls) expr) (cdr code)
                                            (format nil "~a for ~a in ~a" (emit expr) (emit vs) (emit ls))))
                           (while (destructuring-bind (vs &rest body) (cdr code)
@@ -543,14 +615,14 @@ entry `return-values` contains a list of return values. Currently supports `type
                                      (if omit-redundant-parentheses
                                          (format s "while ~a:~%" (emit vs))
                                          (format s "while ~a:~%" (emit `(paren ,vs))))
-                                     (format s "~a" (emit `(do ,@body))))))
+                                     (format s "~a" (emit `(body ,@body))))))
                           (if (destructuring-bind (condition true-statement &optional false-statement) (cdr code)
                                 (with-output-to-string (s)
                                   (if omit-redundant-parentheses
-                                      (format s "if ~a:~%~a" (emit condition) (emit `(do ,true-statement)))
-                                      (format s "if ( ~a ):~%~a" (emit condition) (emit `(do ,true-statement))))
+                                      (format s "if ~a:~%~a" (emit condition) (emit `(body ,true-statement)))
+                                      (format s "if ( ~a ):~%~a" (emit condition) (emit `(body ,true-statement))))
                                   (when false-statement
-                                    (format s "~&~a:~%~a" (emit `(indent "else")) (emit `(do ,false-statement)))))))
+                                    (format s "~&~a:~%~a" (emit `(indent (cl-py-generator::raw "else"))) (emit `(body ,false-statement)))))))
                           (cond (destructuring-bind (&rest clauses) (cdr code)
                                   (with-output-to-string (s)
                                     (loop for clause in clauses and i from 0
@@ -562,53 +634,49 @@ entry `return-values` contains a list of return values. Currently supports `type
                                                               (if omit-redundant-parentheses
                                                                   (format nil "if ~a" (emit condition))
                                                                   (format nil "if ( ~a )" (emit condition))))
-                                                             ((eq condition 't) (emit `(indent "else")))
-                                                             (t (emit `(indent ,(if omit-redundant-parentheses
-                                                                                   (format nil "elif ~a" (emit condition))
-                                                                                   (format nil "elif ( ~a )" (emit condition)))))))
-                                                       (emit `(do ,@statements))))))))
-                          (? (destructuring-bind (condition true-statement &optional (false-statement "None" false-statement-supplied-p)) (cdr code)
+                                                             ((eq condition 't) (emit `(indent (cl-py-generator::raw "else"))))
+                                                             (t (emit `(indent (cl-py-generator::raw ,(if omit-redundant-parentheses
+                                                                                                         (format nil "elif ~a" (emit condition))
+                                                                                                         (format nil "elif ( ~a )" (emit condition))))))))
+                                                       (emit `(body ,@statements))))))))
+                          (? (destructuring-bind (condition true-statement &optional (false-statement '(cl-py-generator::raw "None") false-statement-supplied-p)) (cdr code)
                                (if omit-redundant-parentheses
                                    (if false-statement-supplied-p
-                                       (format nil "~a if ~a else ~a"
-                                               (emit `(paren* ternary ,true-statement))
-                                               (emit `(paren* ternary ,condition))
-                                               (emit `(paren* ternary ,false-statement)))
-                                       (format nil "~a if ~a"
-                                               (emit `(paren* ternary ,true-statement))
-                                               (emit `(paren* ternary ,condition))))
+                                        (format nil "~a if ~a else ~a"
+                                                (emit `(paren* ternary ,true-statement :side l))
+                                                (emit `(paren* ternary ,condition :side l))
+                                                (emit `(paren* ternary ,false-statement :side r)))
+                                        (format nil "~a if ~a"
+                                                (emit `(paren* ternary ,true-statement :side l))
+                                                (emit `(paren* ternary ,condition :side l))))
                                    (if false-statement-supplied-p
                                        (format nil "(~a) if (~a) else (~a)" (emit true-statement) (emit condition) (emit false-statement))
                                        (format nil "~a if (~a)" (emit true-statement) (emit condition))))))
                           (when (destructuring-bind (condition &rest forms) (cdr code)
-                                  (emit `(if ,condition (cl-py-generator:do0 ,@forms)))))
+                                  (emit `(if ,condition (progn ,@forms)))))
                           (unless (destructuring-bind (condition &rest forms) (cdr code)
-                                    (emit `(if (not ,condition) (cl-py-generator:do0 ,@forms)))))
+                                    (emit `(if (not ,condition) (progn ,@forms)))))
                           (import-from (destructuring-bind (module &rest rest) (cdr code)
                                          (format nil "from ~a import ~{~a~^, ~}" (emit module) (mapcar #'emit rest))))
-                          (imports-from (destructuring-bind (&rest module-defs) (cdr code)
-                                          (with-output-to-string (s)
-                                            (loop for e in module-defs
-                                                  do (format s "~a~%" (emit `(import-from ,@e)))))))
-                          (import (destructuring-bind (args) (cdr code)
-                                    (if (listp args)
-                                        (format nil "import ~a as ~a~%" (second args) (first args))
-                                        (format nil "import ~a~%" args))))
-                          (imports (destructuring-bind (args) (cdr code)
-                                     (format nil "~{~a~}" (append (list (emit `(import ,(first args))))
-                                                                  (mapcar #'(lambda (x) (emit `(indent (import ,x)))) (rest args))))))
+                          (import (let ((args (cdr code)))
+                                    (with-output-to-string (s)
+                                      (loop for val in args and i from 0
+                                            do (unless (= i 0) (terpri s))
+                                               (if (listp val)
+                                                   (format s "import ~a as ~a" (second val) (first val))
+                                                   (format s "import ~a" val))))))
                           (with (destructuring-bind (form &rest body) (cdr code)
                                   (with-output-to-string (s)
-                                    (format s "~a~a:~%~a" (emit "with ") (emit form) (emit `(do ,@body))))))
+                                    (format s "~a~a:~%~a" (emit `(cl-py-generator::raw "with ")) (emit form) (emit `(body ,@body))))))
                           (try (destructuring-bind (prog &rest exceptions) (cdr code)
                                  (with-output-to-string (s)
-                                   (format s "~&~a:~%~a" (emit "try") (emit `(do ,prog)))
+                                   (format s "~&~a:~%~a" (emit `(cl-py-generator::raw "try")) (emit `(body ,prog)))
                                    (loop for e in exceptions do
                                          (destructuring-bind (form &rest body) e
-                                           (if (member form '(else finally))
-                                               (format s "~&~a~%" (emit `(indent ,(format nil "~a:" form))))
-                                               (format s "~&~a~%" (emit `(indent ,(format nil "except ~a:" (emit form))))))
-                                           (format s "~a" (emit `(do ,@body))))))))
+                                            (if (member form '(else finally))
+                                                (format s "~&~a~%" (emit `(indent (cl-py-generator::raw ,(format nil "~a:" form)))))
+                                                (format s "~&~a~%" (emit `(indent (cl-py-generator::raw ,(format nil "except ~a:" (if (stringp form) form (emit form))))))))
+                                           (format s "~a" (emit `(body ,@body))))))))
                           
                           (t (destructuring-bind (name &rest args) code
                                (if (listp name)
@@ -619,10 +687,10 @@ entry `return-values` contains a list of return values. Currently supports `type
                                      (format nil "~a~a" name
                                              (emit `(paren ,@(append positional
                                                                      (loop for e in props collect
-                                                                           `(= ,(format nil "~a" e) ,(getf plist e))))))))))))
+                                                                           `(= (cl-py-generator::raw ,(format nil "~a" e)) ,(getf plist e))))))))))))
                         (cond
                           ((symbolp code) (format nil "~a" code))
-                          ((stringp code) code)
+                          ((stringp code) (parse-and-emit-fstring code))
                           ((numberp code)
                            (cond
                              ((integerp code) (format str "~a" code))
