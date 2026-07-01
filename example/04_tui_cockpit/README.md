@@ -45,7 +45,15 @@ Here is what the TUI Cockpit looks like in your terminal (using Unicode sparklin
 
 ## How to Run
 
-Since the cockpit reads `/proc/<pid>/fd/` of other processes and configures `cgroups`, you must run it as **root**:
+Since the cockpit reads `/proc/<pid>/fd/` of other processes and configures `cgroups`, you must run it as **root**.
+
+Simply run the portable startup script (you can run it from any directory, or copy it and the Lisp files to another folder):
+
+```bash
+sudo ./run-cockpit.sh
+```
+
+Alternatively, you can load and run it manually in SBCL:
 
 ```bash
 sbcl --eval '(push "/workspace/src/cl-cl-generator/example/04_tui_cockpit/" asdf:*central-registry*)' \
