@@ -128,8 +128,8 @@
                      (let* ((inode (subseq link 8 (1- (length link))))
                             (conn (gethash inode socket-map)))
                        (when conn
-                         (push conn (gethash pid pid-map))))))))))))
-     pid-map)))
+                         (push conn (gethash pid pid-map)))))))))))))
+    pid-map))
 
 ;; Parse process IO bytes from /proc/<pid>/io
 (defun parse-pid-io (pid)
