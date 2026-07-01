@@ -91,9 +91,9 @@
 ;; Parse socket inode mappings from /proc/net/tcp and udp
 (defun parse-sockets ()
   (let ((inodes (make-hash-table :test 'equal)))
-    (dolist
-        (file
-         '("/proc/net/tcp" "/proc/net/tcp6" "/proc/net/udp" "/proc/net/udp6"))
+    (dolist (file
+             '("/proc/net/tcp" "/proc/net/tcp6" "/proc/net/udp"
+               "/proc/net/udp6"))
       (with-open-file (stream file :direction :input :if-does-not-exist nil)
         (when stream
           (read-line stream nil)
@@ -133,7 +133,8 @@
 
 ;; Parse process IO bytes from /proc/<pid>/io
 (defun parse-pid-io (pid)
-  (let ((io-file (format nil "/proc/~a/io" pid)) (read-bytes 0) (write-bytes 0))
+  (let ((io-file (format nil "/proc/~a/io" pid)) (rchar 0) (wchar 0)
+        (read-bytes 0) (write-bytes 0))
     (with-open-file (stream io-file :direction :input :if-does-not-exist nil)
       (when stream
         (loop for line = (read-line stream nil)
@@ -141,11 +142,15 @@
               do (let ((parts
                         (uiop/utility:split-string line :separator '(#\ ))))
                    (cond
+                     ((string= (first parts) "rchar:")
+                      (setf rchar (parse-integer (second parts))))
+                     ((string= (first parts) "wchar:")
+                      (setf wchar (parse-integer (second parts))))
                      ((string= (first parts) "read_bytes:")
                       (setf read-bytes (parse-integer (second parts))))
                      ((string= (first parts) "write_bytes:")
                       (setf write-bytes (parse-integer (second parts)))))))))
-    (values read-bytes write-bytes)))
+    (values rchar wchar read-bytes write-bytes)))
 
 ;; Parse process OOM score
 (defun parse-pid-oom (pid)
@@ -178,16 +183,21 @@
     (maphash
      (lambda (pid sockets)
        (declare (ignore sockets))
-       (multiple-value-bind (read-b write-b) (parse-pid-io pid)
+       (multiple-value-bind (rchar wchar read-b write-b) (parse-pid-io pid)
          (let* ((pid-key (format nil "~a" pid))
                 (last-io (gethash pid-key *last-proc-net*)) (rx-rate 0)
                 (tx-rate 0))
            (when last-io
-             (let ((d-read (- read-b (first last-io)))
-                   (d-write (- write-b (second last-io))))
-               (setf rx-rate (max 0 (floor (/ d-read interval-sec))))
-               (setf tx-rate (max 0 (floor (/ d-write interval-sec))))))
-           (setf (gethash pid-key *last-proc-net*) (list read-b write-b))
+             (let* ((d-rchar (- rchar (first last-io)))
+                    (d-wchar (- wchar (second last-io)))
+                    (d-read (- read-b (third last-io)))
+                    (d-write (- write-b (fourth last-io)))
+                    (net-rx (max 0 (- d-rchar d-read)))
+                    (net-tx (max 0 (- d-wchar d-write))))
+               (setf rx-rate (floor (/ net-rx interval-sec)))
+               (setf tx-rate (floor (/ net-tx interval-sec)))))
+           (setf (gethash pid-key *last-proc-net*)
+                   (list rchar wchar read-b write-b))
            (push
             (make-process-info :pid pid :name (parse-pid-name pid) :rx-rate
              rx-rate :tx-rate tx-rate :read-bytes read-b :write-bytes write-b
@@ -204,7 +214,9 @@
   (make-array '(24 80) :element-type 'character :initial-element #\ ))
 
 (defun clear-screen-buffer ()
-  (dotimes (y 24) (dotimes (x 80) (setf (aref *current-buffer* y x) #\ ))))
+  (dotimes (y 24)
+    (dotimes (x 80)
+      (setf (aref *current-buffer* y x) #\ ))))
 
 (defun write-str-to-buffer (y x str)
   (let ((len (length str)))
