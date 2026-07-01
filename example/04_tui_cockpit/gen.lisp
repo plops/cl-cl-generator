@@ -234,12 +234,14 @@
            (dotimes (x 80)
              (let ((curr (aref *current-buffer* y x))
                    (back (aref *back-buffer* y x)))
-               (when (char/= curr back)
-                 (unless cursor-moved
-                   (format t "~c[~a;~aH" #\Esc (1+ y) (1+ x))
-                   (setf cursor-moved t))
-                 (write-char curr)
-                 (setf (aref *back-buffer* y x) curr))))))
+               (if (char/= curr back)
+                   (progn
+                     (unless cursor-moved
+                       (format t "~c[~a;~aH" #\Esc (1+ y) (1+ x))
+                       (setf cursor-moved t))
+                     (write-char curr)
+                     (setf (aref *back-buffer* y x) curr))
+                   (setf cursor-moved nil))))))
        (force-output))
 
      (comment "Generate Sparkline graph using Unicode blocks")
