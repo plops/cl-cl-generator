@@ -13,16 +13,18 @@ Here is what the TUI Cockpit looks like in your terminal (using Unicode sparklin
 ```text
   === Linux TUI Cockpit (Bandwidth-Optimiert) ===
 
-  CPU Steal:  0.00% [▂      █ ▃     ]
-  I/O Pressure Stall (PSI): SOME: 0.15%, FULL: 0.02%
+  CPU Steal:  0.00% [ ]
+
+  I/O Pressure Stall (PSI): SOME: 0.0%, FULL: 0.0%
+
   Swap Page In/Out: pswpin: 0, pswpout: 0
-  Net Rate: RX:   1.4 kB/s [  ▂▂█    ]  TX:   0.3 kB/s [      ]
+
+  Net Rate: RX:  0.06 kB/s [ ]  TX:  0.06 kB/s [ ]
+
 
   Top Bandwidth Processes:
     PID    NAME          NET-RX       NET-TX       DISK-R/W     OOM
-    33     node          1.2kB/s      0.2kB/s      1.5M/0.2M    0
-    1240   wget          0.2kB/s      0.1kB/s      12.4M/0.0M   10
-    942    postgres      0.0kB/s      0.0kB/s      0.1M/0.8M    0
+    33     agy             0.0kB/s    0.0kB/s   0.2M/241.4M  669
 ```
 
 ---
