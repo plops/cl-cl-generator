@@ -62,8 +62,27 @@
             ;; PP-DISPATCH 2: pprint-comment
             ;; Formats a single line comment (comment "text") into standard ;; formatting.
             ;; -------------------------------------------------------------
+            (defun split-lines (string)
+              "Split a string by newline characters."
+              (let ((lines nil)
+                    (start 0))
+                (loop for pos = (position #\Newline string :start start)
+                      while pos
+                      do (push (subseq string start pos) lines)
+                         (setf start (1+ pos))
+                      finally (push (subseq string start) lines))
+                (nreverse lines)))
+
+            ;; -------------------------------------------------------------
+            ;; PP-DISPATCH 2: pprint-comment
+            ;; Formats a single line comment (comment "text") into standard ;; formatting.
+            ;; -------------------------------------------------------------
             (defun pprint-comment (stream list)
-              (format stream ";; ~a" (second list)))
+              (let ((lines (split-lines (second list))))
+                (loop for (line . rest) on lines
+                      do (format stream ";; ~a" line)
+                         (when rest
+                           (pprint-newline :mandatory stream)))))
 
             ;; -------------------------------------------------------------
             ;; PP-DISPATCH 3: pprint-comments
@@ -71,10 +90,12 @@
             ;; -------------------------------------------------------------
             (defun pprint-comments (stream list)
               (let ((items (cdr list)))
-                (loop for (c . rest) on items
-                      do (format stream ";; ~a" c)
-                         (when rest
-                           (pprint-newline :mandatory stream)))))
+                (loop for (c . rest-items) on items
+                      do (let ((lines (split-lines c)))
+                           (loop for (line . rest-lines) on lines
+                                 do (format stream ";; ~a" line)
+                                    (when (or rest-lines rest-items)
+                                      (pprint-newline :mandatory stream)))))))
 
             (defun comments-form-p (list)
               (and (consp list)
@@ -114,8 +135,10 @@
             ;; -------------------------------------------------------------
             (defun list-position-p (op index)
               (case op
-                ((defun defmacro defmethod) (= index 1))
-                ((let let* flet labels destructuring-bind multiple-value-bind macrolet symbol-macrolet) (= index 0))
+                ((defun defmacro defmethod defclass defgeneric) (= index 1))
+                ((let let* flet labels destructuring-bind multiple-value-bind macrolet symbol-macrolet
+                  lambda eval-when dolist dotimes handler-bind restart-bind)
+                 (= index 0))
                 (t nil)))
 
             ;; -------------------------------------------------------------
@@ -130,11 +153,13 @@
                 (write-char #\Space stream)
                 ;; Print header elements (e.g. name and parameters)
                 (let* ((op (car list))
-                       (header-length
-                         (case op
-                           ((defun defmacro defmethod destructuring-bind multiple-value-bind) 2)
-                           ((let let* flet labels when unless case macrolet symbol-macrolet) 1)
-                           (t 0))))
+                        (header-length
+                          (case op
+                            ((defun defmacro defmethod destructuring-bind multiple-value-bind defclass defgeneric) 2)
+                            ((let let* flet labels when unless case macrolet symbol-macrolet
+                              lambda eval-when dolist dotimes handler-case restart-case handler-bind restart-bind
+                              unwind-protect) 1)
+                            (t 0))))
                   (loop for i from 0 below header-length
                         do (let ((val (pprint-pop)))
                              ;; Print NIL as () if we are in a list position
@@ -154,9 +179,12 @@
                     (pprint-newline :mandatory stream)))))
 
             ;; Register pprint-block-form for standard blocks using generation-time loop
-            ,@(loop for sym in '(defun defmacro defmethod let let* flet labels
-                                 progn locally macrolet symbol-macrolet
-                                 when unless case cond multiple-value-bind destructuring-bind)
+            ,@(loop for sym in '(defun defmacro defmethod defclass defgeneric let let* flet labels
+                                 progn locally eval-when macrolet symbol-macrolet
+                                 when unless case cond dolist dotimes
+                                 multiple-value-bind destructuring-bind
+                                 handler-case restart-case handler-bind restart-bind
+                                 unwind-protect lambda)
                     collect `(set-pprint-dispatch ',(list 'cons (list 'member sym)) 'pprint-block-form 1 *cl-pprint-dispatch*))
 
             ;; -------------------------------------------------------------
@@ -185,6 +213,11 @@
             (defun emit-cl (code)
               (let ((*print-pretty* t)
                     (*print-case* :downcase)
+                    (*print-circle* nil)
+                    (*print-length* nil)
+                    (*print-level* nil)
+                    (*print-lines* nil)
+                    (*print-readably* nil)
                     (*print-pprint-dispatch* *cl-pprint-dispatch*))
                 (with-output-to-string (stream)
                   (write code :stream stream))))

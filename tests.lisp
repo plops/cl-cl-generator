@@ -57,20 +57,54 @@
 
     (:name "nested-comment-in-cond"
      :input (toplevel
-             (defun compute-power (base &optional (exponent 2))
-               (let ((result (expt base exponent)))
-                 (cond
-                   ((> result 1000)
-                    (comment "Scale down huge values")
-                    (/ result 10))
-                   (t result)))))
+              (defun compute-power (base &optional (exponent 2))
+                (let ((result (expt base exponent)))
+                  (cond
+                    ((> result 1000)
+                     (comment "Scale down huge values")
+                     (/ result 10))
+                    (t result)))))
      :expected "(defun compute-power (base &optional (exponent 2))
   (let ((result (expt base exponent)))
     (cond
       ((> result 1000)
         ;; Scale down huge values
         (/ result 10))
-      (t result))))")))
+      (t result))))")
+
+    (:name "multiline-comment-string"
+     :input (toplevel
+             (defun greet ()
+               (comment "hello
+world
+wide")
+               (print "hi")))
+     :expected "(defun greet ()
+  ;; hello
+  ;; world
+  ;; wide
+  (print \"hi\"))")
+
+    (:name "new-block-forms"
+     :input (toplevel
+             (lambda (x y)
+               (comment "lambda body")
+               (+ x y))
+             (eval-when (:compile-toplevel :load-toplevel :execute)
+               (defclass my-class ()
+                 ((slot :initarg :slot))))
+             (dolist (item list)
+               (print item)))
+     :expected "(lambda (x y)
+  ;; lambda body
+  (+ x y))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defclass my-class ()
+    ((slot :initarg :slot))))
+
+(dolist (item list)
+  (print item))")))
 
 (defun run-tests ()
   (let ((*package* (find-package :cl-cl-generator/tests)))
