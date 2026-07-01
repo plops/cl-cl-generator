@@ -21,7 +21,8 @@ The codebase is located in [example/04_tui_cockpit/](file:///workspace/src/cl-cl
 1. **Parentheses Balances:** Checked and verified that `gen.lisp` is perfectly balanced.
 2. **Generation:** Ran `gen.lisp` using SBCL, which compiled the generator and outputted the pretty-printed, resolved Lisp code to `cockpit.lisp`.
 3. **Compilation:** Loaded the generated `:cockpit` ASDF system in SBCL. It compiled without any errors or warnings.
-4. **Live Execution Test:** Ran core parsers on live `/proc` data in SBCL as root. It successfully parsed CPU ticks, network rates, memory pages, IO pressure, and matched the network socket inodes to active PIDs (correctly matching 8 socket endpoints to PID 33 `agy`).
+4. **Live Execution Test:** Ran core parsers on live `/proc` data in SBCL as root. It successfully parsed CPU ticks, network rates, memory pages, IO pressure, and matched the network socket inodes to active PIDs.
+5. **Column Alignment:** Adjusted PID format to `~7d`, limited name to 15 chars, and normalized rate units. Verified the resulting console layouts are perfectly aligned.
 
 ---
 

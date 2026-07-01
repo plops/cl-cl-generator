@@ -19,12 +19,12 @@ Here is what the TUI Cockpit looks like in your terminal (using Unicode sparklin
 
   Swap Page In/Out: pswpin: 0, pswpout: 0
 
-  Net Rate: RX:  0.06 kB/s [ ]  TX:  0.06 kB/s [ ]
+  Net Rate: RX:  0.00 kB/s [ ]  TX:  0.00 kB/s [ ]
 
 
   Top Bandwidth Processes:
-    PID    NAME          NET-RX       NET-TX       DISK-R/W     OOM
-    33     agy             0.0kB/s    0.0kB/s   0.2M/241.4M  669
+     PID      NAME             NET-RX    NET-TX    DISK-R/W     OOM
+        33  agy                0.0 K     0.0 K    0.5M/338.3M   670
 ```
 
 ---

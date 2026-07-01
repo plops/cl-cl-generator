@@ -336,21 +336,22 @@
                   (sorted-procs (sort raw-procs #'> :key (lambda (p) (+ (process-info-rx-rate p) (process-info-tx-rate p)))))
                   (top-procs (subseq sorted-procs 0 (min 5 (length sorted-procs)))))
              (write-str-to-buffer 11 2 "Top Bandwidth Processes:")
-             (write-str-to-buffer 12 2 "  PID    NAME          NET-RX       NET-TX       DISK-R/W     OOM")
+             (write-str-to-buffer 12 2 "   PID      NAME             NET-RX    NET-TX    DISK-R/W     OOM")
              (loop for p in top-procs
                    for i from 0
                    do (let* ((rx-kb (/ (process-info-rx-rate p) 1024))
                              (tx-kb (/ (process-info-tx-rate p) 1024))
                              (disk-r-kb (/ (process-info-read-bytes p) 1024 1024))
-                             (disk-w-kb (/ (process-info-write-bytes p) 1024 1024)))
+                             (disk-w-kb (/ (process-info-write-bytes p) 1024 1024))
+                             (name (process-info-name p))
+                             (short-name (subseq name 0 (min 15 (length name)))))
                         (write-str-to-buffer (+ 13 i) 2
-                                                (format nil "  ~5a  ~12a  ~5,1fkB/s  ~5,1fkB/s  ~4,1fM/~4,1fM  ~3a"
+                                                (format nil " ~7d  ~15a  ~8a  ~8a  ~11a  ~4d"
                                                         (process-info-pid p)
-                                                        (process-info-name p)
-                                                        rx-kb
-                                                        tx-kb
-                                                        disk-r-kb
-                                                        disk-w-kb
+                                                        short-name
+                                                        (format nil "~5,1f K" rx-kb)
+                                                        (format nil "~5,1f K" tx-kb)
+                                                        (format nil "~4,1fM/~4,1fM" disk-r-kb disk-w-kb)
                                                         (process-info-oom-score p))))))
 
            (render-delta)
