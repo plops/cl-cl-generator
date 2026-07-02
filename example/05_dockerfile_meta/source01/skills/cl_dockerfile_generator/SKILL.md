@@ -71,7 +71,62 @@ You can use standard Lisp helper functions to generate list structures and splic
 
 ---
 
-## 5. Running Tests
+## 5. Heredocs for Inline Files and Scripts (`:heredoc`)
+
+To avoid complex multi-line shell strings with chained `&&` or backslashes, `cl-dockerfile-generator` supports native heredocs in `copy` and `run` statements:
+
+- **Creating/Overwriting inline files (`copy :heredoc`)**:
+  ```lisp
+  (copy :heredoc "/etc/conf.d/modules" "modules=\"amdgpu mt7921e\"")
+  ```
+  Generates:
+  ```dockerfile
+  COPY <<EOF /etc/conf.d/modules
+  modules="amdgpu mt7921e"
+  EOF
+  ```
+
+- **Executing inline multi-line scripts (`run :heredoc`)**:
+  ```lisp
+  (run :heredoc #r(set -e
+  echo "Setting up locales"
+  locale-gen
+  env-update))
+  ```
+  Generates:
+  ```dockerfile
+  RUN <<EOF
+  set -e
+  echo "Setting up locales"
+  locale-gen
+  env-update
+  EOF
+  ```
+
+---
+
+## 6. Generation-Time Parameterization & Lisp Splicing
+
+Leverage Common Lisp parameterization (`*variables*` and `format` evaluation) at generation time to build paths, comments, or commands dynamically instead of hardcoding them. Because S-expressions in templates are backquoted, you can evaluate them with `,` or `,@`.
+
+**Example**:
+```lisp
+(defparameter *kver* "6.18.36")
+
+;; Inside template:
+(toplevel
+  (comment ,(format nil "Recreate the gentoo-sources-~a ebuild" *kver*))
+  (copy :heredoc ,(format nil "/var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-~a.ebuild" *kver*)
+        #r(EAPI="8"
+ETYPE="sources"
+...)))
+```
+
+This keeps version configuration in a single location while producing clean, compile-safe Dockerfiles.
+
+---
+
+## 7. Running Tests
 
 Load the test system and trigger the runner function:
 
