@@ -12,20 +12,41 @@ We emit symbols directly as strings by writing their `symbol-name`. Strings are 
 
 ---
 
-## 2. Alternatives for Shell Commands & Escaping
+## 2. Unified Argument Handling
 
-To avoid double-quote escaping (`\"`) and backslash continuation hell in S-expressions, we support both **Alternative A** and **Alternative B**.
+All S-expression forms and instruction arguments will accept any of the following types interchangeably, converted automatically by a unified formatter:
+
+1. **Symbols:** Emitted via their `symbol-name` (e.g., `DEBIAN_FRONTEND` $\rightarrow$ `DEBIAN_FRONTEND`).
+2. **Escaped/Vertical Bar Symbols:** Emitted via their literal name (e.g., `|apt-get update|` $\rightarrow$ `apt-get update`).
+3. **Strings (Raw or Normal):** Emitted as-is (e.g., `#r"echo 'hello'"` $\rightarrow$ `echo 'hello'`).
+4. **Numbers:** Emitted via standard formatting.
+5. **Lists:** Recursively formatted.
+
+### Formatter Logic
+```lisp
+(defun emit-val (x)
+  (cond
+    ((stringp x) x)
+    ((symbolp x) (symbol-name x))
+    ((numberp x) (format nil "~a" x))
+    ((listp x) (emit-list x))
+    (t (format nil "~a" x))))
+```
+
+---
+
+## 3. Handling Shell Pipes and Sequences
+
+To make shell commands readable and free of escaping, the transpiler supports both **Alternative A** and **Alternative B**:
 
 ### Alternative A: Built-in Vertical Bar Symbols (`|...|`)
 Common Lisp supports symbols containing arbitrary characters when enclosed in vertical bars.
 
 #### How to handle the shell pipe `|`?
-Because `|` is the delimiter for the symbol, a literal `|` inside the symbol will close it. To handle pipes:
 1. **Backslash escaping inside vertical bars:**
    ```lisp
    |cat file.txt \| grep "pattern"|
    ```
-   Lisp reads this as a single symbol with name `"cat file.txt | grep \"pattern\""`.
 2. **Lisp `pipe` operator:**
    We define a structured `pipe` operator in the generator to chain commands:
    ```lisp
@@ -35,7 +56,6 @@ Because `|` is the delimiter for the symbol, a literal `|` inside the symbol wil
    ```dockerfile
    cat file.txt | grep "pattern"
    ```
-   This keeps individual commands clean without any escaping!
 
 ---
 
@@ -46,16 +66,14 @@ We define a custom Lisp reader macro `#r` to read raw strings.
 To avoid escaping, the macro can use different delimiters:
 1. **Balanced Delimiters:**
    We can define `#r(...)`, `#r[...]`, and `#r{...}` to keep track of nested brackets.
-   * **Pitfall:** Unbalanced brackets inside the script (e.g., an unmatched `)` in an `awk` script or shell subshell) will prematurely close the raw string.
 2. **Character-delimited Raw Strings:**
    We can define `#r` to take the next character as the delimiter. For example:
    * `#r#cat file | grep "pattern"#` (delimiter is `#`)
    * `#r%echo "hello" && echo "world"%` (delimiter is `%`)
-   * **Pitfall:** The chosen delimiter character cannot be used inside the raw string. However, since the delimiter is dynamic, you can always choose a character that does not appear in your command.
 
 ---
 
-## 3. Revised Project Structure & Example Folders
+## 4. Revised Project Structure & Example Folders
 
 To keep code duplication at a minimum and show clear usage:
 
