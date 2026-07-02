@@ -1,6 +1,6 @@
 # cl-dockerfile-generator (Deutsch)
 
-`cl-dockerfile-generator` ist eine Common Lisp DSL und ein Transpiler, mit dem Sie Dockerfiles mithilfe von S-Expressions dynamisch generieren können. Durch die Nutzung der Case-Inversion des Lisp-Readers und des Raw-String-Makros (`#r`) wird Boilerplate-Code vermieden, mehrzeiliges Shell-Scripting vereinfacht und eine saubere Formatierung garantiert.
+`cl-dockerfile-generator` ist eine Common Lisp DSL und ein Transpiler, mit dem Sie Dockerfiles mithilfe von S-Expressions dynamisch generieren können. Durch die Nutzung der Case-Inversion des Lisp-Readers und des Raw-String-Makros (`#r`) wird Boilerplate-Code vermieden, mehrzeiliges Skripting vereinfacht und eine saubere Formatierung garantiert.
 
 ---
 
@@ -12,10 +12,11 @@ Der Generator läuft unter der `:invert` Readtable-Case.
 
 ---
 
-### Unterstützte Lisp-Ausdrücke
+### Syntax-Referenz im HyperSpec-Stil
 
 #### 1. `toplevel`
-Gruppiert mehrere Dockerfile-Anweisungen und schreibt sie nacheinander in jeweils neue Zeilen.
+**toplevel** `{`*instruction*`}`\*
+- **Beschreibung**: Gruppiert mehrere Dockerfile-Anweisungen und schreibt sie nacheinander in jeweils neue Zeilen.
 - **Beispiel**:
   ```lisp
   (toplevel
@@ -29,24 +30,28 @@ Gruppiert mehrere Dockerfile-Anweisungen und schreibt sie nacheinander in jeweil
   ```
 
 #### 2. `directive`
-Erzeugt Parser-Direktiven (wie Syntax-Erweiterungen).
+**directive** *name* *value*
+- **Beschreibung**: Erzeugt Parser-Direktiven (wie Syntax-Erweiterungen).
 - **Beispiel**: `(directive syntax "docker/dockerfile:1")`
 - **Ausgabe**: `# syntax=docker/dockerfile:1`
 
 #### 3. `from`
-Definiert das Basis-Image eines Build-Stages. Unterstützt das Keyword-Argument `:as` für mehrstufige Builds.
+**from** *image* `[&key` *as*`]`
+- **Beschreibung**: Definiert das Basis-Image eines Build-Stages. Unterstützt das Keyword-Argument `:as` für mehrstufige Builds.
 - **Beispiele**:
   - `(from "ubuntu:26.04")` -> `FROM ubuntu:26.04`
   - `(from "ubuntu:26.04" :as builder)` -> `FROM ubuntu:26.04 AS builder`
 
 #### 4. `arg`
-Definiert eine Build-Variable mit optionalem Standardwert.
+**arg** *name* `[`*value*`]`
+- **Beschreibung**: Definiert eine Build-Variable mit optionalem Standardwert.
 - **Beispiele**:
   - `(arg VERSION)` -> `ARG VERSION`
   - `(arg DEBIAN_FRONTEND noninteractive)` -> `ARG DEBIAN_FRONTEND=noninteractive`
 
 #### 5. `env`
-Definiert Umgebungsvariablen. Mehrere Zuweisungen werden über mehrere Zeilen mit Backslash-Umbruch formatiert.
+**env** `{`*key* *value*`}`\*
+- **Beschreibung**: Definiert Umgebungsvariablen. Mehrere Zuweisungen werden über mehrere Zeilen mit Backslash-Umbruch formatiert.
 - **Beispiele**:
   - `(env MY_VAR 123)` -> `ENV MY_VAR=123`
   - `(env VAR1 val1 VAR2 val2)`
@@ -57,9 +62,8 @@ Definiert Umgebungsvariablen. Mehrere Zuweisungen werden über mehrere Zeilen mi
       ```
 
 #### 6. `run`
-Führt Befehle in einem neuen Shell-Layer aus. Unterstützt:
-- **Mounts**: Keyword `:mount` zur Übergabe von Mount-Optionen.
-- **Heredocs**: Keyword `:heredoc` zur Angabe mehrzeiliger Skripte.
+**run** `[&key` *mount* *heredoc*`]` *command*
+- **Beschreibung**: Führt Befehle in einem neuen Shell-Layer aus. Unterstützt das optionale Keyword `:mount` für Build-Mounts und `:heredoc` für mehrzeilige Skripte.
 - **Beispiele**:
   - `(run "apt-get update")` -> `RUN apt-get update`
   - `(run :mount "type=cache,target=/root/.cache/uv" "uv pip install google-antigravity")`
@@ -74,10 +78,13 @@ Führt Befehle in einem neuen Shell-Layer aus. Unterstützt:
       ```
 
 #### 7. `and` / `seq` / `pipe`
-Verkettungs-Operatoren für Shell-Befehle.
-- **`and`** verkettet Befehle mit `&&` und Zeilenumbruch.
-- **`seq`** verkettet Befehle mit `;` und Zeilenumbruch.
-- **`pipe`** leitet Ausgaben per `|` weiter.
+**and** `{`*command*`}`\*  
+**seq** `{`*command*`}`\*  
+**pipe** `{`*command*`}`\*
+- **Beschreibung**: Verkettungs-Operatoren für Shell-Befehle.
+  - **`and`** verkettet Befehle mit `&&` und Zeilenumbruch.
+  - **`seq`** verkettet Befehle mit `;` und Zeilenumbruch.
+  - **`pipe`** leitet Ausgaben per `|` weiter.
 - **Beispiele**:
   - `(run (and "apt-get update" "apt-get install -y curl"))`
     - **Ausgabe**:
@@ -94,10 +101,10 @@ Verkettungs-Operatoren für Shell-Befehle.
   - `(run (pipe "cat a.txt" "grep -i hello"))`
     - **Ausgabe**: `RUN cat a.txt | grep -i hello`
 
-#### 8. `copy` / `add`
-Kopiert Dateien, Ordner oder Download-Links.
-- **Optionen**: Unterstützt `:from` (Quell-Stage) und `:chown` (Dateirechte).
-- **Heredocs**: `copy` unterstützt `:heredoc` zum Schreiben von Texten direkt in Dateien.
+#### 8. `copy`
+**copy** `[&key` *from* *chown*`]` `{`*source*`}`\* *destination*  
+**copy** `:heredoc` *destination* *content*
+- **Beschreibung**: Kopiert Dateien, Ordner oder schreibt Heredoc-Inhalte direkt in Dateien. Unterstützt die Keyword-Argumente `:from` und `:chown`.
 - **Beispiele**:
   - `(copy "src" "dest")` -> `COPY src dest`
   - `(copy "src" "dest" :from builder :chown "root:root")` -> `COPY --from=builder --chown=root:root src dest`
@@ -108,14 +115,21 @@ Kopiert Dateien, Ordner oder Download-Links.
       hello world
       EOF
       ```
+
+#### 9. `add`
+**add** `[&key` *chown*`]` `{`*source*`}`\* *destination*
+- **Beschreibung**: Fügt Dateien, Verzeichnisse oder URLs von Remote-Ressourcen hinzu. Unterstützt optionales `:chown`.
+- **Beispiel**:
   - `(add "http://example.com/file.tar.gz" "/dest")` -> `ADD http://example.com/file.tar.gz /dest`
 
-#### 9. `expose`
-Gibt Netzwerkports des Containers frei.
+#### 10. `expose`
+**expose** `{`*port*`}`\*
+- **Beschreibung**: Gibt Netzwerkports des Containers frei.
 - **Beispiel**: `(expose 80 443)` -> `EXPOSE 80 443`
 
-#### 10. `label`
-Fügt Metadaten-Labels zum Image hinzu.
+#### 11. `label`
+**label** `{`*key* *value*`}`\*
+- **Beschreibung**: Fügt Metadaten-Labels zum Image hinzu.
 - **Beispiel**: `(label maintainer "alice" version "1.0")`
 - **Ausgabe**:
   ```dockerfile
@@ -123,46 +137,50 @@ Fügt Metadaten-Labels zum Image hinzu.
         version="1.0"
   ```
 
-#### 11. `onbuild`
-Registriert Trigger, die ausgeführt werden, sobald dieses Image als Basis-Image dient.
+#### 12. `onbuild`
+**onbuild** *instruction*
+- **Beschreibung**: Registriert Trigger, die ausgeführt werden, sobald dieses Image als Basis-Image dient.
 - **Beispiel**: `(onbuild (run "echo 'triggered'"))` -> `ONBUILD RUN echo 'triggered'`
 
-#### 12. `comment`
-Fügt einen Kommentar ein, der mit `#` beginnt.
+#### 13. `comment`
+**comment** *string*
+- **Beschreibung**: Fügt einen Kommentar ein, der mit `#` beginnt.
 - **Beispiel**: `(comment "Dies ist ein Kommentar")` -> `# Dies ist ein Kommentar`
 
-#### 13. `shell`
-Überschreibt die Standard-Shell zur Ausführung von Befehlen.
+#### 14. `shell`
+**shell** `(` `{`*arg*`}`\* `)`
+- **Beschreibung**: Überschreibt die Standard-Shell zur Ausführung von Befehlen.
 - **Beispiel**: `(shell ("/bin/bash" "-c"))` -> `SHELL ["/bin/bash", "-c"]`
 
-#### 14. `stopsignal`
-Setzt das Signal zum Beenden des Containers.
+#### 15. `stopsignal`
+**stopsignal** *signal*
+- **Beschreibung**: Setzt das Signal zum Beenden des Containers.
 - **Beispiel**: `(stopsignal SIGTERM)` -> `STOPSIGNAL SIGTERM`
 
-#### 15. `cmd` / `entrypoint` / `volume`
-Definiert Laufzeiteigenschaften.
-- **Listen** werden als JSON-Arrays formatiert (Exec-Form).
-- **Einzelne Symbole/Strings** werden als Shell-Zeichenketten ausgegeben (Shell-Form).
+#### 16. `cmd` / `entrypoint` / `volume`
+**cmd** *value*  
+**entrypoint** *value*  
+**volume** *value*
+- **Beschreibung**: Definiert Laufzeiteigenschaften. *value* kann ein String/Symbol (Shell-Form) oder eine Liste von Strings/Symbols (Exec-Form) sein.
 - **Beispiele**:
   - `(cmd ("echo" "hello"))` -> `CMD ["echo", "hello"]`
   - `(cmd "echo hello")` -> `CMD echo hello`
   - `(entrypoint ("/bin/bash" "-c"))` -> `ENTRYPOINT ["/bin/bash", "-c"]`
   - `(volume ("/data"))` -> `VOLUME ["/data"]`
-  - `(volume "/data")` -> `VOLUME /data`
 
-#### 16. `healthcheck`
-Konfiguriert Integritätsprüfungen. Optionen: `:interval`, `:timeout`, `:start-period`, `:retries`.
+#### 17. `healthcheck`
+**healthcheck** *command* `[&key` *interval* *timeout* *start-period* *retries*`]`  
+**healthcheck** `NONE`
+- **Beschreibung**: Konfiguriert Integritätsprüfungen. Optionen: `:interval`, `:timeout`, `:start-period`, `:retries`.
 - **Beispiele**:
   - `(healthcheck (cmd ("curl" "-f" "http://localhost/")) :interval "5s" :timeout "3s" :retries 3)`
     - **Ausgabe**: `HEALTHCHECK --interval=5s --timeout=3s --retries=3 CMD ["curl", "-f", "http://localhost/"]`
   - `(healthcheck NONE :start-period "10s")` -> `HEALTHCHECK --start-period=10s NONE`
 
-#### 17. `#r` (Raw-Strings)
-Liest Zeichenketten oder Skripte case-sensitive und ohne Escaping ein.
-- **Klammern als Begrenzung**: `#r(...)`, `#r[...]`, `#r{...}` (unterstützt balancierte Verschachtelung).
-- **Eigene Begrenzung**: `#r#...#`, `#r@...@` (liest bis zum schließenden Zeichen).
-- **Beispiel**:
-  ```lisp
-  #r(echo "hello (world)")
-  ```
-- **Ausgabe**: `echo "hello (world)"`
+#### 18. `#r` (Raw-Strings)
+**#r** *bracket-delimited-form*  
+**#r** *custom-delimiter* *content* *custom-delimiter*
+- **Beschreibung**: Liest Zeichenketten oder Skripte case-sensitive und ohne Escaping ein.
+- **Beispiele**:
+  - `#r(echo "hello (world)")` -> `echo "hello (world)"`
+  - `#r#echo "custom delimiter"#` -> `echo "custom delimiter"`
