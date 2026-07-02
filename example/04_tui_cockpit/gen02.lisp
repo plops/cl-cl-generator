@@ -481,7 +481,7 @@
                (format out-str "=============================================================~%"))
              (format out-str "~%[q] Quit | [h] Help | [↑/↓] Select | [t] Throttle | [+/-] Refresh~%"))
          
-         (tui:make-view (get-output-stream-string out-str))))
+         (tui:make-view (get-output-stream-string out-str) :alt-screen t)))
 
      (defun run-cockpit ()
        (tui:run (tui:make-program (make-instance 'cockpit-model))))))

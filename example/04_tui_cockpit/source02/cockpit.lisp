@@ -490,7 +490,7 @@
                   "=============================================================~%"))
         (format out-str
                 "~%[q] Quit | [h] Help | [↑/↓] Select | [t] Throttle | [+/-] Refresh~%"))
-    (tuition:make-view (get-output-stream-string out-str))))
+    (tuition:make-view (get-output-stream-string out-str) :alt-screen t)))
 
 (defun run-cockpit ()
   (tuition:run (tuition:make-program (make-instance 'cockpit-model))))
