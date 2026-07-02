@@ -1,9 +1,7 @@
 (eval-when (:compile-toplevel :execute :load-toplevel)
   (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
-    (push (merge-pathnames "../../../../../" current-dir) asdf:*central-registry*))
-  (ql:quickload :cl-cl-generator)
-  (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
-    (load (merge-pathnames "../../dock.lisp" current-dir))))
+    (push (merge-pathnames "../../" current-dir) asdf:*central-registry*))
+  (ql:quickload :cl-dockerfile-generator))
 
 (in-package :cl-dockerfile-generator)
 
