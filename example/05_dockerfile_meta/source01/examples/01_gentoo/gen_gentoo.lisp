@@ -1,29 +1,54 @@
-# syntax=docker/dockerfile:1
-# Base images
-FROM gentoo/portage:20260624 AS portage
-# Stage3 base (1GB)
-# https://hub.docker.com/r/gentoo/stage3/tags
-FROM gentoo/stage3:nomultilib-20260622 AS base
-# https://hub.docker.com/r/gentoo/portage/tags
-# Copy full Portage tree (570MB)
-COPY --from=portage /var/db/repos/gentoo /var/db/repos/gentoo
-# Portage configuration
-RUN eselect profile set default/linux/amd64/23.0/no-multilib
-COPY config/package.accept_keywords /etc/portage/package.accept_keywords/package.accept_keywords
-# Repository tooling and package configuration
-COPY config/make.conf /etc/portage/make.conf
-COPY config/package.use /etc/portage/package.use
-COPY config/package.env /etc/portage/package.env
-COPY config/env /etc/portage/env
-# Keep the world set on PipeWire and let PipeWire provide PulseAudio compatibility.
-COPY config/world /var/lib/portage/world
-COPY config/dwm-6.8 /etc/portage/savedconfig/x11-wm/dwm-6.8
-ENV KVER_PURE=6.18.36
-ENV KVER_SOURCE=${KVER_PURE}-gentoo
-ENV KVER_RELEASE=${KVER_SOURCE}-dist
-RUN df -h
-# Recreate the gentoo-sources-6.18.36 ebuild
-RUN cat <<'EOF' > /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild
+(eval-when (:compile-toplevel :execute :load-toplevel)
+  (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
+    (push (merge-pathnames "../../../../../" current-dir) asdf:*central-registry*))
+  (ql:quickload :cl-cl-generator)
+  (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
+    (load (merge-pathnames "../../dock.lisp" current-dir))))
+
+(in-package :cl-dockerfile-generator)
+
+;; Helper function to compile copy operations for config files
+(defun copy-config-files (files dest-dir)
+  (loop for file in files
+        collect `(copy ,(format nil "config/~a" file) ,(format nil "~a/~a" dest-dir file))))
+
+;; Helper function for copying service configuration files
+(defun copy-services (services)
+  (loop for (src dest) in services
+        collect `(copy ,(format nil "config/~a" src) ,dest)))
+
+(defparameter *kver* "6.18.36")
+
+(let ((gentoo-code
+        `(toplevel
+           (directive syntax "docker/dockerfile:1")
+           (comment "Base images")
+           (from "gentoo/portage:20260624" :as portage)
+           (comment "Stage3 base (1GB)")
+           (comment "https://hub.docker.com/r/gentoo/stage3/tags")
+           (from "gentoo/stage3:nomultilib-20260622" :as base)
+           (comment "https://hub.docker.com/r/gentoo/portage/tags")
+           (comment "Copy full Portage tree (570MB)")
+           (copy "/var/db/repos/gentoo" "/var/db/repos/gentoo" :from portage)
+           
+           (comment "Portage configuration")
+           (run "eselect profile set default/linux/amd64/23.0/no-multilib")
+           (copy "config/package.accept_keywords" "/etc/portage/package.accept_keywords/package.accept_keywords")
+           
+           (comment "Repository tooling and package configuration")
+           ,@(copy-config-files '("make.conf" "package.use" "package.env" "env") "/etc/portage")
+           
+           (comment "Keep the world set on PipeWire and let PipeWire provide PulseAudio compatibility.")
+           (copy "config/world" "/var/lib/portage/world")
+           (copy "config/dwm-6.8" "/etc/portage/savedconfig/x11-wm/dwm-6.8")
+           
+           (env KVER_PURE ,*kver*)
+           (env KVER_SOURCE "${KVER_PURE}-gentoo")
+           (env KVER_RELEASE "${KVER_SOURCE}-dist")
+           (run "df -h")
+           
+           (comment "Recreate the gentoo-sources-6.18.36 ebuild")
+           (run (seq #r(cat <<'EOF' > /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild
 EAPI="8"
 ETYPE="sources"
 K_WANT_GENPATCHES="base extras experimental"
@@ -38,106 +63,124 @@ HOMEPAGE="https://dev.gentoo.org/~alicef/genpatches"
 SRC_URI="${KERNEL_URI} ${GENPATCHES_URI} ${ARCH_URI}"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 IUSE="experimental"
-EOF
-RUN ebuild /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild manifest
-RUN emerge =sys-kernel/gentoo-sources-${KVER_PURE}
-RUN eselect kernel list
-RUN eselect kernel set linux-${KVER_SOURCE}
-WORKDIR /usr/src/linux
-COPY config/config6.18.18 .config
-RUN sed -i \
+EOF)))
+           (run "ebuild /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild manifest")
+           (run "emerge =sys-kernel/gentoo-sources-${KVER_PURE}")
+           (run "eselect kernel list")
+           (run "eselect kernel set linux-${KVER_SOURCE}")
+           
+           (workdir "/usr/src/linux")
+           (copy "config/config6.18.18" ".config")
+           (run #r(sed -i \
     -e 's/^CONFIG_LOCALVERSION="-gentoo-dist"/CONFIG_LOCALVERSION="-dist"/' \
     -e 's/^CONFIG_DEBUG_INFO=y/# CONFIG_DEBUG_INFO is not set/' \
     -e 's/^CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT=y/# CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT is not set/' \
     -e 's/^CONFIG_DEBUG_INFO_BTF=y/# CONFIG_DEBUG_INFO_BTF is not set/' \
     -e 's/^CONFIG_DEBUG_INFO_BTF_MODULES=y/# CONFIG_DEBUG_INFO_BTF_MODULES is not set/' \
-    .config
-RUN make prepare
-# compile the kernel
-RUN make -j32
-RUN make modules_install
-RUN depmod -a ${KVER_RELEASE}
-RUN make install
-# Clean up the locales
-RUN printf 'en_US.UTF-8 UTF-8\n' > /etc/locale.gen \
- && locale-gen \
- && env-update \
- && . /etc/profile
-ENV LANG=en_US.UTF-8 \
-    LC_ALL=en_US.UTF-8
-RUN env-update && source /etc/profile
-RUN emerge -1 sys-apps/portage
-RUN sed -i \
+    .config))
+           (run "make prepare")
+           
+           (comment "compile the kernel")
+           (run "make -j32")
+           (run "make modules_install")
+           (run "depmod -a ${KVER_RELEASE}")
+           (run "make install")
+           
+           (comment "Clean up the locales")
+           (run (and "printf 'en_US.UTF-8 UTF-8\\n' > /etc/locale.gen"
+                     "locale-gen"
+                     "env-update"
+                     ". /etc/profile"))
+           
+           (env LANG "en_US.UTF-8"
+                LC_ALL "en_US.UTF-8")
+           (run "env-update && source /etc/profile")
+           (run "emerge -1 sys-apps/portage")
+           (run #r(sed -i \
     -e '/^net-analyzer\/arping\>/d' \
     -e '/^net-misc\/speedtest-cli\>/d' \
     -e '/^sys-process\/progress\>/d' \
     -e '/^sys-process\/sysstat\>/d' \
-    /var/lib/portage/world
-RUN mkdir -p /etc/portage/package.use \
- && touch /etc/portage/package.use/zz-late-world \
- && grep -qxF 'app-text/xmlto text' /etc/portage/package.use/zz-late-world || printf '\napp-text/xmlto text\n' >> /etc/portage/package.use/zz-late-world
-RUN emerge -uDN @world
-RUN gcc-config -l
-# Temporarily install package analysis tools
-RUN emerge --ask=n app-portage/genlop app-portage/gentoolkit \
- && qlist -Iv sys-devel/gcc \
- && echo "Generating package statistics..." \
- && for pkg in $(qlist -I); do \
+    /var/lib/portage/world))
+           (run (and "mkdir -p /etc/portage/package.use"
+                     "touch /etc/portage/package.use/zz-late-world"
+                     "grep -qxF 'app-text/xmlto text' /etc/portage/package.use/zz-late-world || printf '\\napp-text/xmlto text\\n' >> /etc/portage/package.use/zz-late-world"))
+           (run "emerge -uDN @world")
+           (run "gcc-config -l")
+           
+           (comment "Temporarily install package analysis tools")
+           (run (and "emerge --ask=n app-portage/genlop app-portage/gentoolkit"
+                     "qlist -Iv sys-devel/gcc"
+                     "echo \"Generating package statistics...\""
+                     #r(for pkg in $(qlist -I); do \
       SIZE=$(qsize -m "$pkg" | awk '{print $5$6}'); \
       TIME=$(genlop -t "$pkg" | grep "merge time" | tail -n 1 | sed 's/.*merge time: //'); \
       echo "$pkg | Size: ${SIZE:-N/A} | Build Time: ${TIME:-N/A}"; \
-    done > /packages.txt \
- && emerge -C app-portage/genlop app-portage/gentoolkit
-# Sudo policy
-RUN mkdir -p /etc/sudoers.d
-RUN echo "%wheel ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/wheel
-# slstatus
-WORKDIR /usr/src
-RUN git clone https://git.suckless.org/slstatus
-WORKDIR /usr/src/slstatus
-COPY config/slstatus_config.h .config
-RUN make -j32
-RUN make install
-RUN make clean
-RUN groupadd -f input \
- && useradd -m -G users,wheel,audio,video,input -s /bin/bash kiel \
- && for grp in libvirt kvm qemu; do if getent group "${grp}" >/dev/null; then usermod -aG "${grp}" kiel; fi; done
-COPY config/xinitrc /home/kiel/.xinitrc
-COPY config/activate /home/kiel/activate
-COPY config/start2 /home/kiel/start2
-COPY config/start-pipewire.sh /home/kiel/start-pipewire.sh
-RUN chmod +x /home/kiel/activate /home/kiel/start2 /home/kiel/start-pipewire.sh \
- && chown kiel:kiel /home/kiel/activate /home/kiel/start2 /home/kiel/start-pipewire.sh
-COPY config/user-runtime.initd /etc/init.d/user-runtime
-COPY config/zz-openrc-user-session.sh /etc/profile.d/zz-openrc-user-session.sh
-COPY config/user-dbus.initd /etc/user/init.d/dbus
-COPY config/user-pipewire.initd /etc/user/init.d/pipewire
-COPY config/user-pipewire-pulse.initd /etc/user/init.d/pipewire-pulse
-COPY config/user-wireplumber.initd /etc/user/init.d/wireplumber
-COPY config/resolv.conf /etc/
-COPY config/reverse-ssh-eu.initd /etc/init.d/reverse-ssh-eu
-COPY config/reverse-ssh-us.initd /etc/init.d/reverse-ssh-us
-RUN chmod +x /etc/init.d/reverse-ssh-* \
- && rc-update add sshd default \
- && rc-update add reverse-ssh-eu default \
- && rc-update add reverse-ssh-us default
-USER kiel
-ENV HOME=/home/kiel
-# Install Emacs packages from MELPA in batch mode
-RUN emacs --batch \
+    done > /packages.txt)
+                     "emerge -C app-portage/genlop app-portage/gentoolkit"))
+           
+           (comment "Sudo policy")
+           (run "mkdir -p /etc/sudoers.d")
+           (run "echo \"%wheel ALL=(ALL:ALL) NOPASSWD: ALL\" > /etc/sudoers.d/wheel")
+           
+           (comment "slstatus")
+           (workdir "/usr/src")
+           (run "git clone https://git.suckless.org/slstatus")
+           (workdir "/usr/src/slstatus")
+           (copy "config/slstatus_config.h" ".config")
+           (run "make -j32")
+           (run "make install")
+           (run "make clean")
+           
+           (run (and "groupadd -f input"
+                     "useradd -m -G users,wheel,audio,video,input -s /bin/bash kiel"
+                     "for grp in libvirt kvm qemu; do if getent group \"${grp}\" >/dev/null; then usermod -aG \"${grp}\" kiel; fi; done"))
+           
+           (copy "config/xinitrc" "/home/kiel/.xinitrc")
+           
+           ,@(copy-services '(("activate" "/home/kiel/activate")
+                              ("start2" "/home/kiel/start2")
+                              ("start-pipewire.sh" "/home/kiel/start-pipewire.sh")))
+           
+           (run (and "chmod +x /home/kiel/activate /home/kiel/start2 /home/kiel/start-pipewire.sh"
+                     "chown kiel:kiel /home/kiel/activate /home/kiel/start2 /home/kiel/start-pipewire.sh"))
+           
+           ,@(copy-services '(("user-runtime.initd" "/etc/init.d/user-runtime")
+                              ("zz-openrc-user-session.sh" "/etc/profile.d/zz-openrc-user-session.sh")
+                              ("user-dbus.initd" "/etc/user/init.d/dbus")
+                              ("user-pipewire.initd" "/etc/user/init.d/pipewire")
+                              ("user-pipewire-pulse.initd" "/etc/user/init.d/pipewire-pulse")
+                              ("user-wireplumber.initd" "/etc/user/init.d/wireplumber")
+                              ("resolv.conf" "/etc/")
+                              ("reverse-ssh-eu.initd" "/etc/init.d/reverse-ssh-eu")
+                              ("reverse-ssh-us.initd" "/etc/init.d/reverse-ssh-us")))
+           
+           (run (and "chmod +x /etc/init.d/reverse-ssh-*"
+                     "rc-update add sshd default"
+                     "rc-update add reverse-ssh-eu default"
+                     "rc-update add reverse-ssh-us default"))
+           
+           (user kiel)
+           (env HOME "/home/kiel")
+           
+           (comment "Install Emacs packages from MELPA in batch mode")
+           (run #r(emacs --batch \
     --eval "(require 'package)" \
     --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)" \
     --eval "(package-initialize)" \
     --eval "(package-refresh-contents)" \
-    --eval "(dolist (pkg '(magit paredit slime)) (package-install pkg))"
-USER root
-RUN mkdir -p /usr/local/share/openrc-host-config
-COPY config/activate /usr/local/share/openrc-host-config/activate
-COPY config/start2 /usr/local/share/openrc-host-config/start2
-COPY config/reverse-ssh-eu.initd /usr/local/share/openrc-host-config/reverse-ssh-eu.initd
-COPY config/reverse-ssh-us.initd /usr/local/share/openrc-host-config/reverse-ssh-us.initd
-RUN fc-cache -fv
-RUN printf '%s\n' \
+    --eval "(dolist (pkg '(magit paredit slime)) (package-install pkg))"))
+           
+           (user root)
+           (run "mkdir -p /usr/local/share/openrc-host-config")
+           
+           ,@(copy-services '(("activate" "/usr/local/share/openrc-host-config/activate")
+                              ("start2" "/usr/local/share/openrc-host-config/start2")
+                              ("reverse-ssh-eu.initd" "/usr/local/share/openrc-host-config/reverse-ssh-eu.initd")
+                              ("reverse-ssh-us.initd" "/usr/local/share/openrc-host-config/reverse-ssh-us.initd")))
+           
+           (run "fc-cache -fv")
+           (run #r(printf '%s\n' \
       'modules="amdgpu mt7921e"' \
       > /etc/conf.d/modules \
  && printf '%s\n' \
@@ -186,22 +229,24 @@ RUN printf '%s\n' \
  && rc-update add user.kiel default \
  && rc-update add dbus default \
  && rc-update add iwd default \
- && chown -R kiel:kiel /home/kiel/.config
-RUN rm -rf /var/tmp/portage/*
-RUN emerge -C dev-lang/rust-bin virtual/rust dev-lang/go dev-lang/go-bootstrap dev-util/cargo-c || true
-WORKDIR /
-RUN emerge --ask=n sys-fs/e2fsprogs sys-fs/erofs-utils || true
-COPY config/mount-overlayfs.sh /usr/lib/dracut/modules.d/70overlayfs
-RUN chmod +x /usr/lib/dracut/modules.d/70overlayfs/*.sh
-RUN dracut \
+ && chown -R kiel:kiel /home/kiel/.config))
+           
+           (run "rm -rf /var/tmp/portage/*")
+           (run "emerge -C dev-lang/rust-bin virtual/rust dev-lang/go dev-lang/go-bootstrap dev-util/cargo-c || true")
+           (workdir "/")
+           (run "emerge --ask=n sys-fs/e2fsprogs sys-fs/erofs-utils || true")
+           (copy "config/mount-overlayfs.sh" "/usr/lib/dracut/modules.d/70overlayfs")
+           (run "chmod +x /usr/lib/dracut/modules.d/70overlayfs/*.sh")
+           (run (seq #r(dracut \
       -m "kernel-modules base dmsquash-live dm udev-rules crypt lvm overlayfs" \
       --filesystems "squashfs erofs vfat ext4 overlay btrfs" \
       --add-drivers "libnvdimm nd_pmem nd_btt nd_blk dax device_dax dax_pmem dax_pmem_core nd_e820" \
       --kver=${KVER_RELEASE} \
       --install "stat blockdev" \
       --force \
-      /boot/initramfs_squash_sda1-x86_64.img
-RUN set -e \
+      /boot/initramfs_squash_sda1-x86_64.img)))
+           
+           (run #r(set -e \
  && emerge --ask=n --oneshot app-portage/genlop \
  && printf 'package\tsize_mib\tbuild_seconds\tbuild_time_human\n' > /packages.tsv \
  && time_threshold_mib=50 \
@@ -230,9 +275,11 @@ RUN set -e \
       printf '%-40s %10s %14s  %s\n' "Package" "Size MiB" "Build Seconds" "Build Time"; \
       tail -n +2 /packages.tsv | sort -t "$(printf '\t')" -k2,2nr -k3,3nr | awk -F '\t' '{printf "%-40s %10s %14s  %s\n", $1, $2, $3, $4}'; \
     } > /packages.txt \
- && emerge -C app-portage/genlop || true
-RUN df -h
-RUN set -e \
+ && emerge -C app-portage/genlop || true))
+           
+           (run "df -h")
+           
+           (run #r(set -e \
  && echo "Preparing NVIDIA squashfs" \
  && test -e /lib/modules/${KVER_RELEASE}/video/nvidia.ko \
  && rm -rf /tmp/fw_original /tmp/fw_nv_root \
@@ -288,8 +335,9 @@ RUN set -e \
     lost+found \
  && rm -rf /usr/lib/firmware/* \
  && cp -a /tmp/fw_original/. /usr/lib/firmware/ \
- && rm -rf /tmp/fw_original /tmp/fw_nv_root
-RUN set -e \
+ && rm -rf /tmp/fw_original /tmp/fw_nv_root))
+           
+           (run #r(set -e \
   && echo "Preparing ThinkPad E14 squashfs (remove NVIDIA)" \
   && mkdir -p /tmp/tmpfw/amdgpu /tmp/tmpfw/mediatek /tmp/tmpfw/amd /tmp/tmpfw/rtl_bt /tmp/tmpfw/rtl_nic || true \
   && cp -a /usr/lib/firmware/regulatory.db* /tmp/tmpfw/ 2>/dev/null || true \
@@ -350,4 +398,8 @@ RUN set -e \
       var/tmp \
       initramfs-with-squashfs.img \
       lost+found \
-    || true
+    || true)))))
+
+  (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
+    (write-df (merge-pathnames "Dockerfile" current-dir) gentoo-code t)
+    (format t "Generated Dockerfile in ~a successfully.~%" current-dir)))
