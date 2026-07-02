@@ -6,93 +6,64 @@ This document outlines the design and syntax specifications for `cl-dockerfile-g
 
 ## 1. Symbol-based DSL & Case Inversion
 
-By default, we set `(setf (readtable-case *readtable*) :invert)` (similar to `cl-py-generator`). This allows case-sensitive symbols to be read natively (e.g., lower-case symbols stay lower-case, upper-case symbols stay upper-case).
+By default, we set `(setf (readtable-case *readtable*) :invert)` (similar to `cl-py-generator`). This allows case-sensitive symbols to be read natively.
 
-We will emit symbols directly as strings by writing their `symbol-name`. Strings are only used as fallbacks when symbols would conflict with Lisp syntax (e.g. containing `:` for packages, like `ubuntu:26.04`).
-
-### Examples
-
-- `(arg DEBIAN_FRONTEND noninteractive)` $\rightarrow$ `ARG DEBIAN_FRONTEND=noninteractive`
-- `(env UV_COMPILE_BYTECODE 1)` $\rightarrow$ `ENV UV_COMPILE_BYTECODE=1`
-- `(from "ubuntu:26.04" :as builder)` $\rightarrow$ `FROM ubuntu:26.04 AS builder` (strings are used for `:` package prefixes, but symbols work for keyword arguments and names).
+We emit symbols directly as strings by writing their `symbol-name`. Strings are only used as fallbacks when symbols would conflict with Lisp syntax (e.g. containing `:` for packages, like `ubuntu:26.04`).
 
 ---
 
 ## 2. Alternatives for Shell Commands & Escaping
 
-To avoid double-quote escaping (`\"`) and backslash continuation hell in S-expressions, we propose three alternative strategies:
+To avoid double-quote escaping (`\"`) and backslash continuation hell in S-expressions, we support both **Alternative A** and **Alternative B**.
 
 ### Alternative A: Built-in Vertical Bar Symbols (`|...|`)
-Common Lisp has built-in support for symbols containing arbitrary characters (including spaces, quotes, and backslashes) when enclosed in vertical bars.
+Common Lisp supports symbols containing arbitrary characters when enclosed in vertical bars.
 
-#### Usage
-```lisp
-(run (and |apt-get update|
-          |apt-get install -y --no-install-recommends ca-certificates curl|
-          |echo "Hello World" >> /etc/motd|))
-```
-
-#### Emitted Dockerfile
-```dockerfile
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl \
- && echo "Hello World" >> /etc/motd
-```
-
-- **Pros:** Native to Common Lisp; requires no custom reader macros; preserves case, quotes, and spacing exactly.
-- **Cons:** IDE syntax highlighting might treat the contents inside `|...|` as a single symbol name (which is technically correct in Lisp).
-
----
-
-### Alternative B: Raw String Reader Macro (`#r"..."` or `#r(...)`)
-We define a custom Lisp reader macro (e.g., `#r`) that reads everything up to a matching delimiter as a raw string without parsing Lisp escape sequences.
-
-#### Usage
-```lisp
-(run :heredoc #r(
-set -e
-echo "Building gentoo.ext4..."
-rm -rf /tmp/ext4_root
-))
-```
-
-#### Emitted Dockerfile
-```dockerfile
-RUN <<EOF
-set -e
-echo "Building gentoo.ext4..."
-rm -rf /tmp/ext4_root
-EOF
-```
-
-- **Pros:** Very clean; familiar to developers who use raw strings in Python (`r"..."`) or C++ (`R"..."`).
-- **Cons:** Requires registering a reader macro (`set-dispatch-macro-character`) before loading any S-expression templates.
+#### How to handle the shell pipe `|`?
+Because `|` is the delimiter for the symbol, a literal `|` inside the symbol will close it. To handle pipes:
+1. **Backslash escaping inside vertical bars:**
+   ```lisp
+   |cat file.txt \| grep "pattern"|
+   ```
+   Lisp reads this as a single symbol with name `"cat file.txt | grep \"pattern\""`.
+2. **Lisp `pipe` operator:**
+   We define a structured `pipe` operator in the generator to chain commands:
+   ```lisp
+   (pipe |cat file.txt| |grep "pattern"|)
+   ```
+   Emits:
+   ```dockerfile
+   cat file.txt | grep "pattern"
+   ```
+   This keeps individual commands clean without any escaping!
 
 ---
 
-### Alternative C: Structured Shell DSL
-We map shell constructs to Lisp list expressions, converting them to strings during emission.
+### Alternative B: Raw String Reader Macro (`#r`)
+We define a custom Lisp reader macro `#r` to read raw strings.
 
-#### Usage
-```lisp
-(run (and (apt-get update)
-          (apt-get install -y --no-install-recommends ca-certificates curl)
-          (>> (echo "Hello World") /etc/motd)))
-```
-
-- **Pros:** Highly structured; can perform validation/checks at Lisp compile time.
-- **Cons:** Very complex to maintain for general shell programming (handling redirecting, pipes, variables, etc.).
+#### Delimiter Strategies & Pitfalls
+To avoid escaping, the macro can use different delimiters:
+1. **Balanced Delimiters:**
+   We can define `#r(...)`, `#r[...]`, and `#r{...}` to keep track of nested brackets.
+   * **Pitfall:** Unbalanced brackets inside the script (e.g., an unmatched `)` in an `awk` script or shell subshell) will prematurely close the raw string.
+2. **Character-delimited Raw Strings:**
+   We can define `#r` to take the next character as the delimiter. For example:
+   * `#r#cat file | grep "pattern"#` (delimiter is `#`)
+   * `#r%echo "hello" && echo "world"%` (delimiter is `%`)
+   * **Pitfall:** The chosen delimiter character cannot be used inside the raw string. However, since the delimiter is dynamic, you can always choose a character that does not appear in your command.
 
 ---
 
-## 3. Revised Project Structure & Meta-Generation
+## 3. Revised Project Structure & Example Folders
 
-To avoid redundancy and keep code duplication at a minimum, we will implement this project using a meta-generator:
+To keep code duplication at a minimum and show clear usage:
 
 1. **`example/05_dockerfile_meta/gen.lisp`**:
    - The generator template. It uses Lisp helper functions and `,@(loop ...)` splicing to build the transpiler.
-   - Using `cl-cl-generator`, it writes the transpiler source code to the output file.
+   - It writes the transpiler source code to `/workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/dock.lisp`.
 2. **`example/05_dockerfile_meta/source01/dock.lisp`**:
-   - The generated transpiler. It implements the pretty printer / dispatch table for Dockerfile S-expressions.
-3. **`example/05_dockerfile_meta/source01/test_gen.lisp`**:
-   - A script that uses `dock.lisp` to generate example Dockerfiles (like `110_gentoo` and `172_docker_agy_env`), confirming correct behavior.
+   - The generated transpiler.
+3. **`example/05_dockerfile_meta/source01/examples/`**:
+   - **`01_gentoo/Dockerfile`**: Generated Gentoo build stage example.
+   - **`02_agy_env/Dockerfile`**: Generated Antigravity environment build stage example.
