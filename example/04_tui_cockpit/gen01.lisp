@@ -8,7 +8,7 @@
 
 (in-package :cockpit-generator)
 
-(defparameter *output-dir* (asdf:system-relative-pathname :cl-cl-generator "example/04_tui_cockpit/"))
+(defparameter *output-dir* (asdf:system-relative-pathname :cl-cl-generator "example/04_tui_cockpit/source01/"))
 
 (defun build-proc-parser (name file-path parser-body)
   "Helper to generate a proc parser function."

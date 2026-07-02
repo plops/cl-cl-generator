@@ -56,7 +56,7 @@ sudo ./run-cockpit.sh
 Alternatively, you can load and run it manually in SBCL:
 
 ```bash
-sbcl --eval '(push "/workspace/src/cl-cl-generator/example/04_tui_cockpit/" asdf:*central-registry*)' \
+sbcl --eval '(push "/workspace/src/cl-cl-generator/example/04_tui_cockpit/source01/" asdf:*central-registry*)' \
      --eval '(ql:quickload :cockpit)' \
      --eval '(cockpit:run-cockpit)'
 ```

@@ -1,4 +1,4 @@
-(push "/workspace/src/cl-cl-generator/example/04_tui_cockpit/" asdf:*central-registry*)
+(push "/workspace/src/cl-cl-generator/example/04_tui_cockpit/source01/" asdf:*central-registry*)
 (ql:quickload :cockpit :silent t)
 
 (let ((cpu-history nil)
