@@ -39,11 +39,14 @@ COPY --from=builder /root/.local/bin/agy /usr/local/bin/agy
 RUN curl -O https://beta.quicklisp.org/quicklisp.lisp \
  && sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)" \
  && rm quicklisp.lisp
-# Append Quicklisp configuration to .sbclrc
-RUN echo '#-quicklisp' >> /root/.sbclrc \
- && echo '(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))' >> /root/.sbclrc \
- && echo '  (when (probe-file quicklisp-init)' >> /root/.sbclrc \
- && echo '    (load quicklisp-init)))' >> /root/.sbclrc
+# Configure Quicklisp in .sbclrc
+COPY <<EOF /root/.sbclrc
+#-quicklisp
+(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
+  (when (probe-file quicklisp-init)
+    (load quicklisp-init)))
+
+EOF
 # Pre-create local-projects symlinks (which resolve dynamically when /workspace/src is mounted)
 RUN mkdir -p /root/quicklisp/local-projects \
  && ln -s /workspace/src/cl-py-generator /root/quicklisp/local-projects/cl-py-generator \

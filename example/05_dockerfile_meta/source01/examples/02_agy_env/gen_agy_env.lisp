@@ -67,11 +67,13 @@
                      #r#sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)"#
                      "rm quicklisp.lisp"))
            
-           (comment "Append Quicklisp configuration to .sbclrc")
-           (run (and "echo '#-quicklisp' >> /root/.sbclrc"
-                     #r#echo '(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))' >> /root/.sbclrc#
-                     "echo '  (when (probe-file quicklisp-init)' >> /root/.sbclrc"
-                     "echo '    (load quicklisp-init)))' >> /root/.sbclrc"))
+           (comment "Configure Quicklisp in .sbclrc")
+           (copy :heredoc "/root/.sbclrc"
+                 #r(#-quicklisp
+(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
+  (when (probe-file quicklisp-init)
+    (load quicklisp-init)))
+))
            
            (comment "Pre-create local-projects symlinks (which resolve dynamically when /workspace/src is mounted)")
            (run (and "mkdir -p /root/quicklisp/local-projects"

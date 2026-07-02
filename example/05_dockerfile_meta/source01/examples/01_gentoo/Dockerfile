@@ -23,7 +23,7 @@ ENV KVER_SOURCE=${KVER_PURE}-gentoo
 ENV KVER_RELEASE=${KVER_SOURCE}-dist
 RUN df -h
 # Recreate the gentoo-sources-6.18.36 ebuild
-RUN cat <<'EOF' > /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild
+COPY <<EOF /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild
 EAPI="8"
 ETYPE="sources"
 K_WANT_GENPATCHES="base extras experimental"
@@ -38,6 +38,7 @@ HOMEPAGE="https://dev.gentoo.org/~alicef/genpatches"
 SRC_URI="${KERNEL_URI} ${GENPATCHES_URI} ${ARCH_URI}"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 IUSE="experimental"
+
 EOF
 RUN ebuild /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild manifest
 RUN emerge =sys-kernel/gentoo-sources-${KVER_PURE}
@@ -90,7 +91,9 @@ RUN emerge --ask=n app-portage/genlop app-portage/gentoolkit \
  && emerge -C app-portage/genlop app-portage/gentoolkit
 # Sudo policy
 RUN mkdir -p /etc/sudoers.d
-RUN echo "%wheel ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/wheel
+COPY <<EOF /etc/sudoers.d/wheel
+%wheel ALL=(ALL:ALL) NOPASSWD: ALL
+EOF
 # slstatus
 WORKDIR /usr/src
 RUN git clone https://git.suckless.org/slstatus
@@ -137,56 +140,59 @@ COPY config/start2 /usr/local/share/openrc-host-config/start2
 COPY config/reverse-ssh-eu.initd /usr/local/share/openrc-host-config/reverse-ssh-eu.initd
 COPY config/reverse-ssh-us.initd /usr/local/share/openrc-host-config/reverse-ssh-us.initd
 RUN fc-cache -fv
-RUN printf '%s\n' \
-      'modules="amdgpu mt7921e"' \
-      > /etc/conf.d/modules \
- && printf '%s\n' \
-      'keymap="colemak"' \
-      > /etc/conf.d/keymaps \
- && if grep -q '^rc_logger=' /etc/rc.conf 2>/dev/null; then \
-      sed -i 's/^rc_logger=.*/rc_logger="YES"/' /etc/rc.conf; \
-    else \
-      printf '%s\n' 'rc_logger="YES"' >> /etc/rc.conf; \
-    fi \
- && if grep -q '^rc_log_path=' /etc/rc.conf 2>/dev/null; then \
-      sed -i 's|^rc_log_path=.*|rc_log_path="/var/log/rc.log"|' /etc/rc.conf; \
-    else \
-      printf '%s\n' 'rc_log_path="/var/log/rc.log"' >> /etc/rc.conf; \
-    fi \
- && if grep -q '^rc_verbose=' /etc/rc.conf 2>/dev/null; then \
-      sed -i 's/^rc_verbose=.*/rc_verbose="YES"/' /etc/rc.conf; \
-    else \
-      printf '%s\n' 'rc_verbose="YES"' >> /etc/rc.conf; \
-    fi \
- && if grep -q '^rc_autostart_user=' /etc/rc.conf 2>/dev/null; then \
-      sed -i 's/^rc_autostart_user=.*/rc_autostart_user="NO"/' /etc/rc.conf; \
-    else \
-      printf '%s\n' 'rc_autostart_user="NO"' >> /etc/rc.conf; \
-    fi \
- && if ! grep -q '^s0:12345:respawn:/sbin/agetty 115200 ttyS0 vt100$' /etc/inittab; then \
-      printf '%s\n' 's0:12345:respawn:/sbin/agetty 115200 ttyS0 vt100' >> /etc/inittab; \
-    fi \
- && if ! grep -qx 'ttyS0' /etc/securetty; then \
-      printf '%s\n' 'ttyS0' >> /etc/securetty; \
-    fi \
- && chmod 0755 /etc/init.d/user-runtime /etc/profile.d/zz-openrc-user-session.sh \
-      /etc/user/init.d/dbus /etc/user/init.d/pipewire /etc/user/init.d/pipewire-pulse /etc/user/init.d/wireplumber \
- && install -d -m 0755 /run/user \
- && install -d -o kiel -g kiel -m 0700 /run/user/1000 \
- && test -e /etc/init.d/user \
- && ln -sf /etc/init.d/user /etc/init.d/user.kiel \
- && install -d -o kiel -g kiel -m 0755 /home/kiel/.config/rc/runlevels/default \
- && ln -sf /etc/user/init.d/dbus /home/kiel/.config/rc/runlevels/default/dbus \
- && rc-update add udev sysinit \
- && rc-update add udev-trigger sysinit \
- && rc-update add udev-settle sysinit \
- && rc-update add modules boot \
- && rc-update add keymaps boot \
- && rc-update add user-runtime default \
- && rc-update add user.kiel default \
- && rc-update add dbus default \
- && rc-update add iwd default \
- && chown -R kiel:kiel /home/kiel/.config
+COPY <<EOF /etc/conf.d/modules
+modules="amdgpu mt7921e"
+EOF
+COPY <<EOF /etc/conf.d/keymaps
+keymap="colemak"
+EOF
+RUN <<EOF
+set -e
+if grep -q '^rc_logger=' /etc/rc.conf 2>/dev/null; then
+  sed -i 's/^rc_logger=.*/rc_logger="YES"/' /etc/rc.conf
+else
+  printf '%s\n' 'rc_logger="YES"' >> /etc/rc.conf
+fi
+if grep -q '^rc_log_path=' /etc/rc.conf 2>/dev/null; then
+  sed -i 's|^rc_log_path=.*|rc_log_path="/var/log/rc.log"|' /etc/rc.conf
+else
+  printf '%s\n' 'rc_log_path="/var/log/rc.log"' >> /etc/rc.conf
+fi
+if grep -q '^rc_verbose=' /etc/rc.conf 2>/dev/null; then
+  sed -i 's/^rc_verbose=.*/rc_verbose="YES"/' /etc/rc.conf
+else
+  printf '%s\n' 'rc_verbose="YES"' >> /etc/rc.conf
+fi
+if grep -q '^rc_autostart_user=' /etc/rc.conf 2>/dev/null; then
+  sed -i 's/^rc_autostart_user=.*/rc_autostart_user="NO"/' /etc/rc.conf
+else
+  printf '%s\n' 'rc_autostart_user="NO"' >> /etc/rc.conf
+fi
+if ! grep -q '^s0:12345:respawn:/sbin/agetty 115200 ttyS0 vt100$' /etc/inittab; then
+  printf '%s\n' 's0:12345:respawn:/sbin/agetty 115200 ttyS0 vt100' >> /etc/inittab
+fi
+if ! grep -qx 'ttyS0' /etc/securetty; then
+  printf '%s\n' 'ttyS0' >> /etc/securetty
+fi
+chmod 0755 /etc/init.d/user-runtime /etc/profile.d/zz-openrc-user-session.sh \
+     /etc/user/init.d/dbus /etc/user/init.d/pipewire /etc/user/init.d/pipewire-pulse /etc/user/init.d/wireplumber
+install -d -m 0755 /run/user
+install -d -o kiel -g kiel -m 0700 /run/user/1000
+test -e /etc/init.d/user
+ln -sf /etc/init.d/user /etc/init.d/user.kiel
+install -d -o kiel -g kiel -m 0755 /home/kiel/.config/rc/runlevels/default
+ln -sf /etc/user/init.d/dbus /home/kiel/.config/rc/runlevels/default/dbus
+rc-update add udev sysinit
+rc-update add udev-trigger sysinit
+rc-update add udev-settle sysinit
+rc-update add modules boot
+rc-update add keymaps boot
+rc-update add user-runtime default
+rc-update add user.kiel default
+rc-update add dbus default
+rc-update add iwd default
+chown -R kiel:kiel /home/kiel/.config
+EOF
 RUN rm -rf /var/tmp/portage/*
 RUN emerge -C dev-lang/rust-bin virtual/rust dev-lang/go dev-lang/go-bootstrap dev-util/cargo-c || true
 WORKDIR /

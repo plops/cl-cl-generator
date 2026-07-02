@@ -45,9 +45,9 @@
            (env KVER_RELEASE "${KVER_SOURCE}-dist")
            (run "df -h")
            
-           (comment "Recreate the gentoo-sources-6.18.36 ebuild")
-           (run (seq #r(cat <<'EOF' > /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild
-EAPI="8"
+           (comment ,(format nil "Recreate the gentoo-sources-~a ebuild" *kver*))
+           (copy :heredoc ,(format nil "/var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-~a.ebuild" *kver*)
+                 #r(EAPI="8"
 ETYPE="sources"
 K_WANT_GENPATCHES="base extras experimental"
 K_GENPATCHES_VER="42"
@@ -61,8 +61,8 @@ HOMEPAGE="https://dev.gentoo.org/~alicef/genpatches"
 SRC_URI="${KERNEL_URI} ${GENPATCHES_URI} ${ARCH_URI}"
 KEYWORDS="~alpha amd64 arm arm64 ~hppa ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc x86"
 IUSE="experimental"
-EOF)))
-           (run "ebuild /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild manifest")
+))
+           (run ,(format nil "ebuild /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-~a.ebuild manifest" *kver*))
            (run "emerge =sys-kernel/gentoo-sources-${KVER_PURE}")
            (run "eselect kernel list")
            (run "eselect kernel set linux-${KVER_SOURCE}")
@@ -119,7 +119,7 @@ EOF)))
            
            (comment "Sudo policy")
            (run "mkdir -p /etc/sudoers.d")
-           (run #r#echo "%wheel ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/wheel#)
+           (copy :heredoc "/etc/sudoers.d/wheel" "%wheel ALL=(ALL:ALL) NOPASSWD: ALL")
            
            (comment "slstatus")
            (workdir "/usr/src")
@@ -178,56 +178,53 @@ EOF)))
                               ("reverse-ssh-us.initd" "/usr/local/share/openrc-host-config/reverse-ssh-us.initd")))
            
            (run "fc-cache -fv")
-           (run #r(printf '%s\n' \
-      'modules="amdgpu mt7921e"' \
-      > /etc/conf.d/modules \
- && printf '%s\n' \
-      'keymap="colemak"' \
-      > /etc/conf.d/keymaps \
- && if grep -q '^rc_logger=' /etc/rc.conf 2>/dev/null; then \
-      sed -i 's/^rc_logger=.*/rc_logger="YES"/' /etc/rc.conf; \
-    else \
-      printf '%s\n' 'rc_logger="YES"' >> /etc/rc.conf; \
-    fi \
- && if grep -q '^rc_log_path=' /etc/rc.conf 2>/dev/null; then \
-      sed -i 's|^rc_log_path=.*|rc_log_path="/var/log/rc.log"|' /etc/rc.conf; \
-    else \
-      printf '%s\n' 'rc_log_path="/var/log/rc.log"' >> /etc/rc.conf; \
-    fi \
- && if grep -q '^rc_verbose=' /etc/rc.conf 2>/dev/null; then \
-      sed -i 's/^rc_verbose=.*/rc_verbose="YES"/' /etc/rc.conf; \
-    else \
-      printf '%s\n' 'rc_verbose="YES"' >> /etc/rc.conf; \
-    fi \
- && if grep -q '^rc_autostart_user=' /etc/rc.conf 2>/dev/null; then \
-      sed -i 's/^rc_autostart_user=.*/rc_autostart_user="NO"/' /etc/rc.conf; \
-    else \
-      printf '%s\n' 'rc_autostart_user="NO"' >> /etc/rc.conf; \
-    fi \
- && if ! grep -q '^s0:12345:respawn:/sbin/agetty 115200 ttyS0 vt100$' /etc/inittab; then \
-      printf '%s\n' 's0:12345:respawn:/sbin/agetty 115200 ttyS0 vt100' >> /etc/inittab; \
-    fi \
- && if ! grep -qx 'ttyS0' /etc/securetty; then \
-      printf '%s\n' 'ttyS0' >> /etc/securetty; \
-    fi \
- && chmod 0755 /etc/init.d/user-runtime /etc/profile.d/zz-openrc-user-session.sh \
-      /etc/user/init.d/dbus /etc/user/init.d/pipewire /etc/user/init.d/pipewire-pulse /etc/user/init.d/wireplumber \
- && install -d -m 0755 /run/user \
- && install -d -o kiel -g kiel -m 0700 /run/user/1000 \
- && test -e /etc/init.d/user \
- && ln -sf /etc/init.d/user /etc/init.d/user.kiel \
- && install -d -o kiel -g kiel -m 0755 /home/kiel/.config/rc/runlevels/default \
- && ln -sf /etc/user/init.d/dbus /home/kiel/.config/rc/runlevels/default/dbus \
- && rc-update add udev sysinit \
- && rc-update add udev-trigger sysinit \
- && rc-update add udev-settle sysinit \
- && rc-update add modules boot \
- && rc-update add keymaps boot \
- && rc-update add user-runtime default \
- && rc-update add user.kiel default \
- && rc-update add dbus default \
- && rc-update add iwd default \
- && chown -R kiel:kiel /home/kiel/.config))
+            (copy :heredoc "/etc/conf.d/modules" "modules=\"amdgpu mt7921e\"")
+            (copy :heredoc "/etc/conf.d/keymaps" "keymap=\"colemak\"")
+            (run :heredoc #r(set -e
+if grep -q '^rc_logger=' /etc/rc.conf 2>/dev/null; then
+  sed -i 's/^rc_logger=.*/rc_logger="YES"/' /etc/rc.conf
+else
+  printf '%s\n' 'rc_logger="YES"' >> /etc/rc.conf
+fi
+if grep -q '^rc_log_path=' /etc/rc.conf 2>/dev/null; then
+  sed -i 's|^rc_log_path=.*|rc_log_path="/var/log/rc.log"|' /etc/rc.conf
+else
+  printf '%s\n' 'rc_log_path="/var/log/rc.log"' >> /etc/rc.conf
+fi
+if grep -q '^rc_verbose=' /etc/rc.conf 2>/dev/null; then
+  sed -i 's/^rc_verbose=.*/rc_verbose="YES"/' /etc/rc.conf
+else
+  printf '%s\n' 'rc_verbose="YES"' >> /etc/rc.conf
+fi
+if grep -q '^rc_autostart_user=' /etc/rc.conf 2>/dev/null; then
+  sed -i 's/^rc_autostart_user=.*/rc_autostart_user="NO"/' /etc/rc.conf
+else
+  printf '%s\n' 'rc_autostart_user="NO"' >> /etc/rc.conf
+fi
+if ! grep -q '^s0:12345:respawn:/sbin/agetty 115200 ttyS0 vt100$' /etc/inittab; then
+  printf '%s\n' 's0:12345:respawn:/sbin/agetty 115200 ttyS0 vt100' >> /etc/inittab
+fi
+if ! grep -qx 'ttyS0' /etc/securetty; then
+  printf '%s\n' 'ttyS0' >> /etc/securetty
+fi
+chmod 0755 /etc/init.d/user-runtime /etc/profile.d/zz-openrc-user-session.sh \
+     /etc/user/init.d/dbus /etc/user/init.d/pipewire /etc/user/init.d/pipewire-pulse /etc/user/init.d/wireplumber
+install -d -m 0755 /run/user
+install -d -o kiel -g kiel -m 0700 /run/user/1000
+test -e /etc/init.d/user
+ln -sf /etc/init.d/user /etc/init.d/user.kiel
+install -d -o kiel -g kiel -m 0755 /home/kiel/.config/rc/runlevels/default
+ln -sf /etc/user/init.d/dbus /home/kiel/.config/rc/runlevels/default/dbus
+rc-update add udev sysinit
+rc-update add udev-trigger sysinit
+rc-update add udev-settle sysinit
+rc-update add modules boot
+rc-update add keymaps boot
+rc-update add user-runtime default
+rc-update add user.kiel default
+rc-update add dbus default
+rc-update add iwd default
+chown -R kiel:kiel /home/kiel/.config))
            
            (run "rm -rf /var/tmp/portage/*")
            (run "emerge -C dev-lang/rust-bin virtual/rust dev-lang/go dev-lang/go-bootstrap dev-util/cargo-c || true")
