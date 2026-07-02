@@ -109,7 +109,7 @@ EOF)))
            (comment "Temporarily install package analysis tools")
            (run (and "emerge --ask=n app-portage/genlop app-portage/gentoolkit"
                      "qlist -Iv sys-devel/gcc"
-                     "echo \"Generating package statistics...\""
+                     #r#echo "Generating package statistics..."#
                      #r(for pkg in $(qlist -I); do \
       SIZE=$(qsize -m "$pkg" | awk '{print $5$6}'); \
       TIME=$(genlop -t "$pkg" | grep "merge time" | tail -n 1 | sed 's/.*merge time: //'); \
@@ -119,7 +119,7 @@ EOF)))
            
            (comment "Sudo policy")
            (run "mkdir -p /etc/sudoers.d")
-           (run "echo \"%wheel ALL=(ALL:ALL) NOPASSWD: ALL\" > /etc/sudoers.d/wheel")
+           (run #r#echo "%wheel ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/wheel#)
            
            (comment "slstatus")
            (workdir "/usr/src")
@@ -132,7 +132,7 @@ EOF)))
            
            (run (and "groupadd -f input"
                      "useradd -m -G users,wheel,audio,video,input -s /bin/bash kiel"
-                     "for grp in libvirt kvm qemu; do if getent group \"${grp}\" >/dev/null; then usermod -aG \"${grp}\" kiel; fi; done"))
+                     #r#for grp in libvirt kvm qemu; do if getent group "${grp}" >/dev/null; then usermod -aG "${grp}" kiel; fi; done#))
            
            (copy "config/xinitrc" "/home/kiel/.xinitrc")
            

@@ -64,12 +64,12 @@
            
            (comment "Download and install Quicklisp")
            (run (and "curl -O https://beta.quicklisp.org/quicklisp.lisp"
-                     "sbcl --non-interactive --load quicklisp.lisp --eval \"(quicklisp-quickstart:install)\""
+                     #r#sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)"#
                      "rm quicklisp.lisp"))
            
            (comment "Append Quicklisp configuration to .sbclrc")
            (run (and "echo '#-quicklisp' >> /root/.sbclrc"
-                     "echo '(let ((quicklisp-init (merge-pathnames \"quicklisp/setup.lisp\" (user-homedir-pathname))))' >> /root/.sbclrc"
+                     #r#echo '(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))' >> /root/.sbclrc#
                      "echo '  (when (probe-file quicklisp-init)' >> /root/.sbclrc"
                      "echo '    (load quicklisp-init)))' >> /root/.sbclrc"))
            
@@ -80,18 +80,17 @@
                      "ln -s /workspace/src/cl-rust-generator /root/quicklisp/local-projects/cl-rust-generator"))
            
            (comment "Pre-fetch and cache Quicklisp systems and common dependencies")
-           (run "sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quickload \"quicklisp-slime-helper\")' --eval '(ql:quickload \"alexandria\")' --eval '(ql:quickload \"jonathan\")' --eval '(ql:quickload \"external-program\")' --eval '(ql:quickload \"cl-ppcre\")'")
+           (run #r#sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quickload "quicklisp-slime-helper")' --eval '(ql:quickload "alexandria")' --eval '(ql:quickload "jonathan")' --eval '(ql:quickload "external-program")' --eval '(ql:quickload "cl-ppcre")'#)
            
            (comment "Pre-install Emacs packages")
-           (run "emacs --batch --eval \"(require 'package)\" --eval \"(add-to-list 'package-archives '(\\\"melpa\\\" . \\\"https://melpa.org/packages/\\\"))\" --eval \"(package-initialize)\" --eval \"(package-refresh-contents)\" --eval \"(dolist (pkg '(cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (package-install pkg))\"")
+           (run #r#emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(dolist (pkg '(cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (package-install pkg))"#)
            
            (comment "Copy the modified .emacs configuration from the build context")
            (copy ".emacs" "/root/.emacs")
            
            (comment "Add the Antigravity clean environment tweaks and dangerous CLI alias to .bashrc")
-           (run (and "echo 'if [[ -n \"$ANTIGRAVITY_AGENT\" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1=\"\\$ \"; fi' >> /root/.bashrc"
-                     "echo \"alias agy='agy --dangerously-skip-permissions'\" >> /root/.bashrc"))
-           
+           (run (and #r#echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1="\$ "; fi' >> /root/.bashrc#
+                     #r#echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc#))
            (env PATH "/workspace/.venv/bin:$PATH")
            (volume "/workspace/src")
            
