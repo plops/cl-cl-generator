@@ -121,6 +121,8 @@
     set-solver-stage-cost
     set-solver-cost
     set-control-bounds
+    set-control-bounds-stage
+    set-control-bounds-all-stages
     set-state-bounds
     set-general-constraints
     set-solver-general-constraints
@@ -161,7 +163,8 @@
     (format out "               (:file \"pendulum-demo\")~%")
     (format out "               (:file \"mpc-demo-high\")~%")
     (format out "               (:file \"pendulum-demo-high\")~%")
-    (format out "               (:file \"mpc-soft-demo\")))~%")))
+    (format out "               (:file \"mpc-soft-demo\")~%")
+    (format out "               (:file \"spacecraft-demo-high\")))~%")))
 
 (format t "Generated hpipm.asd~%")
 
@@ -174,7 +177,7 @@
     (in-package :hpipm)
 
     (comment "--- Solver Data Structure ---")
-    (defstruct mpc-solver
+    (defstruct (mpc-solver (:constructor %make-mpc-solver))
       "Encapsulates all 5 HPIPM workspace and data pointers."
       precision
       horizon
@@ -301,10 +304,10 @@
                                         (:state (+ nbu idx))
                                         (:general (+ nbu nbx idx)))))
                           (setf (aref idxs i) c-idx)
-                          (setf (aref Zl-weight i) (coerce (or (getf sc :Z) 1d3) 'double-float))
-                          (setf (aref Zu-weight i) (coerce (or (getf sc :Z) 1d3) 'double-float))
-                          (setf (aref zl-grad i) (coerce (or (getf sc :z) 0d0) 'double-float))
-                          (setf (aref zu-grad i) (coerce (or (getf sc :z) 0d0) 'double-float))))
+                          (setf (aref Zl-weight i) (coerce (or (getf sc :Z-weight) (getf sc :Z) 1d3) 'double-float))
+                          (setf (aref Zu-weight i) (coerce (or (getf sc :Z-weight) (getf sc :Z) 1d3) 'double-float))
+                          (setf (aref zl-grad i) (coerce (or (getf sc :z-grad) (getf sc :z) 0d0) 'double-float))
+                          (setf (aref zu-grad i) (coerce (or (getf sc :z-grad) (getf sc :z) 0d0) 'double-float))))
                       ;; Set in QP structure using resolved non-colliding names
                       (ecase precision
                         (:double
@@ -352,7 +355,7 @@
                         (:single (allocate-hpipm-struct #'s-ocp-qp-ipm-ws-memsize #'s-ocp-qp-ipm-ws-create (list dim-ptr arg-ptr))))
                     (register-alloc ws-ptr ws-orig ws-back)
                     
-                    (make-mpc-solver :precision precision
+                    (%make-mpc-solver :precision precision
                                      :horizon horizon
                                      :nx nx-list
                                      :nu nu-list
@@ -431,6 +434,25 @@
              (s-ocp-qp-set-idxbu k (list index) qp)
              (s-ocp-qp-set-lbu k (list min) qp)
              (s-ocp-qp-set-ubu k (list max) qp))))))
+
+    (defun set-control-bounds-stage (solver stage indices min-values max-values)
+      "Set control input bounds at a specific STAGE for control INDICES (list of integers) to [MIN-VALUES, MAX-VALUES] (lists)."
+      (let ((prec (mpc-solver-precision solver))
+            (qp (mpc-solver-qp-ptr solver)))
+        (ecase prec
+          (:double
+           (d-ocp-qp-set-idxbu stage indices qp)
+           (d-ocp-qp-set-lbu stage min-values qp)
+           (d-ocp-qp-set-ubu stage max-values qp))
+          (:single
+           (s-ocp-qp-set-idxbu stage indices qp)
+           (s-ocp-qp-set-lbu stage min-values qp)
+           (s-ocp-qp-set-ubu stage max-values qp)))))
+
+    (defun set-control-bounds-all-stages (solver indices min-values max-values)
+      "Set uniform control input bounds across all stages 0..N-1."
+      (dotimes (k (mpc-solver-horizon solver))
+        (set-control-bounds-stage solver k indices min-values max-values)))
 
     (defun set-state-bounds (solver stage indices min-values max-values)
       "Set state bounds at a specific STAGE for state INDICES (list of integers) to [MIN-VALUES, MAX-VALUES] (lists)."
@@ -766,7 +788,7 @@
                ;; Since x0 has mass 2 at 0.5, this bound is immediately violated at stage 0!
                ;; If it were a hard constraint, the solver would fail (infeasible).
                ;; Using soft constraints, it converges successfully using positive slack.
-               (soft-specs (quote ((:stage :all :type :state :index 2 :Z 1e4 :z 0.0)))))
+                (soft-specs (quote ((:stage :all :type :state :index 0 :Z-weight 1e4 :z-grad 0.0)))))
 
           (format t "~%=== HPIPM MPC Soft-Constraints Demo ===~%")
           (format t "Horizon N=~a, nx=~a, nu=~a~%" N nx nu)
@@ -799,4 +821,245 @@
     *source-dir*))
 
 (format t "Generated mpc-soft-demo.lisp~%")
+
+;;; ============================================================
+;;; 7. Generate spacecraft-demo-high.lisp (3D Spacecraft Docking)
+;;; ============================================================
+(write-source "spacecraft-demo-high"
+  `(toplevel
+    ,@(make-header-comments)
+    (comment "================================================================================")
+    (comment " MPC Demo (High-Level API): 3D Spacecraft Rendezvous and Docking")
+    (comment "================================================================================")
+
+    (defpackage :hpipm-spacecraft-demo
+      (:use :cl :hpipm)
+      (:export :run-spacecraft-demo))
+    (in-package :hpipm-spacecraft-demo)
+
+    (comment "--- Helper for Matrix-Vector Multiplication ---")
+    (defun mat-vec-mult (A x)
+      (let* ((n (array-dimension A 0))
+             (m (array-dimension A 1))
+             (y (make-array n :element-type 'double-float :initial-element 0.0d0)))
+        (dotimes (i n)
+          (let ((sum 0.0d0))
+            (dotimes (j m)
+              (incf sum (* (aref A i j) (coerce (elt x j) 'double-float))))
+            (setf (aref y i) sum)))
+        y))
+
+    (defun propagate-state (Ad Bd x u)
+      (let ((x-next (mat-vec-mult Ad x))
+            (bu (mat-vec-mult Bd u)))
+        (dotimes (i (length x-next))
+          (incf (aref x-next i) (aref bu i)))
+        x-next))
+
+    (comment "--- Helper to Compute analytical CW system discretization ---")
+    (defun compute-cw-matrices (n dt)
+      (let* ((nT (* n dt))
+             (c (cos nT))
+             (s (sin nT))
+             (Ad (make-array '(6 6) :element-type 'double-float :initial-element 0.0d0))
+             (Bd (make-array '(6 3) :element-type 'double-float :initial-element 0.0d0)))
+        ;; Populate Ad
+        (setf (aref Ad 0 0) (- 4.0d0 (* 3.0d0 c)))
+        (setf (aref Ad 0 3) (/ s n))
+        (setf (aref Ad 0 4) (/ (* 2.0d0 (- 1.0d0 c)) n))
+        
+        (setf (aref Ad 1 0) (* 6.0d0 (- s nT)))
+        (setf (aref Ad 1 1) 1.0d0)
+        (setf (aref Ad 1 3) (/ (* -2.0d0 (- 1.0d0 c)) n))
+        (setf (aref Ad 1 4) (/ (- (* 4.0d0 s) (* 3.0d0 nT)) n))
+        
+        (setf (aref Ad 2 2) c)
+        (setf (aref Ad 2 5) (/ s n))
+        
+        (setf (aref Ad 3 0) (* 3.0d0 n s))
+        (setf (aref Ad 3 3) c)
+        (setf (aref Ad 3 4) (* 2.0d0 s))
+        
+        (setf (aref Ad 4 0) (* -6.0d0 n (- 1.0d0 c)))
+        (setf (aref Ad 4 3) (* -2.0d0 s))
+        (setf (aref Ad 4 4) (- (* 4.0d0 c) 3.0d0))
+        
+        (setf (aref Ad 5 2) (- (* n s)))
+        (setf (aref Ad 5 5) c)
+
+        ;; Populate Bd
+        (let ((n2 (* n n)))
+          (setf (aref Bd 0 0) (/ (- 1.0d0 c) n2))
+          (setf (aref Bd 0 1) (/ (* 2.0d0 (- nT s)) n2))
+          
+          (setf (aref Bd 1 0) (/ (* -2.0d0 (- nT s)) n2))
+          (setf (aref Bd 1 1) (/ (- (* 4.0d0 (- 1.0d0 c)) (* 1.5d0 nT nT)) n2))
+          
+          (setf (aref Bd 2 2) (/ (- 1.0d0 c) n2))
+          
+          (setf (aref Bd 3 0) (/ s n))
+          (setf (aref Bd 3 1) (/ (* 2.0d0 (- 1.0d0 c)) n))
+          
+          (setf (aref Bd 4 0) (/ (* -2.0d0 (- 1.0d0 c)) n))
+          (setf (aref Bd 4 1) (/ (- (* 4.0d0 s) (* 3.0d0 nT)) n))
+          
+          (setf (aref Bd 5 2) (/ s n)))
+        (values Ad Bd)))
+
+    (comment "--- ASCII Renderer for Along-Track vs Off-Axis Plane ---")
+    (defun render-ascii-plane (history current-state state-idx label)
+      (let* ((width 51)
+             (height 17)
+             (grid (make-array (list height width) :element-type 'character :initial-element #\Space)))
+        ;; Draw corridor boundaries
+        (dotimes (c width)
+          (let* ((y (- (* c 3.0d0) 150.0d0))
+                 (lim (* -0.5d0 y)) ; upper boundary x or z (positive since y <= 0)
+                 (upper-row (round (/ (- 48.0d0 lim) 6.0d0)))
+                 (lower-row (round (/ (- 48.0d0 (- lim)) 6.0d0))))
+            ;; Fill interior with dots
+            (loop for r from (max 0 (1+ upper-row)) to (min (1- height) (1- lower-row)) do
+                 (setf (aref grid r c) #\.))
+            ;; Draw boundaries
+            (when (and (>= upper-row 0) (< upper-row height))
+              (setf (aref grid upper-row c) #\\))
+            (when (and (>= lower-row 0) (< lower-row height))
+              (setf (aref grid lower-row c) #\/))))
+        
+        ;; Draw docking port apex
+        (setf (aref grid 8 50) #\>)
+
+        ;; Draw history
+        (dolist (st history)
+          (let* ((y (elt st 1))
+                 (val (elt st state-idx))
+                 (c (round (/ (+ y 150.0d0) 3.0d0)))
+                 (r (round (/ (- 48.0d0 val) 6.0d0))))
+            (when (and (>= c 0) (< c width) (>= r 0) (< r height))
+              (setf (aref grid r c) #\o))))
+
+        ;; Draw current state
+        (let* ((y (elt current-state 1))
+               (val (elt current-state state-idx))
+               (c (round (/ (+ y 150.0d0) 3.0d0)))
+               (r (round (/ (- 48.0d0 val) 6.0d0))))
+          (when (and (>= c 0) (< c width) (>= r 0) (< r height))
+            (setf (aref grid r c) #\*)))
+
+        ;; Print grid with borders
+        (format t "~%--- ~a plane (Along-track [horizontal] vs Off-axis [vertical]) ---~%" label)
+        (format t " +---------------------------------------------------+~%")
+        (dotimes (r height)
+          (format t " |")
+          (dotimes (c width)
+            (write-char (aref grid r c)))
+          (format t "|~%"))
+        (format t " +---------------------------------------------------+~%")
+        (format t " -150m                                              0m (Docking Port)~%")))
+
+    (comment "--- Main Demo Function ---")
+    (defun run-spacecraft-demo ()
+      "Run the closed-loop 3D spacecraft docking MPC simulation."
+      (let* ((N 30)
+             (nx 6)
+             (nu 3)
+             (nbu 3)
+             (nbx 0)
+             (ng 4)
+             (dt 10.0d0)
+             (mean-motion 0.001107d0) ; LEO mean motion
+             (u-limit 0.05d0)         ; 50 mm/s^2 thruster limit
+             (x0 (make-array 6 :element-type 'double-float :initial-contents '(50.0d0 -150.0d0 25.0d0 0.0d0 0.0d0 0.0d0)))
+             (Q (make-array '(6 6) :element-type 'double-float :initial-contents
+                            '((1.0d0 0.0d0 0.0d0 0.0d0 0.0d0 0.0d0)
+                              (0.0d0 1.0d0 0.0d0 0.0d0 0.0d0 0.0d0)
+                              (0.0d0 0.0d0 1.0d0 0.0d0 0.0d0 0.0d0)
+                              (0.0d0 0.0d0 0.0d0 10.0d0 0.0d0 0.0d0)
+                              (0.0d0 0.0d0 0.0d0 0.0d0 10.0d0 0.0d0)
+                              (0.0d0 0.0d0 0.0d0 0.0d0 0.0d0 10.0d0))))
+             (R (make-array '(3 3) :element-type 'double-float :initial-contents
+                            '((100.0d0 0.0d0 0.0d0)
+                              (0.0d0 100.0d0 0.0d0)
+                              (0.0d0 0.0d0 100.0d0))))
+             ;; Soft constraints specs for 4 general constraints across all stages
+             (soft-specs '((:stage :all :type :general :index 0 :Z-weight 1.0d3 :z-grad 0.0d0)
+                           (:stage :all :type :general :index 1 :Z-weight 1.0d3 :z-grad 0.0d0)
+                           (:stage :all :type :general :index 2 :Z-weight 1.0d3 :z-grad 0.0d0)
+                           (:stage :all :type :general :index 3 :Z-weight 1.0d3 :z-grad 0.0d0))))
+
+        (multiple-value-bind (Ad Bd) (compute-cw-matrices mean-motion dt)
+          (format t "~%=== HPIPM Closed-Loop MPC Demo: 3D Spacecraft Docking ===~%")
+          (format t "LEO Mean Motion n = ~a rad/s, Sampling time dt = ~a s~%" mean-motion dt)
+          (format t "Docking Corridor half-angle: ~a degrees~%" (* (atan 0.5d0) (/ 180.0d0 pi)))
+          (format t "Initial State (x=~a, y=~a, z=~a) meters~%" (aref x0 0) (aref x0 1) (aref x0 2))
+          (format t "Thruster limit: +/- ~a m/s^2~%~%" u-limit)
+
+          (with-mpc-solver (solver :horizon N :nx nx :nu nu :nbu nbu :nbx nbx :ng ng :precision :double :soft-constraints soft-specs)
+            ;; Set system dynamics
+            (set-solver-dynamics solver Ad Bd)
+            
+            ;; Set cost (multiply terminal cost Q by 10)
+            (let ((Q-term (make-array '(6 6) :element-type 'double-float :initial-element 0.0d0)))
+              (dotimes (i 6)
+                (dotimes (j 6)
+                  (setf (aref Q-term i j) (* 10.0d0 (aref Q i j)))))
+              (set-solver-cost solver Q R :terminal-q Q-term))
+
+            ;; Set control bounds uniformly across all stages
+            (set-control-bounds-all-stages solver '(0 1 2) (list (- u-limit) (- u-limit) (- u-limit)) (list u-limit u-limit u-limit))
+
+            ;; Set general corridor constraints for all stages 0..N
+            (let ((C (make-array '(4 6) :element-type 'double-float :initial-element 0.0d0))
+                  (D (make-array '(4 3) :element-type 'double-float :initial-element 0.0d0))
+                  (lg (list 0.0d0 -1.0d5 0.0d0 -1.0d5))
+                  (ug (list 1.0d5 0.0d0 1.0d5 0.0d0)))
+              ;; Radial boundaries:
+              ;; x - 0.5 y >= 0 => Row 0
+              (setf (aref C 0 0) 1.0d0)
+              (setf (aref C 0 1) -0.5d0)
+              ;; x + 0.5 y <= 0 => Row 1
+              (setf (aref C 1 0) 1.0d0)
+              (setf (aref C 1 1) 0.5d0)
+              ;; Cross-track boundaries:
+              ;; z - 0.5 y >= 0 => Row 2
+              (setf (aref C 2 2) 1.0d0)
+              (setf (aref C 2 1) -0.5d0)
+              ;; z + 0.5 y <= 0 => Row 3
+              (setf (aref C 3 2) 1.0d0)
+              (setf (aref C 3 1) 0.5d0)
+              
+              (dotimes (k N)
+                (set-general-constraints solver k C D lg ug))
+              (set-general-constraints solver N C nil lg ug))
+
+            ;; Closed-loop simulation loop
+            (let ((x (make-array 6 :element-type 'double-float :initial-contents x0))
+                  (history nil))
+              (format t " k |    x (m)   |    y (m)   |    z (m)   |   ux (m/s2) |   uy (m/s2) |   uz (m/s2) | iter | status~%")
+              (format t "---+------------+------------+------------+-------------+-------------+-------------+------+--------~%")
+              (dotimes (step 31)
+                (multiple-value-bind (u-traj x-pred status iterations sl-traj su-traj) (solve-mpc solver x)
+                  (declare (ignore x-pred))
+                  (let* ((ux (aref (aref u-traj 0) 0))
+                         (uy (aref (aref u-traj 0) 1))
+                         (uz (aref (aref u-traj 0) 2))
+                         (u (make-array 3 :element-type 'double-float :initial-contents (list ux uy uz))))
+                    (format t "~2d | ~10,4f | ~10,4f | ~10,4f | ~11,6f | ~11,6f | ~11,6f |  ~2d  |   ~a~%"
+                            step (aref x 0) (aref x 1) (aref x 2) ux uy uz iterations status)
+                    (push (coerce x 'list) history)
+                    (if (and (/= status 0) (/= status 1))
+                        (progn
+                          (format t "Solver failed with status ~a at step ~a. Aborting simulation.~%" status step)
+                          (return))
+                        ;; Propagate dynamics
+                        (setf x (propagate-state Ad Bd x u))))))
+              
+              ;; Render terminal visualizations at the end of the simulation
+              (setf history (nreverse history))
+              (render-ascii-plane history (car (last history)) 0 "y-x (Radial)")
+              (render-ascii-plane history (car (last history)) 2 "y-z (Cross-Track)")))))))
+    *source-dir*)
+
+(format t "Generated spacecraft-demo-high.lisp~%")
 (format t "~%=== Generation Complete (gen02.lisp) ===~%")
+

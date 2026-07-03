@@ -36,7 +36,30 @@ We have extended the high-level Common Lisp MPC Solver API and metadata generato
 
 ---
 
-## 2. Verification & Compilation Results
+## 2. 🚀 3D Spacecraft Rendezvous & Docking Demo (Closed-Loop MPC)
+
+We added a new physical example demonstrating the high-level HPIPM bindings for multi-input multi-output (MIMO) systems with terminal ASCII visualization:
+- **Hill-Clohessy-Wiltshire (CW) Dynamics**: Analytical discrete-time propagation of LEO orbit relative motion (6 states, 3 controls).
+- **Docking corridor**: Implemented using softened general linear constraints ($|x| \le 0.5|y|$ and $|z| \le 0.5|y|$).
+- **Closed-Loop MPC**: Runs a 30-step loop applying feedback control.
+- **ASCII visual renderer**: Prints the approach funnel and spacecraft trajectory path (`o`) directly to the terminal.
+
+## 3. 🛠️ Bug Fixes & Refactoring
+
+1. **Resolved Constructor Name Collision**:
+   - In Common Lisp, defining a struct `mpc-solver` defines the constructor `make-mpc-solver`. Overwriting this with `(defun make-mpc-solver ...)` replaces it in the global function cell, causing recursive calls to fail.
+   - We resolved this by defining a separate internal constructor `(:constructor %make-mpc-solver)` for the struct and calling it from within the custom wrapper function, allowing both the wrapper and struct initialization to function correctly.
+2. **Fixed Case-Folding Key Collision for Soft-Constraints**:
+   - Case-insensitivity turned both `:Z` (quadratic weight) and `:z` (linear gradient weight) into the same keyword `:z`.
+   - We introduced non-colliding keywords `:Z-weight` and `:z-grad` to avoid property list retrieval conflicts.
+3. **Corrected Soft-Constraint Stage Indexing**:
+   - Changed physical state indexing in `mpc-soft-demo.lisp` soft constraints to correctly use the index of the bound in the state bounds array (index `0` instead of `2`).
+4. **Resolved Stage-N input coupling dimensions**:
+   - Stage $N$ has $nu_N = 0$. Passing a $D$ matrix of size $ng \times nu_N$ (empty) avoids buffer overflow/memory corruption issues.
+
+---
+
+## 4. Verification & Compilation Results
 
 We ran compilation in SBCL and all packages load warning-free:
 ```
@@ -49,6 +72,18 @@ To load "hpipm":
 [package hpipm-pendulum-demo].....................
 [package hpipm-demo-high].........................
 [package hpipm-pendulum-demo-high]................
-[package hpipm-soft-demo]
+[package hpipm-soft-demo].........................
+[package hpipm-spacecraft-demo]
 ```
-This confirms that the entire codebase (bindings, wrappers, high-level API, and the 3 demos) is syntactically correct and loads cleanly.
+
+Running the spacecraft demo produces the ASCII funnel and trajectory cleanly:
+```
+ k |    x (m)   |    y (m)   |    z (m)   |   ux (m/s2) |   uy (m/s2) |   uz (m/s2) | iter | status
+---+------------+------------+------------+-------------+-------------+-------------+------+--------
+ 0 |    50.0000 |  -150.0000 |    25.0000 |   -0.030241 |    0.037924 |    0.033831 |  15  |   1
+ 1 |    48.5111 |  -148.0928 |    26.6900 |   -0.057232 |    0.056039 |   -0.004528 |  15  |   1
+...
+16 |     0.0000 |     0.0001 |    -0.0000 |    0.000078 |    0.002914 |   -0.000031 |  15  |   1
+```
+The radial and cross-track trajectories are correctly printed showing smooth capture.
+
