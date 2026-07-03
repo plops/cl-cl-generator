@@ -14,7 +14,7 @@ SOURCE_DIR="${SCRIPT_DIR}/source/"
 
 echo "Starting Pure X11 Example Client via SBCL..."
 sbcl --eval "(push \"${SOURCE_DIR}\" asdf:*central-registry*)" \
-     --eval '(ql:quickload :pure-x11-gen)' \
+     --eval '(ql:quickload :pure-x11-gen :force t)' \
      --load "${SOURCE_DIR}/example.lisp" \
      --eval '(pure-x11-gen/example:run-x11-example)' \
      --eval '(quit)'
