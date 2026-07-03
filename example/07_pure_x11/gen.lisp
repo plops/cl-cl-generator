@@ -1235,6 +1235,8 @@
              (loop
                (let ((reply (read-reply-wait)))
                  (let ((code (aref reply 0)))
+                   (format t "Received event code ~a~%" code)
+                   (force-output)
                    (cond
                      ((= code 12) ; Expose
                       (redraw))
