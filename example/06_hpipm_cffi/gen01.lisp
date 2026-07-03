@@ -277,9 +277,13 @@
                (list (lisp-name prec "ocp-qp-dim-set")
                      (lisp-name prec "ocp-qp-set")
                      (lisp-name prec "ocp-qp-sol-get"))
-               ;; Solve + set-default
+               ;; Solve + set-default + status/iter
                (list (lisp-name prec "ocp-qp-ipm-solve")
-                     (lisp-name prec "ocp-qp-ipm-arg-set-default"))
+                     (lisp-name prec "ocp-qp-ipm-arg-set-default")
+                     (lisp-name prec "ocp-qp-ipm-get-status")
+                     (lisp-name prec "ocp-qp-ipm-get-status-val")
+                     (lisp-name prec "ocp-qp-ipm-get-iter")
+                     (lisp-name prec "ocp-qp-ipm-get-iter-val"))
                ;; Dim setter wrappers
                (loop for (field . nil) in *dim-fields*
                      collect (lisp-name prec "ocp-qp-dim-set" field))
@@ -399,7 +403,17 @@
                                ,(lisp-name prec "ocp-qp-ipm-solve"))
                     :void
                   (qp :pointer) (qp-sol :pointer)
-                  (arg :pointer) (ws :pointer))))))
+                  (arg :pointer) (ws :pointer))
+               ;; ipm_get_status
+               `(cffi:defcfun (,(c-name prec "ocp_qp_ipm_get_status")
+                               ,(lisp-name prec "ocp-qp-ipm-get-status"))
+                    :void
+                  (workspace :pointer) (status :pointer))
+               ;; ipm_get_iter
+               `(cffi:defcfun (,(c-name prec "ocp_qp_ipm_get_iter")
+                               ,(lisp-name prec "ocp-qp-ipm-get-iter"))
+                    :void
+                  (workspace :pointer) (iter :pointer))))))
   *source-dir*)
 
 (format t "Generated hpipm-cffi.lisp~%")
@@ -467,13 +481,25 @@
 
          ;; --- Sol getter wrappers ---
          (list `(comment ,(format nil "--- ~a solution getter wrappers ---" prec-doc)))
-         (loop for (field doc) in *sol-fields*
-               collect
-               `(defun ,(lisp-name prec "ocp-qp-sol-get" field) (stage n sol)
-                  ,(format nil "~a N is the number of elements to retrieve." doc)
-                  ,(make-sol-get-body field
-                                     (lisp-name prec "ocp-qp-sol-get")
-                                     cffi-float lisp-float))))))
+         (append
+          (loop for (field doc) in *sol-fields*
+                collect
+                `(defun ,(lisp-name prec "ocp-qp-sol-get" field) (stage n sol)
+                   ,(format nil "~a N is the number of elements to retrieve." doc)
+                   ,(make-sol-get-body field
+                                      (lisp-name prec "ocp-qp-sol-get")
+                                      cffi-float lisp-float)))
+          ;; --- IPM status & iter getters ---
+          (list `(defun ,(lisp-name prec "ocp-qp-ipm-get-status-val") (workspace)
+                   "Retrieve solver status (0 = success, other = failure)."
+                   (cffi:with-foreign-object (ptr :int)
+                     (,(lisp-name prec "ocp-qp-ipm-get-status") workspace ptr)
+                     (cffi:mem-ref ptr :int)))
+                `(defun ,(lisp-name prec "ocp-qp-ipm-get-iter-val") (workspace)
+                   "Retrieve number of IPM iterations."
+                   (cffi:with-foreign-object (ptr :int)
+                     (,(lisp-name prec "ocp-qp-ipm-get-iter") workspace ptr)
+                     (cffi:mem-ref ptr :int))))))))
   *source-dir*)
 
 (format t "Generated hpipm-wrappers.lisp~%")
