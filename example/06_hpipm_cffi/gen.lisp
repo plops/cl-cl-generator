@@ -177,6 +177,14 @@
   "Join PARTS with underscores to form a C function name string."
   (format nil "~{~a~^_~}" (mapcar #'string parts)))
 
+(defun lisp-field-name (field)
+  "Map colliding lowercase C fields (b, q, r) to distinct Lisp names."
+  (cond
+    ((string= field "b") "b-vec")
+    ((string= field "q") "q-vec")
+    ((string= field "r") "r-vec")
+    (t field)))
+
 (defun make-qp-set-body (c-field field-type cffi-set-fn cffi-float lisp-float)
   "Generate the body of a QP setter wrapper function."
   (ecase field-type
@@ -221,7 +229,7 @@
   `(let ((ptr (cffi:foreign-alloc ,cffi-float :count n)))
      (unwind-protect
          (progn
-           (,cffi-get-fn ,c-field stage ptr sol)
+           (,cffi-get-fn ,c-field stage sol ptr)
            (let ((result (make-array n :element-type (quote ,lisp-float))))
              (dotimes (i n)
                (setf (aref result i) (cffi:mem-aref ptr ,cffi-float i)))
@@ -277,7 +285,7 @@
                      collect (lisp-name prec "ocp-qp-dim-set" field))
                ;; QP setter wrappers
                (loop for (field . nil) in *qp-fields*
-                     collect (lisp-name prec "ocp-qp-set" field))
+                     collect (lisp-name prec "ocp-qp-set" (lisp-field-name field)))
                ;; Sol getter wrappers
                (loop for (field . nil) in *sol-fields*
                      collect (lisp-name prec "ocp-qp-sol-get" field)))))))
@@ -376,7 +384,7 @@
          (list `(cffi:defcfun (,(c-name prec "ocp_qp_sol_get")
                                ,(lisp-name prec "ocp-qp-sol-get"))
                     :void
-                  (field :string) (stage :int) (value :pointer) (sol :pointer)))
+                  (field :string) (stage :int) (sol :pointer) (value :pointer)))
 
          ;; ipm_arg_set_default
          (list `(cffi:defcfun (,(c-name prec "ocp_qp_ipm_arg_set_default")
@@ -403,6 +411,12 @@
     ,@(make-header-comments)
     (in-package :hpipm)
 
+    (defun align-pointer (ptr alignment)
+      "Align pointer PTR to ALIGNMENT boundary."
+      (let* ((addr (cffi:pointer-address ptr))
+             (aligned-addr (* (ceiling addr alignment) alignment)))
+        (cffi:make-pointer aligned-addr)))
+
     ,@(loop
         for (prec prec-name cffi-float lisp-float prec-doc) in *precisions*
         append
@@ -416,10 +430,12 @@
                   ,(format nil "Allocate ~a ~a, call FN with struct pointer, then free."
                            prec-doc obj)
                   (let* ((mem-size (,(lisp-name prec obj "memsize") ,@user-params))
-                         (backing (cffi:foreign-alloc :char :count mem-size))
-                         (ptr (cffi:foreign-alloc :char :count +hpipm-struct-size+)))
-                    (,(lisp-name prec obj "create") ,@user-params ptr backing)
-                    (unwind-protect (funcall fn ptr)
+                         (backing (cffi:foreign-alloc :char :count (+ mem-size 64)))
+                         (aligned-backing (align-pointer backing 64))
+                         (ptr (cffi:foreign-alloc :char :count (+ +hpipm-struct-size+ 64)))
+                         (aligned-ptr (align-pointer ptr 64)))
+                    (,(lisp-name prec obj "create") ,@user-params aligned-ptr aligned-backing)
+                    (unwind-protect (funcall fn aligned-ptr)
                       (cffi:foreign-free ptr)
                       (cffi:foreign-free backing)))))
 
@@ -441,7 +457,7 @@
          (list `(comment ,(format nil "--- ~a QP data setter wrappers ---" prec-doc)))
          (loop for (field field-type doc) in *qp-fields*
                collect
-               `(defun ,(lisp-name prec "ocp-qp-set" field) (stage value qp)
+               `(defun ,(lisp-name prec "ocp-qp-set" (lisp-field-name field)) (stage value qp)
                   ,doc
                   ,(make-qp-set-body field field-type
                                      (lisp-name prec "ocp-qp-set")
@@ -578,7 +594,7 @@
                                 (let ((xk (d-ocp-qp-sol-get-x k nx sol)))
                                   (format t "  x[~2d] = [~{~8,4f~^ ~}]~%"
                                           k (coerce xk (quote list)))))
-                              (format t "~%MPC demo complete.~%")))))))))))))
+                              (format t "~%MPC demo complete.~%"))))))))))))))
     *source-dir*))
 
 (format t "Generated mpc-demo.lisp~%")
