@@ -1,6 +1,8 @@
 (defpackage :cl-dockerfile-generator
   (:use :cl)
-  (:export :emit-df :write-df))
+  (:export :emit-df :write-df)
+  (:documentation "Main package for the generated cl-dockerfile-generator library.
+Defines DSL emission (emit-df) and file-writing utilities (write-df)."))
 
 (in-package :cl-dockerfile-generator)
 
@@ -57,19 +59,29 @@
                                                until (char= c delimiter)
                                                do (write-char c out)))))))))
 
-(defparameter *file-hashes* (make-hash-table :test 'equal))
+(defparameter *file-hashes*
+  (make-hash-table :test 'equal)
+  "A global hash table storing the hashes of written files to optimize build times.
+Keys are file names (namestrings), and values are their corresponding sxhash values.")
 
 (declaim (ftype (function (t) string) emit-df))
 
 (defun emit-val (x)
+  "Convert a literal Lisp value into its equivalent Dockerfile string representation.
+- Strings are emitted directly as raw text.
+- Lists are recursively compiled by calling `emit-df`.
+- Symbols and numbers are formatted into their string counterparts."
   (cond
     ((stringp x) x)
-    ((symbolp x) (format nil "~a" x))
-    ((numberp x) (format nil "~a" x))
     ((listp x) (emit-df x))
     (t (format nil "~a" x))))
 
 (defun parse-copy-add-args (args allowed-options)
+  "Separate the positional path arguments (sources and destination) from the keyword options
+(like :from or :chown) in COPY and ADD instructions.
+Returns two values:
+1. A list of positional path arguments.
+2. A plist (property list) containing the recognized keyword options."
   (let (paths plist (lst args))
     (loop while lst
           do (if (and (keywordp (car lst)) (member (car lst) allowed-options))
@@ -82,6 +94,8 @@
     (values (nreverse paths) plist)))
 
 (defun emit-df (code)
+  "The central compiler for the Dockerfile DSL. Recurses through the AST and formats each
+form to produce clean, well-formatted Dockerfile instructions."
   (cond
     ((null code) "")
     ((listp code)
@@ -105,13 +119,10 @@
               (format nil "ARG ~a" (emit-val name)))))
        (env
         (let ((args (cdr code)))
-          (if (and (cdr args) (cddr args))
-              (format nil "ENV ~{~a=~a~^ \\~%    ~}"
-                      (loop for (k v) on args by #'cddr
-                            collect (emit-val k)
-                            collect (emit-val v)))
-              (format nil "ENV ~a=~a" (emit-val (first args))
-                      (emit-val (second args))))))
+          (format nil "ENV ~{~a=~a~^ \\~%    ~}"
+                  (loop for (k v) on args by #'cddr
+                        collect (emit-val k)
+                        collect (emit-val v)))))
        (run
         (let ((args (cdr code)))
           (cond
@@ -161,46 +172,28 @@
        (stopsignal (format nil "STOPSIGNAL ~a" (emit-val (second code))))
        (healthcheck
         (let ((args (cdr code)))
-          (multiple-value-bind (cmd interval timeout start-period
-                                retries) (let (cmd interval timeout
-                                               start-period retries (lst args))
-                                           (loop while lst
-                                                 do (cond
-                                                      ((eq (car lst) :interval)
-                                                       (setf interval
-                                                               (cadr lst)
-                                                             lst (cddr lst)))
-                                                      ((eq (car lst) :timeout)
-                                                       (setf timeout (cadr lst)
-                                                             lst (cddr lst)))
-                                                      ((eq (car lst)
-                                                           :start-period)
-                                                       (setf start-period
-                                                               (cadr lst)
-                                                             lst (cddr lst)))
-                                                      ((eq (car lst) :retries)
-                                                       (setf retries (cadr lst)
-                                                             lst (cddr lst)))
-                                                      (t
-                                                       (setf cmd (car lst)
-                                                             lst (cdr lst)))))
-                                           (values cmd interval timeout
-                                                   start-period retries))
-            (format nil
-                    "HEALTHCHECK~@[ --interval=~a~]~@[ --timeout=~a~]~@[ --start-period=~a~]~@[ --retries=~a~] ~a"
-                    (and interval (emit-val interval))
-                    (and timeout (emit-val timeout))
-                    (and start-period (emit-val start-period))
-                    (and retries (emit-val retries))
-                    (if (listp cmd)
-                        (let ((val (second cmd)))
-                          (if (listp val)
-                              (format nil "~a [~{~s~^, ~}]"
-                                      (emit-val (first cmd))
-                                      (mapcar #'emit-val val))
-                              (format nil "~a ~a" (emit-val (first cmd))
-                                      (emit-val val))))
-                        (emit-val cmd))))))
+          (multiple-value-bind (cmds options) (parse-copy-add-args args
+                                               '(:interval :timeout
+                                                 :start-period :retries))
+            (let ((cmd (car cmds)) (interval (getf options :interval))
+                  (timeout (getf options :timeout))
+                  (start-period (getf options :start-period))
+                  (retries (getf options :retries)))
+              (format nil
+                      "HEALTHCHECK~@[ --interval=~a~]~@[ --timeout=~a~]~@[ --start-period=~a~]~@[ --retries=~a~] ~a"
+                      (and interval (emit-val interval))
+                      (and timeout (emit-val timeout))
+                      (and start-period (emit-val start-period))
+                      (and retries (emit-val retries))
+                      (if (listp cmd)
+                          (let ((val (second cmd)))
+                            (if (listp val)
+                                (format nil "~a [~{~s~^, ~}]"
+                                        (emit-val (first cmd))
+                                        (mapcar #'emit-val val))
+                                (format nil "~a ~a" (emit-val (first cmd))
+                                        (emit-val val))))
+                          (emit-val cmd)))))))
        (cmd
         (let ((val (second code)))
           (if (listp val)
@@ -225,6 +218,10 @@
     (t (emit-val code))))
 
 (defun write-df (filename code &optional ignore-hash)
+  "Write the compiled S-expression AST to the specified file path.
+It calculates the sxhash of the resulting Dockerfile content and checks against `*file-hashes*`
+to determine if the file needs writing. This avoids updating the file modification time (mtime)
+unnecessarily, speeding up builds."
   (let* ((code-str (emit-df code)) (fn-str (namestring filename))
          (code-hash (sxhash code-str)))
     (multiple-value-bind (old-code-hash exists) (gethash fn-str *file-hashes*)
