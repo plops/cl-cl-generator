@@ -29,12 +29,8 @@ WORKDIR /workspace
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Install the essential tool belt for agents
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates git jq build-essential gcc sbcl rlwrap emacs-nox python3-full \
+ && apt-get install -y --no-install-recommends curl ca-certificates git jq build-essential gcc python3-full \
  && rm -rf /var/lib/apt/lists/*
-# Install rustup and stable Rust toolchain
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
- && chmod -R a+w /root/.rustup
-ENV PATH=/root/.cargo/bin:$PATH
 # Copy the isolated Python environment
 COPY --from=builder /workspace/.venv /workspace/.venv
 ENV PATH=/workspace/.venv/bin:$PATH
@@ -43,38 +39,6 @@ COPY --from=builder /root/.local/bin/agy /usr/local/bin/agy
 # Add the Antigravity clean environment tweaks and dangerous CLI alias to .bashrc
 RUN echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1="\$ "; fi' >> /root/.bashrc \
  && echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc
-# Copy other AI CLI tools from the build context
-COPY bin/codex /usr/local/bin/codex
-COPY bin/copilot /usr/local/bin/copilot
-COPY bin/kiro-cli /usr/local/bin/kiro-cli
-# Ensure executive permissions for copied CLI tools
-RUN chmod +x /usr/local/bin/codex \
- && chmod +x /usr/local/bin/copilot \
- && chmod +x /usr/local/bin/kiro-cli
-# Download and install Quicklisp
-RUN curl -O https://beta.quicklisp.org/quicklisp.lisp \
- && sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)" \
- && rm quicklisp.lisp
-# Configure Quicklisp in .sbclrc
-COPY <<EOF /root/.sbclrc
-#-quicklisp
- (let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
-   (when (probe-file quicklisp-init)
-     (load quicklisp-init)))
- 
-EOF
-# Pre-create local-projects symlinks (which resolve dynamically when /workspace/src is mounted)
-RUN mkdir -p /root/quicklisp/local-projects \
- && ln -s /workspace/src/cl-py-generator /root/quicklisp/local-projects/cl-py-generator \
- && ln -s /workspace/src/cl-cpp-generator2 /root/quicklisp/local-projects/cl-cpp-generator2 \
- && ln -s /workspace/src/cl-rust-generator /root/quicklisp/local-projects/cl-rust-generator
-# Pre-fetch and cache Quicklisp systems and common dependencies
-RUN sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quickload "quicklisp-slime-helper")' --eval '(ql:quickload "alexandria")' --eval '(ql:quickload "jonathan")' --eval '(ql:quickload "external-program")' --eval '(ql:quickload "cl-ppcre")'
-# Pre-install Emacs packages
-RUN emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(dolist (pkg '(cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (package-install pkg))"
-# Copy the modified .emacs configuration from the build context if present
-# Note: In real usage, ensure .emacs exists in the build context directory
-COPY .emacs /root/.emacs
-VOLUME ["/workspace/src", "/root/.config", "/root/.cache", "/root/.gemini", "/root/.cargo"]
+VOLUME ["/workspace/src", "/root/.config", "/root/.cache", "/root/.gemini"]
 # Default to launching a bash shell
 CMD ["/bin/bash"]

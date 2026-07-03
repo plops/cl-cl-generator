@@ -11,19 +11,19 @@
 
 ;; Enable or disable components to build minimal images
 (defparameter *install-gcc* t)
-(defparameter *install-sbcl* t)
-(defparameter *install-emacs* t)
+(defparameter *install-sbcl* nil)
+(defparameter *install-emacs* nil)
 (defparameter *install-python* t)
 (defparameter *install-python-libs* t) ; google-antigravity SDK
 
 ;; Toggle AI CLI tools
 (defparameter *install-agy* t)
-(defparameter *install-codex* t)
-(defparameter *install-copilot* t)
-(defparameter *install-kiro-cli* t)
+(defparameter *install-codex* nil)
+(defparameter *install-copilot* nil)
+(defparameter *install-kiro-cli* nil)
 
 ;; Toggle Rust support
-(defparameter *install-rust* t)
+(defparameter *install-rust* nil)
 (defparameter *rust-cache-volume* t)
 
 
