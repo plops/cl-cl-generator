@@ -1,0 +1,9 @@
+- `[x]` Align on design via /grill-me
+- `[x]` Create generator script `/workspace/src/cl-cl-generator/example/07_pure_x11/gen.lisp` with:
+  - Specification of 18+ X11 requests
+  - Specification of 5 X11 events
+  - Functions emitting request and event parser definitions
+  - Splicing and metadata headers
+- `[x]` Run generator script to produce source files in `/workspace/src/cl-cl-generator/example/07_pure_x11/source/`
+- `[x]` Validate the generated library compiles and loads in SBCL
+- `[x]` Create walkthrough artifact summarizing the results
