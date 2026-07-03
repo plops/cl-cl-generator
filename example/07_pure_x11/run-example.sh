@@ -8,9 +8,13 @@ if [ -z "$DISPLAY" ]; then
     exit 1
 fi
 
+# Resolve absolute path to the directory containing this script
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+SOURCE_DIR="${SCRIPT_DIR}/source/"
+
 echo "Starting Pure X11 Example Client via SBCL..."
-sbcl --eval '(push "/workspace/src/cl-cl-generator/example/07_pure_x11/source/" asdf:*central-registry*)' \
+sbcl --eval "(push \"${SOURCE_DIR}\" asdf:*central-registry*)" \
      --eval '(ql:quickload :pure-x11-gen)' \
-     --load '/workspace/src/cl-cl-generator/example/07_pure_x11/source/example.lisp' \
+     --load "${SOURCE_DIR}/example.lisp" \
      --eval '(pure-x11-gen/example:run-x11-example)' \
      --eval '(quit)'
