@@ -49,6 +49,11 @@ We updated [README.md](file:///home/kiel/stage/cl-cl-generator/example/05_docker
   - Disabled `*install-rust*` and generated the Dockerfile.
   - Verified using `git status` that the resulting file had exactly 0 changes relative to the upstream code repository, confirming perfect backward compatibility.
 
+### Compilation Verification:
+- **Workspace Build (`rs-summarizer` & `viz-tool`)**:
+  - Ran `cargo build --workspace` inside the container using the persistent volume `my-ai-env-cargo-cache`.
+  - The build completed successfully, downloading and compiling all dependencies (including `fast-umap` and `viz-tool`) and target artifacts in `37.57s` inside the clean container environment.
+
 ### Git Commits
 All changes have been successfully committed to the repository with descriptive conventional messages:
 1. `feat: add toggleable rust installation via rustup`
