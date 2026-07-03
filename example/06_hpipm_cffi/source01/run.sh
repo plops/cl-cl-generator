@@ -1,0 +1,2 @@
+STAGE=/home/kiel/stage
+LD_LIBRARY_PATH=$STAGE/cl-py-generator/example/171_casadi/.venv/lib/python3.14/site-packages/casadi/ sbcl --noinform --non-interactive --eval '(push "/home/kiel/stage/cl-cl-generator/example/06_hpipm_cffi/source01/" asdf:*central-registry*)' --eval '(ql:quickload :hpipm)' --load $STAGE/cl-cl-generator/example/06_hpipm_cffi/source01/mpc-demo.lisp --eval '(hpipm-demo:run-mpc-demo)'
