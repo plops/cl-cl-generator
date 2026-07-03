@@ -1234,7 +1234,7 @@
              (format t "Entering event loop. Press Ctrl+C to exit.~%")
              (loop
                (let ((reply (read-reply-wait)))
-                 (let ((code (aref reply 0)))
+                 (let ((code (logand (aref reply 0) #x7f)))
                    (format t "Received event code ~a~%" code)
                    (force-output)
                    (cond
