@@ -46,7 +46,7 @@ When this layout is compiled, we create **one single top-level X11 window** (red
 
 ## 3. Spatial Event Assignment Algorithms
 
-### A. 2D Quadtree for Mouse Hit-Testing
+### A. 2D Quadtree for Mouse Hit-Testing (Zero-Latency Event Dispatch)
 To handle mouse hover, clicks, and dragging efficiently without X11 subwindows:
 1.  **Quadtree Structure**: The client builds a 2D Quadtree in memory containing the bounding boxes of all widgets.
 2.  **Zero-Latency Routing**:
@@ -67,43 +67,24 @@ Determining focus shift (e.g., when the user presses Arrow Keys `Up/Down/Left/Ri
 
 ---
 
-## 4. Bulletproof Widget State Machines
+## 4. Window Resizing & Programming Paradigms
 
-To make input widgets robust under high latency and quick mouse movements:
+When the user resizes the window, the X server sends a `ConfigureNotify` event containing the new window width and height. How the GUI handles recalculating widget layouts and coordinates depends on the programming paradigm.
 
-### A. Button State Machine
-*   **States**:
-    *   `Idle`: Normal raised bevel.
-    *   `Hover`: Mouse is over. (Optional: draw highlighted background).
-    *   `Pressed`: Mouse button 1 is down inside the button. Sunken bevel.
-    *   `Pressed-Outside`: Mouse button 1 is down, but the user dragged the cursor outside the button. Raised bevel.
-*   **Transitions**:
-    *   `EnterNotify` (while mouse button is up): `Idle` -> `Hover`
-    *   `LeaveNotify` (while mouse button is up): `Hover` -> `Idle`
-    *   `ButtonPress` (while in `Hover`): `Hover` -> `Pressed`. (Draw sunken bevel).
-    *   `LeaveNotify` (while in `Pressed`): `Pressed` -> `Pressed-Outside`. (Draw raised bevel, do not trigger action).
-    *   `EnterNotify` (while in `Pressed-Outside`): `Pressed-Outside` -> `Pressed`. (Draw sunken bevel).
-    *   `ButtonRelease`:
-        *   If in `Pressed`: Trigger `on-click` callback, go to `Hover`.
-        *   If in `Pressed-Outside`: Go to `Idle` (cancel action).
+### A. Paradigm Comparison:
+*   **Object-Oriented (OO)**: Widgets are stateful objects with layout bounds. Resizing recursively calls `.resize(new-w, new-h)` on layout managers.
+    *   *Problem*: Leads to scattered, mutable state and layout synchronization bugs.
+*   **Functional Reactive Programming (FRP)**: Window size is modeled as a continuous signal (`window-size-stream`). Widget sizes are derived signals that propagate changes dynamically.
+    *   *Problem*: Elegant, but can introduce performance overhead during high-frequency drag-to-resize events.
+*   **Declarative Virtual Render (Elm Architecture)**:
+    *   The UI is declared as a pure function of the window size and client state: `(render-ui width height state)`.
+    *   *Solution*: This is the ideal match. The layout is rebuilt entirely from scratch upon resizing, and the spatial databases (Quadtree & Delaunay graph) are recomputed in memory.
 
-### B. Checkbox State Machine
-*   Inherits the button state machine for clicking.
-*   Maintains a boolean state `checked-p`.
-*   Draws a 3D inset box. When `checked-p` is true, draws an "X" or a filled inner box using `PolyFillRectangle`.
-
-### C. Text Input Field State Machine
-*   **States**:
-    *   `Unfocused`: Static text. Cursor is hidden.
-    *   `Focused`: Cursor is visible and blinking. Keyboard input is active.
-*   **Transitions**:
-    *   `ButtonPress` inside the text field: Client sends `SetInputFocus` to the subwindow.
-    *   `FocusIn` (sent by server): Transition to `Focused`, draw cursor.
-    *   `FocusOut` (sent by server): Transition to `Unfocused`, hide cursor.
-*   **Keyboard Handling (Focused State)**:
-    *   The client maps KeyCodes to KeySyms once at startup via `GetKeyboardMapping`.
-    *   `KeyPress` events contain the `state` bitmask (tracking `Shift`, `Control`, `Caps Lock`).
-    *   *Printable Characters*: Insert at cursor index, advance cursor, trigger redraw.
-    *   *Backspace*: Delete char before cursor, decrement cursor index, redraw.
-    *   *Left / Right Arrows*: Move cursor index locally without network roundtrips.
-    *   *Return*: Trigger `on-submit` callback.
+### B. Declarative Resizing Flow:
+1.  **ConfigureNotify Event (Resize)**:
+    *   Update local variables `*window-width*` and `*window-height*` to the new dimensions.
+    *   Call the user's pure layout function: `(setf *current-layout* (render-ui *window-width* *window-height* *state*))`.
+    *   Rebuild the **Quadtree** and **Delaunay Triangulation** with the new absolute coordinates.
+    *   Issue a `ClearArea` request (with `exposures = True`) to clear the canvas on the server side and trigger a full redraw.
+2.  **Expose Event (Redraw)**:
+    *   Traverse `*current-layout*` and render each widget asynchronously (with zero synchronous network queries).
