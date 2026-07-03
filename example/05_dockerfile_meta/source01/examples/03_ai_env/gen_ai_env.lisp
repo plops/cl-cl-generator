@@ -22,6 +22,11 @@
 (defparameter *install-copilot* t)
 (defparameter *install-kiro-cli* t)
 
+;; Toggle Rust support
+(defparameter *install-rust* t)
+(defparameter *rust-cache-volume* t)
+
+
 ;; Helper function to copy Astral's uv
 (defun uv-copy-stage ()
   `(copy "/uv" "/uvx" "/bin/" :from "ghcr.io/astral-sh/uv:latest"))
@@ -59,7 +64,7 @@
 
 (defun runner-stage ()
   (let ((apt-packages '("curl" "ca-certificates" "git" "jq")))
-    (when *install-gcc*
+    (when (or *install-gcc* *install-rust*)
       (setf apt-packages (append apt-packages '("build-essential" "gcc"))))
     (when *install-sbcl*
       (setf apt-packages (append apt-packages '("sbcl" "rlwrap"))))
@@ -82,6 +87,13 @@
       (run (and "apt-get update"
                 ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" apt-packages)
                 "rm -rf /var/lib/apt/lists/*"))
+      
+      ;; Install Rustup and the stable Rust toolchain if enabled
+      ,@(when *install-rust*
+          `((comment "Install rustup and stable Rust toolchain")
+            (run (and "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable"
+                      "chmod -R a+w /root/.rustup"))
+            (env PATH "/root/.cargo/bin:$PATH")))
       
       ;; 1. Copy Python virtualenv if python libs are enabled
       ,@(when *install-python-libs*
@@ -149,7 +161,10 @@
             (copy ".emacs" "/root/.emacs")))
       
       ;; 6. Define Volumes for sharing configs, logins, caches, and source files
-      (volume ("/workspace/src" "/root/.config" "/root/.cache" "/root/.gemini"))
+      (volume ,(let ((vols '("/workspace/src" "/root/.config" "/root/.cache" "/root/.gemini")))
+                 (if (and *install-rust* *rust-cache-volume*)
+                     (append vols '("/root/.cargo"))
+                     vols)))
       
       (comment "Default to launching a bash shell")
       (cmd ("/bin/bash")))))
