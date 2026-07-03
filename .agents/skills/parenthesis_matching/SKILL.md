@@ -11,43 +11,81 @@ This guide documents three highly effective techniques to quickly pinpoint and r
 
 ---
 
-## 1. Python line-by-line parenthesis depth counter
+## 1. Python full-file Lisp parenthesis parser
 
-A quick way to find mismatched parentheses is to run a script that counts open and close parentheses line-by-line and prints the cumulative depth. This will highlight exactly where the nesting level increases or decreases incorrectly.
+A quick way to find mismatched parentheses is to run a script that parses the file character-by-character, keeping track of multi-line strings, escaped characters, and comments, and printing the line-by-line depth of each top-level form.
 
 ### Script snippet:
 ```python
-import re
+def parse_lisp_depth(filepath):
+    with open(filepath, 'r') as f:
+        content = f.read()
 
-with open("path/to/file.lisp", "r") as f:
-    lines = f.readlines()
-
-depth = 0
-for idx, line in enumerate(lines):
-    # Remove format strings, double-quoted strings, and comment lines
-    clean_line = ""
     in_string = False
+    in_comment = False
+    escaped = False
+    depth = 0
+    line_num = 1
+    col_num = 1
+    top_level_start = None
+    
     i = 0
-    while i < len(line):
-        if line[i] == ";" and not in_string:
-            break
-        elif line[i] == '"' and (i == 0 or line[i-1] != '\\'):
-            in_string = not in_string
-        elif not in_string:
-            clean_line += line[i]
+    while i < len(content):
+        char = content[i]
+        if char == '\n':
+            line_num += 1
+            col_num = 1
+        else:
+            col_num += 1
+            
+        if escaped:
+            escaped = False
+            i += 1
+            continue
+        if char == '\\':
+            escaped = True
+            i += 1
+            continue
+        if in_string:
+            if char == '"':
+                in_string = False
+            i += 1
+            continue
+        if in_comment:
+            if char == '\n':
+                in_comment = False
+            i += 1
+            continue
+        if char == ';':
+            in_comment = True
+            i += 1
+            continue
+        if char == '"':
+            in_string = True
+            i += 1
+            continue
+            
+        if char == '(':
+            if depth == 0:
+                top_level_start = (line_num, col_num)
+            depth += 1
+        elif char == ')':
+            depth -= 1
+            if depth < 0:
+                print(f"Error: unmatched close parenthesis at line {line_num}, col {col_num}")
+                depth = 0
+            elif depth == 0:
+                print(f"Successfully closed top-level form starting at {top_level_start} (ended at line {line_num}, col {col_num})")
         i += 1
-    
-    opens = clean_line.count('(')
-    closes = clean_line.count(')')
-    depth += opens - closes
-    
-    # Print lines that change the depth or contain parentheses
-    if opens > 0 or closes > 0:
-        print(f"{idx+1:3d} (Depth: {depth:2d}) | +{opens} -{closes} | {line.strip()}")
+        
+    if depth > 0:
+        print(f"Error: EOF reached with depth {depth}. Unclosed form starts at {top_level_start}")
+
+parse_lisp_depth("path/to/file.lisp")
 ```
 
 ### How to use:
-Look at the output and trace the cumulative depth column. If you see the depth drop unexpectedly or end at a non-zero value at the end of a top-level form or the file, the mismatched parenthesis is located right on or immediately before that line.
+Look at the output. If a form fails to close or has unmatched parentheses, the parser will print an error message indicating the exact line and column numbers.
 
 ---
 

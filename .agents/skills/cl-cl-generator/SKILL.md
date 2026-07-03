@@ -151,3 +151,10 @@ Always ensure the generator script quickloads all dependencies of the target fil
   (ql:quickload '(:cl-cl-generator :cl-py-generator :jonathan :cl-ppcre)))
 ```
 
+### 4. Nesting Templates via Raw String Escaping (`(raw "...")`)
+When generating helper macros or utilities that themselves contain backquotes, commas, or other reader-splicing commands, the outer generator's S-expression reader will evaluate them prematurely. 
+To bypass this, represent those code blocks as literal strings wrapped inside `(raw "...")` forms. This writes the macro definitions verbatim to the output file.
+
+### 5. Special Variable Defaults in Lambda Lists
+In transpiler templates, if a generated function defaults an argument to a special or global dynamic variable (e.g. `(gc *gc*)`), do **not** quote the variable. Default expressions in `defun` lambda lists are evaluated at runtime call-time rather than compile/load-time, avoiding symbol-to-value type errors during serialization.
+
