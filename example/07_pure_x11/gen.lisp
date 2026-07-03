@@ -743,10 +743,20 @@
          ,@body))))
 ")
 
+           (defun read-exactly (stream buf &optional (start 0) (end (length buf)))
+             "Read exactly from start to end bytes from stream into buf, blocking if necessary."
+             (let ((pos start))
+               (loop while (< pos end) do
+                 (let ((n (read-sequence buf stream :start pos :end end)))
+                   (if (= n pos)
+                       (error "EOF on socket stream")
+                       (setf pos n))))
+               buf))
+
            (defun read-reply-wait ()
              "Read standard 32-byte reply header and optional variable-length body from *s*."
              (let* ((buf (make-array 32 :element-type '(unsigned-byte 8))))
-               (read-sequence buf *s*)
+               (read-exactly *s* buf)
                (with-reply buf
                  (let ((reply (card8))
                        (unused (card8))
@@ -758,13 +768,13 @@
                            (and (= reply 1) (= 0 reply-length)))
                        (values buf sequence-number)
                        (let ((m (make-array (* 4 reply-length) :element-type '(unsigned-byte 8))))
-                         (read-sequence m *s*)
+                         (read-exactly *s* m)
                          (values (concatenate '(vector (unsigned-byte 8)) buf m) sequence-number)))))))
 
            (defun read-connection-response ()
              "Read the initial connection response from X server."
              (let ((buf (make-array 8 :element-type '(unsigned-byte 8))))
-               (sb-sys:read-n-bytes *s* buf 0 (length buf))
+               (read-exactly *s* buf)
                (with-reply buf
                  (let ((success-state (card8))
                        (length-of-reason (card8))
@@ -774,7 +784,7 @@
                    (let ((m (make-array (+ 8 (* 4 reply-length)) :element-type '(unsigned-byte 8))))
                      (dotimes (i 8)
                        (setf (aref m i) (aref buf i)))
-                     (sb-sys:read-n-bytes *s* m 8 (* 4 reply-length))
+                     (read-exactly *s* m 8 (+ 8 (* 4 reply-length)))
                      (ecase success-state
                        (0 (error "Connection failed"))
                        (2 (error "Authentication required"))
