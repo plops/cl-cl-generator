@@ -178,11 +178,15 @@
   (format nil "~{~a~^_~}" (mapcar #'string parts)))
 
 (defun lisp-field-name (field)
-  "Map colliding lowercase C fields (b, q, r) to distinct Lisp names."
+  "Map colliding lowercase C fields (b, q, r) and case-colliding slacks to distinct Lisp names."
   (cond
     ((string= field "b") "b-vec")
     ((string= field "q") "q-vec")
     ((string= field "r") "r-vec")
+    ((string= field "Zl") "Zl-mat")
+    ((string= field "Zu") "Zu-mat")
+    ((string= field "zl") "zl-vec")
+    ((string= field "zu") "zu-vec")
     (t field)))
 
 (defun make-qp-set-body (c-field field-type cffi-set-fn cffi-float lisp-float)

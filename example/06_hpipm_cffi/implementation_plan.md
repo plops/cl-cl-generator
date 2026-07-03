@@ -1,96 +1,78 @@
-# Implementation Plan: Lisp-mäßiges Interface für HPIPM CFFI (Unified in source01/)
+# Implementation Plan: Soft-Constraints & General Constraints im High-Level HPIPM Interface
 
-Wir implementieren das Lisp-freundliche High-Level-Interface direkt integriert im Ordner `source01/`. Dabei teilen wir die Arbeit wie folgt auf:
-1. **`gen01.lisp` erweitern**: Wir fügen die CFFI-Bindings für `get_status` und `get_iter` (ermittelt und verifiziert via DeepWiki für `giaf/hpipm`) hinzu und regenerieren `source01/`.
-2. **`gen02.lisp` erstellen**: Dieser Generator erzeugt ausschließlich das High-Level-Interface und die neuen Demos und schreibt diese ebenfalls nach `source01/`. Gleichzeitig überschreibt `gen02.lisp` die Dateien `package.lisp` und `hpipm.asd` in `source01/`, um beide Welten (Low- und High-Level) nahtlos in einem System zu vereinen.
-
----
+Wir erweitern das Lisp-mäßige High-Level-Interface in [hpipm-high.lisp](file:///workspace/src/cl-cl-generator/example/06_hpipm_cffi/source01/hpipm-high.lisp) um die Unterstützung für fortgeschrittene HPIPM-Features und erstellen eine physikerfreundliche Dokumentation.
 
 ## Proposed Changes
 
-### 1. Modifikationen an gen01 und Low-Level Regeneration
-#### [MODIFY] gen01.lisp
-- Hinzufügen von `get_status` CFFI-Bindings (`d_ocp_qp_ipm_get_status` / `s_ocp_qp_ipm_get_status`).
-- Hinzufügen von `get_iter` CFFI-Bindings (`d_ocp_qp_ipm_get_iter` / `s_ocp_qp_ipm_get_iter`).
-- Hinzufügen der Wrapper-Funktionen `get-status-val` und `get-iter-val`.
-- Exportieren dieser Symbole in `package.lisp`.
+### Generator-Skript
+#### [MODIFY] [gen02.lisp](file:///workspace/src/cl-cl-generator/example/06_hpipm_cffi/gen02.lisp)
+- Erweiterung des Templates für `hpipm-high.lisp` (Struktur `mpc-solver` um Soft-Constraints-Verarbeitung erweitern, Implementierung der neuen Batch-Setter und Anpassung von `solve-mpc`).
+- Erstellung eines neuen Demos `mpc-soft-demo.lisp`, welches die Funktionsweise von Soft-Constraints demonstriert.
+- ASDF-System-Datei `hpipm.asd` aktualisieren, um `mpc-soft-demo` aufzunehmen.
+- Export-Liste in `package.lisp` um die neuen Setter erweitern.
 
-### 2. High-Level Generator und neue Dateien
-#### [NEW] gen02.lisp
-Der Generator für die High-Level-Komponenten. Er generiert folgende Dateien in source01/:
-- **`hpipm-high.lisp`**: Das Lisp-mäßige Interface (Struktur `mpc-solver`, Konstruktor/Destruktor, `with-mpc-solver`-Makro, Setter/Getter, `solve-mpc`).
-- **`mpc-demo-high.lisp`**: Das MSD-Demo, umgeschrieben auf das High-Level-Interface.
-- **`pendulum-demo-high.lisp`**: Das Pendel-Demo, umgeschrieben auf das High-Level-Interface.
-- **`package.lisp` [Overwrite]**: Aktualisierte Exportliste, die alle Low-Level-Symbole sowie alle neuen High-Level-Symbole exportiert.
-- **`hpipm.asd` [Overwrite]**: Aktualisiertes ASDF-System, das alle 8 Lisp-Dateien in der richtigen Abhängigkeitsreihenfolge lädt.
+### Dokumentation
+#### [NEW] [solver_guide_physics.md](file:///workspace/src/cl-cl-generator/example/06_hpipm_cffi/solver_guide_physics.md)
+Eine ausführliche Dokumentation des Interfaces, geschrieben für Physiker. Sie verzichtet auf Control-Theory-Jargon und numerische Mathematik (wie ADMM/IPM, tridiagonale Sparsität, Workspace-Allokationen) und erklärt den Solver stattdessen aus der Sicht von physikalischer Zustandsmodellierung, Differentialgleichungen, Energiefunktionen (Kosten) und elastischen Grenzen (Soft-Constraints).
 
 ---
 
-## Technical Design of the High-Level API (in `hpipm-high.lisp`)
+## Technical Design
 
-### 1. Solver-Datenstruktur (`mpc-solver`)
-Wir definieren eine Lisp-Struktur, die alle 5 HPIPM-Datenstrukturen und ihre Speicherallokationen kapselt:
+### 1. Soft-Constraints Deklaration (in `make-mpc-solver`)
+Der Benutzer kann beim Erstellen des Solvers Soft-Constraints übergeben:
 ```lisp
-(defstruct mpc-solver
-  precision    ; :double oder :single
-  horizon      ; N
-  nx           ; Liste der nx-Werte pro Stufe
-  nu           ; Liste der nu-Werte pro Stufe
-  dim-ptr      ; Foreign Pointer auf dim
-  qp-ptr       ; Foreign Pointer auf qp
-  sol-ptr      ; Foreign Pointer auf sol
-  arg-ptr      ; Foreign Pointer auf arg
-  ws-ptr       ; Foreign Pointer auf ws
-  allocations) ; Liste aller allokierten backing-Pointern zur späteren Freigabe
+(make-mpc-solver
+  :horizon N
+  :nx nx
+  :nu nu
+  :soft-constraints '((:stage :all :type :state :index 2 :Z 1e4 :z 0.0)
+                      (:stage :terminal :type :state :index 0 :Z 1e5 :z 0.0)))
 ```
 
-### 2. Hilfsfunktion zur Allokierung aligned Structures
+#### Verarbeitung im Konstruktor:
+1. **Shorthand-Expansion**: Symbolic Stages (`:all`, `:terminal`, `:path`) werden in konkrete Stufenindizes $k \in \{0 \dots N\}$ aufgelöst.
+2. **Slack-Dimensionen (`ns`)**: Für jede Stufe $k$ entspricht `ns[k]` der Anzahl der dieser Stufe zugeordneten Soft-Constraints. Wir setzen diese Dimension in `dim-ptr` über `d-ocp-qp-dim-set-ns`.
+3. **Problem-Daten (`qp`)**:
+   - Für jede Stufe $k$ mit `ns[k] > 0`:
+     - Wir erstellen das Index-Array `idxs`. Ein Constraint-Index wird wie folgt berechnet:
+       - Für `:type :input`: `index`
+       - Für `:type :state`: `nbu[k] + index`
+       - Für `:type :general`: `nbu[k] + nbx[k] + index`
+     - Wir erstellen die Strafterm-Vektoren `Zl`, `Zu` (quadratisch) und `zl`, `zu` (linear) der Länge `ns[k]`.
+     - Wir allokieren `lls` und `lus` und setzen sie auf $0.0$, um die Nichtnegativität der Slacks zu garantieren.
+     - Wir rufen die Setter `d-ocp-qp-set-idxs`, `d-ocp-qp-set-Zl`, `d-ocp-qp-set-Zu`, `d-ocp-qp-set-zl`, `d-ocp-qp-set-zu`, `d-ocp-qp-set-lls`, `d-ocp-qp-set-lus` auf.
+
+### 2. General Constraints Setter
+Wir stellen folgende High-Level-Funktionen bereit, um $lg \le C_k x_k + D_k u_k \le ug$ zu definieren:
+- `(set-general-constraints solver stage C D lg ug)`
+- `(set-solver-general-constraints solver C D lg ug)` (uniform über alle Stufen)
+
+Falls `C` oder `D` `nil` sind, erzeugen wir automatisch eine Nullmatrix der passenden Größe ($n_g \times n_x$ bzw. $n_g \times n_u$).
+
+### 3. Solver-Aufruf und Slack-Rückgabe (in `solve-mpc`)
+`solve-mpc` gibt nun 6 Werte zurück:
 ```lisp
-(defun allocate-hpipm-struct (memsize-fn create-fn create-args)
-  (let* ((mem-size (apply memsize-fn create-args))
-         (backing (cffi:foreign-alloc :char :count (+ mem-size 64)))
-         (aligned-backing (align-pointer backing 64))
-         (ptr (cffi:foreign-alloc :char :count (+ +hpipm-struct-size+ 64)))
-         (aligned-ptr (align-pointer ptr 64)))
-    (apply create-fn (append create-args (list aligned-ptr aligned-backing)))
-    (values aligned-ptr ptr backing)))
+(values u-trajectory x-trajectory status iterations sl-trajectory su-trajectory)
 ```
-
-### 3. Konstruktor und Destruktor
-- `(make-mpc-solver &key horizon nx nu nbu nbx ng (precision :double) (mode :balance))`
-  - Automatische Expansion von Skalaren zu stufenweisen Listen.
-  - Allokiert und und initialisiert nacheinander `dim`, `qp`, `sol`, `arg` und `ws`.
-- `(free-mpc-solver solver)`
-  - Gibt alle allokierten Zeiger in `allocations` via `cffi:foreign-free` frei.
-- `(with-mpc-solver (solver-var &rest args) &body body)`
-  - Makro zur automatischen Speicherbereinigung (`unwind-protect`).
-
-### 4. Setter/Getter und Solver-Aufruf
-- `(set-solver-stage-dynamics solver stage A B)` / `(set-solver-dynamics solver A B)`
-- `(set-solver-stage-cost solver stage Q R &key S)` / `(set-solver-cost solver Q R &key terminal-q)`
-- `(set-control-bounds solver index min max)`
-- `(set-state-bounds solver stage indices min-values max-values)`
-- `(solve-mpc solver x0)`
-  - Setzt Startbedingung $x(0) = x_0$.
-  - Löst das QP und fragt den Status (`get-status-val`) und die Iterationen (`get-iter-val`) ab.
-  - Extrahiert und gibt Trajektorien zurück: `(values u-trajectory x-trajectory status iterations)`.
+- `sl-trajectory`: Vektor von double-Vektoren der Länge `ns[k]` für die optimalen unteren Slacks $s_l^*$ an jeder Stufe.
+- `su-trajectory`: Vektor von double-Vektoren der Länge `ns[k]` für die optimalen oberen Slacks $s_u^*$ an jeder Stufe.
 
 ---
 
 ## Verification Plan
 
-1. **`gen01.lisp` anpassen und ausführen**:
-   ```bash
-   sbcl --load gen01.lisp --eval '(quit)'
-   ```
-2. **`gen02.lisp` erstellen und ausführen**:
+1. **Codegenerierung anstoßen**:
    ```bash
    sbcl --load gen02.lisp --eval '(quit)'
    ```
-3. **Kompilierbarkeit des Gesamtsystems testen**:
+2. **Kompilierung & Laden im FFI-Mock-Modus verifizieren**:
    ```bash
-   sbcl --eval '(push "/workspace/src/cl-cl-generator/example/06_hpipm_cffi/source01/" asdf:*central-registry*)' \
+   sbcl --eval '(ql:quickload :cffi)' \
+        --eval '(setf (fdefinition (quote cffi:load-foreign-library)) (lambda (name &key &allow-other-keys) (declare (ignore name)) t))' \
+        --eval '(push "/workspace/src/cl-cl-generator/example/06_hpipm_cffi/source01/" asdf:*central-registry*)' \
         --eval '(ql:quickload :hpipm)' \
         --eval '(quit)'
    ```
-   Dies stellt sicher, dass alle 8 Dateien fehlerfrei geladen und kompiliert werden können.
+3. **Dokumentation prüfen**:
+   Manuelle Sichtung von `solver_guide_physics.md` zur Sicherstellung der Verständlichkeit für Nicht-Experten.

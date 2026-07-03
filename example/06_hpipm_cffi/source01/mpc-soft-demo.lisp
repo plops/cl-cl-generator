@@ -2,16 +2,16 @@
 ;; Generated: 2026-07-03 20:29:49
 ;; Git:       8b1a709f5be52303faf4a78d13929db1732945d3
 ;; ================================================================================
-;;  MPC Demo (High-Level API): Coupled Mass-Spring-Damper System
+;;  MPC Demo with Soft-Constraints: Coupled Mass-Spring-Damper System
 ;; ================================================================================
-(defpackage :hpipm-demo-high
+(defpackage :hpipm-soft-demo
   (:use :cl :hpipm)
-  (:export :run-mpc-demo))
+  (:export :run-soft-demo))
 
-(in-package :hpipm-demo-high)
+(in-package :hpipm-soft-demo)
 
-(defun run-mpc-demo ()
-  "Run the coupled mass-spring-damper MPC simulation using the high-level API."
+(defun run-soft-demo ()
+  "Run mass-spring-damper MPC simulation showing how soft constraints handle otherwise infeasible bounds."
   (let* ((n 20) (nx 4) (nu 1)
          (ad
           (make-array '(4 4) :element-type 'double-float :initial-contents
@@ -31,27 +31,31 @@
          (r
           (make-array '(1 1) :element-type 'double-float :initial-contents
                       '((0.01d0))))
-         (u-max 5.0d0) (x0 '(1.0d0 0.0d0 0.5d0 0.0d0)))
-    (format t "~%=== HPIPM MPC Demo (High-Level API): Mass-Spring-Damper ===~%")
+         (u-max 5.0d0) (x0 '(1.0d0 0.0d0 0.5d0 0.0d0))
+         (soft-specs '((:stage :all :type :state :index 2 :z 10000.0 :z 0.0))))
+    (format t "~%=== HPIPM MPC Soft-Constraints Demo ===~%")
     (format t "Horizon N=~a, nx=~a, nu=~a~%" n nx nu)
     (format t "Initial state: ~a~%" x0)
+    (format t
+            "Target: Restrict mass 2 position x2 <= 0.4m (softened with weight Z=1e4)~%")
     (with-mpc-solver
-     (solver :horizon n :nx nx :nu nu :precision :double :mode :balance)
+     (solver :horizon n :nx nx :nu nu :nbx 1 :precision :double
+      :soft-constraints soft-specs)
      (set-solver-dynamics solver ad bd) (set-solver-cost solver q r)
      (set-control-bounds solver 0 (- u-max) u-max)
+     (dotimes (k n)
+       (set-state-bounds solver (+ k 1) '(2) '(-2.0d0) '(0.4d0)))
      (multiple-value-bind (u-traj x-traj status iterations sl-traj
                            su-traj) (solve-mpc solver x0)
-       (declare (ignore sl-traj su-traj))
        (format t "~%Solver finished with status ~a after ~a iterations.~%"
                status iterations)
-       (format t "~%Optimal control force input trajectory u* (Newtons):~%")
-       (dotimes (k n)
-         (format t "  u[~2d] = ~8,4f~%" k (aref (aref u-traj k) 0)))
-       (format t
-               "~%Optimal state trajectory x* (predicted positions & velocities):~%")
+       (format t "~%Optimal state trajectory x* & slacks s_u* at mass 2:~%")
        (dotimes (k (+ n 1))
-         (let ((xk (aref x-traj k)))
-           (format t
-                   "  x[~2d] = [pos1:~8,4f vel1:~8,4f pos2:~8,4f vel2:~8,4f]~%"
-                   k (aref xk 0) (aref xk 1) (aref xk 2) (aref xk 3))))
-       (format t "~%MPC demo complete.~%")))))
+         (let* ((xk (aref x-traj k)) (suk (aref su-traj k))
+                (slack-val
+                 (if (> (length suk) 0)
+                     (aref suk 0)
+                     0.0d0)))
+           (format t "  Stage ~2d | x2 = ~8,4f m | upper slack = ~8,4f m~%" k
+                   (aref xk 2) slack-val)))
+       (format t "~%MPC soft-constraints demo complete.~%")))))

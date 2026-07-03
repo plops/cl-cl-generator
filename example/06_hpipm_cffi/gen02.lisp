@@ -5,7 +5,7 @@
 ;;;;
 ;;;; Output files in source01/:
 ;;;;   package.lisp (updated), hpipm.asd (updated), hpipm-high.lisp,
-;;;;   mpc-demo-high.lisp, pendulum-demo-high.lisp
+;;;;   mpc-demo-high.lisp, pendulum-demo-high.lisp, mpc-soft-demo.lisp
 
 (eval-when (:compile-toplevel :execute :load-toplevel)
   (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
@@ -56,10 +56,11 @@
   '(("nx") ("nu") ("nbx") ("nbu") ("ng") ("ns") ("nbxe") ("nbue") ("nge")))
 
 (defparameter *qp-fields*
-  '(("A") ("B") ("Q") ("R") ("S") ("C") ("D") ("b") ("q") ("r") ("lbu") ("ubu") ("lbx") ("ubx"))) ; essential fields
+  '(("A") ("B") ("Q") ("R") ("S") ("C") ("D") ("b") ("q") ("r") ("lbu") ("ubu") ("lbx") ("ubx")
+    ("Zl") ("Zu") ("zl") ("zu") ("lls") ("lus") ("idxs") ("idxbx") ("idxbu") ("Jsbx") ("Jsbu") ("Jsg")))
 
 (defparameter *sol-fields*
-  '(("u") ("x") ("sl") ("su") ("pi")))
+  '(("u") ("x") ("sl") ("su") ("pi") ("lam_lb") ("lam_ub") ("lam_lbu") ("lam_ubu") ("lam_lbx") ("lam_ubx") ("lam_lg") ("lam_ug")))
 
 (defparameter *lifecycle-objects*
   '("ocp_qp_dim" "ocp_qp" "ocp_qp_sol" "ocp_qp_ipm_arg" "ocp_qp_ipm_ws"))
@@ -92,6 +93,10 @@
                 collect (lisp-name prec "ocp-qp-set" (cond ((string= field "b") "b-vec")
                                                            ((string= field "q") "q-vec")
                                                            ((string= field "r") "r-vec")
+                                                           ((string= field "Zl") "Zl-mat")
+                                                           ((string= field "Zu") "Zu-mat")
+                                                           ((string= field "zl") "zl-vec")
+                                                           ((string= field "zu") "zu-vec")
                                                            (t field))))
           (loop for (field) in *sol-fields*
                 collect (lisp-name prec "ocp-qp-sol-get" field))))))
@@ -102,6 +107,7 @@
     mpc-solver-horizon
     mpc-solver-nx
     mpc-solver-nu
+    mpc-solver-ns
     mpc-solver-dim-ptr
     mpc-solver-qp-ptr
     mpc-solver-sol-ptr
@@ -116,6 +122,8 @@
     set-solver-cost
     set-control-bounds
     set-state-bounds
+    set-general-constraints
+    set-solver-general-constraints
     solve-mpc))
 
 ;;; ============================================================
@@ -152,7 +160,8 @@
     (format out "               (:file \"mpc-demo\")~%")
     (format out "               (:file \"pendulum-demo\")~%")
     (format out "               (:file \"mpc-demo-high\")~%")
-    (format out "               (:file \"pendulum-demo-high\")))~%")))
+    (format out "               (:file \"pendulum-demo-high\")~%")
+    (format out "               (:file \"mpc-soft-demo\")))~%")))
 
 (format t "Generated hpipm.asd~%")
 
@@ -171,6 +180,7 @@
       horizon
       nx
       nu
+      ns
       dim-ptr
       qp-ptr
       sol-ptr
@@ -189,15 +199,44 @@
         (apply create-fn (append create-args (list aligned-ptr aligned-backing)))
         (values aligned-ptr ptr backing)))
 
+    (comment "--- Stage Resolution Helper ---")
+    (defun expand-stage-spec (spec horizon type)
+      "Expand symbolic stage spec (like :all, :terminal, :path) or integer into concrete stage list."
+      (let ((N horizon))
+        (cond
+          ((integerp spec) (list spec))
+          ((eq spec :all)
+           (if (eq type :input)
+               (loop for k from 0 below N collect k)
+               (loop for k from 0 to N collect k)))
+          ((eq spec :terminal) (list N))
+          ((eq spec :path)
+           (loop for k from 0 below N collect k))
+          (t (error "Invalid stage specification: ~a" spec)))))
+
     (comment "--- Constructor and Destructor ---")
-    (defun make-mpc-solver (&key (horizon 20) (nx 4) (nu 1) (nbu 0) (nbx 0) (ng 0) (precision :double) (mode :balance))
+    (defun make-mpc-solver (&key (horizon 20) (nx 4) (nu 1) (nbu 0) (nbx 0) (ng 0) (precision :double) (mode :balance) soft-constraints)
       "Create, allocate, and initialize an MPC solver object."
       (let* ((nx-list (if (integerp nx) (make-list (+ horizon 1) :initial-element nx) (coerce nx 'list)))
              (nu-list (if (integerp nu) (append (make-list horizon :initial-element nu) (list 0)) (coerce nu 'list)))
              (nbu-list (if (integerp nbu) (append (make-list horizon :initial-element nbu) (list 0)) (coerce nbu 'list)))
              (nbx-list (if (integerp nbx) (cons (elt nx-list 0) (make-list horizon :initial-element nbx)) (coerce nbx 'list)))
              (ng-list (if (integerp ng) (make-list (+ horizon 1) :initial-element ng) (coerce ng 'list)))
+             ;; Preprocess soft-constraints into stage-wise lists
+             (soft-by-stage (make-array (+ horizon 1) :initial-element nil))
              (allocations nil))
+        ;; Populate soft-by-stage array
+        (dolist (sc soft-constraints)
+          (let* ((stage-spec (getf sc :stage))
+                 (sc-type (getf sc :type))
+                 (stages (expand-stage-spec stage-spec horizon sc-type)))
+            (dolist (st stages)
+              (push sc (aref soft-by-stage st)))))
+        
+        ;; Reverse lists so they keep the original order
+        (dotimes (k (+ horizon 1))
+          (setf (aref soft-by-stage k) (nreverse (aref soft-by-stage k))))
+        
         (flet ((register-alloc (aligned original backing)
                  (push original allocations)
                  (push backing allocations)
@@ -214,20 +253,23 @@
                     (stage-nu (elt nu-list k))
                     (stage-nbx (elt nbx-list k))
                     (stage-nbu (elt nbu-list k))
-                    (stage-ng (elt ng-list k)))
+                    (stage-ng (elt ng-list k))
+                    (stage-ns (length (aref soft-by-stage k))))
                 (ecase precision
                   (:double
                    (d-ocp-qp-dim-set-nx k stage-nx dim-ptr)
                    (d-ocp-qp-dim-set-nu k stage-nu dim-ptr)
                    (d-ocp-qp-dim-set-nbx k stage-nbx dim-ptr)
                    (d-ocp-qp-dim-set-nbu k stage-nbu dim-ptr)
-                   (d-ocp-qp-dim-set-ng k stage-ng dim-ptr))
+                   (d-ocp-qp-dim-set-ng k stage-ng dim-ptr)
+                   (d-ocp-qp-dim-set-ns k stage-ns dim-ptr))
                   (:single
                    (s-ocp-qp-dim-set-nx k stage-nx dim-ptr)
                    (s-ocp-qp-dim-set-nu k stage-nu dim-ptr)
                    (s-ocp-qp-dim-set-nbx k stage-nbx dim-ptr)
                    (s-ocp-qp-dim-set-nbu k stage-nbu dim-ptr)
-                   (s-ocp-qp-dim-set-ng k stage-ng dim-ptr)))))
+                   (s-ocp-qp-dim-set-ng k stage-ng dim-ptr)
+                   (s-ocp-qp-dim-set-ns k stage-ns dim-ptr)))))
 
             ;; Allocate QP, Solution, IPM Arg, and IPM Workspace
             (multiple-value-bind (qp-ptr qp-orig qp-back)
@@ -236,6 +278,52 @@
                   (:single (allocate-hpipm-struct #'s-ocp-qp-memsize #'s-ocp-qp-create (list dim-ptr))))
               (register-alloc qp-ptr qp-orig qp-back)
               
+              ;; Populate soft constraints data inside QP
+              (dotimes (k (+ horizon 1))
+                (let* ((scs (aref soft-by-stage k))
+                       (ns (length scs))
+                       (nbu (elt nbu-list k))
+                       (nbx (elt nbx-list k)))
+                  (when (> ns 0)
+                    (let ((idxs (make-array ns :element-type 'integer))
+                          (Zl-weight (make-array ns :element-type 'double-float))
+                          (Zu-weight (make-array ns :element-type 'double-float))
+                          (zl-grad (make-array ns :element-type 'double-float))
+                          (zu-grad (make-array ns :element-type 'double-float))
+                          (lls (make-array ns :element-type 'double-float :initial-element 0.0d0))
+                          (lus (make-array ns :element-type 'double-float :initial-element 0.0d0)))
+                      (dotimes (i ns)
+                        (let* ((sc (elt scs i))
+                               (sc-type (getf sc :type))
+                               (idx (getf sc :index))
+                               (c-idx (ecase sc-type
+                                        (:input idx)
+                                        (:state (+ nbu idx))
+                                        (:general (+ nbu nbx idx)))))
+                          (setf (aref idxs i) c-idx)
+                          (setf (aref Zl-weight i) (coerce (or (getf sc :Z) 1d3) 'double-float))
+                          (setf (aref Zu-weight i) (coerce (or (getf sc :Z) 1d3) 'double-float))
+                          (setf (aref zl-grad i) (coerce (or (getf sc :z) 0d0) 'double-float))
+                          (setf (aref zu-grad i) (coerce (or (getf sc :z) 0d0) 'double-float))))
+                      ;; Set in QP structure using resolved non-colliding names
+                      (ecase precision
+                        (:double
+                         (d-ocp-qp-set-idxs k (coerce idxs 'list) qp-ptr)
+                         (d-ocp-qp-set-Zl-mat k Zl-weight qp-ptr)
+                         (d-ocp-qp-set-Zu-mat k Zu-weight qp-ptr)
+                         (d-ocp-qp-set-zl-vec k zl-grad qp-ptr)
+                         (d-ocp-qp-set-zu-vec k zu-grad qp-ptr)
+                         (d-ocp-qp-set-lls k lls qp-ptr)
+                         (d-ocp-qp-set-lus k lus qp-ptr))
+                        (:single
+                         (s-ocp-qp-set-idxs k (coerce idxs 'list) qp-ptr)
+                         (s-ocp-qp-set-Zl-mat k (map 'simple-vector (lambda (x) (coerce x 'single-float)) Zl-weight) qp-ptr)
+                         (s-ocp-qp-set-Zu-mat k (map 'simple-vector (lambda (x) (coerce x 'single-float)) Zu-weight) qp-ptr)
+                         (s-ocp-qp-set-zl-vec k (map 'simple-vector (lambda (x) (coerce x 'single-float)) zl-grad) qp-ptr)
+                         (s-ocp-qp-set-zu-vec k (map 'simple-vector (lambda (x) (coerce x 'single-float)) zu-grad) qp-ptr)
+                         (s-ocp-qp-set-lls k (map 'simple-vector (lambda (x) (coerce x 'single-float)) lls) qp-ptr)
+                         (s-ocp-qp-set-lus k (map 'simple-vector (lambda (x) (coerce x 'single-float)) lus) qp-ptr)))))))
+
               (multiple-value-bind (sol-ptr sol-orig sol-back)
                   (ecase precision
                     (:double (allocate-hpipm-struct #'d-ocp-qp-sol-memsize #'d-ocp-qp-sol-create (list dim-ptr)))
@@ -268,6 +356,7 @@
                                      :horizon horizon
                                      :nx nx-list
                                      :nu nu-list
+                                     :ns (loop for k from 0 to horizon collect (length (aref soft-by-stage k)))
                                      :dim-ptr dim-ptr
                                      :qp-ptr qp-ptr
                                      :sol-ptr sol-ptr
@@ -357,9 +446,39 @@
            (s-ocp-qp-set-lbx stage min-values qp)
            (s-ocp-qp-set-ubx stage max-values qp)))))
 
+    (comment "--- General Constraints Setters ---")
+    (defun set-general-constraints (solver stage C D lg ug)
+      "Set general linear constraints: lg <= C*x + D*u <= ug at a specific STAGE.
+       If C or D are nil, they default to zero matrices of the correct dimensions."
+      (let* ((prec (mpc-solver-precision solver))
+             (qp (mpc-solver-qp-ptr solver))
+             (nx (elt (mpc-solver-nx solver) stage))
+             (nu (elt (mpc-solver-nu solver) stage))
+             (ng (length lg))
+             (element-type (ecase prec (:double 'double-float) (:single 'single-float)))
+             (zero-val (ecase prec (:double 0.0d0) (:single 0.0f0)))
+             (actual-C (or C (make-array (list ng nx) :element-type element-type :initial-element zero-val)))
+             (actual-D (or D (make-array (list ng nu) :element-type element-type :initial-element zero-val))))
+        (ecase prec
+          (:double
+           (d-ocp-qp-set-c stage actual-C qp)
+           (d-ocp-qp-set-d stage actual-D qp)
+           (d-ocp-qp-set-lg stage lg qp)
+           (d-ocp-qp-set-ug stage ug qp))
+          (:single
+           (s-ocp-qp-set-c stage actual-C qp)
+           (s-ocp-qp-set-d stage actual-D qp)
+           (s-ocp-qp-set-lg stage (map 'list (lambda (x) (coerce x 'single-float)) lg) qp)
+           (s-ocp-qp-set-ug stage (map 'list (lambda (x) (coerce x 'single-float)) ug) qp)))))
+
+    (defun set-solver-general-constraints (solver C D lg ug)
+      "Set uniform general linear constraints across all stages 0..N-1."
+      (dotimes (k (mpc-solver-horizon solver))
+        (set-general-constraints solver k C D lg ug)))
+
     (comment "--- Solver Call ---")
     (defun solve-mpc (solver x0)
-      "Lock the initial state at stage 0 to X0, solve, and return (values u-trajectory x-trajectory status iterations)."
+      "Lock the initial state at stage 0 to X0, solve, and return (values u-trajectory x-trajectory status iterations sl-trajectory su-trajectory)."
       (let ((prec (mpc-solver-precision solver))
             (qp (mpc-solver-qp-ptr solver))
             (sol (mpc-solver-sol-ptr solver))
@@ -368,7 +487,8 @@
             (N (mpc-solver-horizon solver))
             (nx (elt (mpc-solver-nx solver) 0))
             (nu-list (mpc-solver-nu solver))
-            (nx-list (mpc-solver-nx solver)))
+            (nx-list (mpc-solver-nx solver))
+            (ns-list (mpc-solver-ns solver)))
         (let ((indices (loop for i from 0 below nx collect i)))
           (set-state-bounds solver 0 indices x0 x0))
         (ecase prec
@@ -383,7 +503,9 @@
                             (:double (d-ocp-qp-ipm-get-iter-val ws))
                             (:single (s-ocp-qp-ipm-get-iter-val ws))))
               (u-traj (make-array N))
-              (x-traj (make-array (+ N 1))))
+              (x-traj (make-array (+ N 1)))
+              (sl-traj (make-array (+ N 1)))
+              (su-traj (make-array (+ N 1))))
           (dotimes (k N)
             (let ((nu (elt nu-list k)))
               (setf (aref u-traj k)
@@ -396,7 +518,21 @@
                     (ecase prec
                       (:double (d-ocp-qp-sol-get-x k nx sol))
                       (:single (s-ocp-qp-sol-get-x k nx sol))))))
-          (values u-traj x-traj status iterations)))))
+          (dotimes (k (+ N 1))
+            (let ((ns (elt ns-list k)))
+              (setf (aref sl-traj k)
+                    (if (> ns 0)
+                        (ecase prec
+                          (:double (d-ocp-qp-sol-get-sl k ns sol))
+                          (:single (s-ocp-qp-sol-get-sl k ns sol)))
+                        #()))
+              (setf (aref su-traj k)
+                    (if (> ns 0)
+                        (ecase prec
+                          (:double (d-ocp-qp-sol-get-su k ns sol))
+                          (:single (s-ocp-qp-sol-get-su k ns sol)))
+                        #()))))
+          (values u-traj x-traj status iterations sl-traj su-traj)))))
   *source-dir*)
 
 (format t "Generated hpipm-high.lisp~%")
@@ -466,8 +602,9 @@
             (set-solver-cost solver Q R)
             (set-control-bounds solver 0 (- u-max) u-max)
 
-            (multiple-value-bind (u-traj x-traj status iterations)
+            (multiple-value-bind (u-traj x-traj status iterations sl-traj su-traj)
                 (solve-mpc solver x0)
+              (declare (ignore sl-traj su-traj))
               (format t "~%Solver finished with status ~a after ~a iterations.~%" status iterations)
               (format t "~%Optimal control force input trajectory u* (Newtons):~%")
               (dotimes (k N)
@@ -553,8 +690,9 @@
             (set-solver-cost solver Q R)
             (set-control-bounds solver 0 (- u-max) u-max)
 
-            (multiple-value-bind (u-traj x-traj status iterations)
+            (multiple-value-bind (u-traj x-traj status iterations sl-traj su-traj)
                 (solve-mpc solver x0)
+              (declare (ignore sl-traj su-traj))
               (format t "~%Solver finished with status ~a after ~a iterations.~%" status iterations)
               (format t "~%Optimal force trajectory u* (Newtons):~%")
               (dotimes (k N)
@@ -571,4 +709,94 @@
     *source-dir*))
 
 (format t "Generated pendulum-demo-high.lisp~%")
+
+;;; ============================================================
+;;; 6. Generate mpc-soft-demo.lisp (Soft-Constraints MSD Demo)
+;;; ============================================================
+(let* ((k 1.0d0) (c 0.1d0) (dt 0.1d0)
+       (ad00 1.0d0)       (ad01 dt)          (ad02 0.0d0)       (ad03 0.0d0)
+       (ad10 (* dt -2 k)) (ad11 (+ 1 (* dt -2 c))) (ad12 (* dt k)) (ad13 (* dt c))
+       (ad20 0.0d0)       (ad21 0.0d0)       (ad22 1.0d0)       (ad23 dt)
+       (ad30 (* dt k))    (ad31 (* dt c))    (ad32 (* dt (- k))) (ad33 (+ 1 (* dt (- c))))
+       (bd0 0.0d0) (bd1 dt) (bd2 0.0d0) (bd3 0.0d0))
+
+  (write-source "mpc-soft-demo"
+    `(toplevel
+      ,@(make-header-comments)
+      (comment "================================================================================")
+      (comment " MPC Demo with Soft-Constraints: Coupled Mass-Spring-Damper System")
+      (comment "================================================================================")
+
+      (defpackage :hpipm-soft-demo
+        (:use :cl :hpipm)
+        (:export :run-soft-demo))
+      (in-package :hpipm-soft-demo)
+
+      (defun run-soft-demo ()
+        "Run mass-spring-damper MPC simulation showing how soft constraints handle otherwise infeasible bounds."
+        (let* ((N 20)
+               (nx 4)
+               (nu 1)
+               (Ad (make-array (quote (4 4))
+                    :element-type (quote double-float)
+                    :initial-contents
+                    (list (list ,ad00 ,ad01 ,ad02 ,ad03)
+                          (list ,ad10 ,ad11 ,ad12 ,ad13)
+                          (list ,ad20 ,ad21 ,ad22 ,ad23)
+                          (list ,ad30 ,ad31 ,ad32 ,ad33))))
+               (Bd (make-array (quote (4 1))
+                    :element-type (quote double-float)
+                    :initial-contents
+                    (list (list ,bd0) (list ,bd1) (list ,bd2) (list ,bd3))))
+               (Q (make-array (quote (4 4))
+                    :element-type (quote double-float)
+                    :initial-contents
+                    (quote ((1.0d0 0.0d0 0.0d0 0.0d0)
+                            (0.0d0 0.1d0 0.0d0 0.0d0)
+                            (0.0d0 0.0d0 1.0d0 0.0d0)
+                            (0.0d0 0.0d0 0.0d0 0.1d0)))))
+               (R (make-array (quote (1 1))
+                    :element-type (quote double-float)
+                    :initial-contents (quote ((0.01d0)))))
+               (u-max 5.0d0)
+               ;; Initial state x0: mass 2 is at 0.5 meters.
+               (x0 (quote (1.0d0 0.0d0 0.5d0 0.0d0)))
+               ;; We place a soft constraint on mass 2 position (index 2 in state vector)
+               ;; seeking to restrict it to <= 0.4 meters.
+               ;; Since x0 has mass 2 at 0.5, this bound is immediately violated at stage 0!
+               ;; If it were a hard constraint, the solver would fail (infeasible).
+               ;; Using soft constraints, it converges successfully using positive slack.
+               (soft-specs (quote ((:stage :all :type :state :index 2 :Z 1e4 :z 0.0)))))
+
+          (format t "~%=== HPIPM MPC Soft-Constraints Demo ===~%")
+          (format t "Horizon N=~a, nx=~a, nu=~a~%" N nx nu)
+          (format t "Initial state: ~a~%" x0)
+          (format t "Target: Restrict mass 2 position x2 <= 0.4m (softened with weight Z=1e4)~%")
+
+          ;; We set nbx=1 for stages 1..N to enable the bound on x2
+          (with-mpc-solver (solver :horizon N :nx nx :nu nu :nbx 1 :precision :double :soft-constraints soft-specs)
+            (set-solver-dynamics solver Ad Bd)
+            (set-solver-cost solver Q R)
+            (set-control-bounds solver 0 (- u-max) u-max)
+            
+            ;; Set bounds on x2 (state index 2) to [-2.0, 0.4] for stages 1..N
+            ;; Note: stage 0 is locked to x0, so we bound stage 1..N
+            (dotimes (k N)
+              (set-state-bounds solver (+ k 1) (quote (2)) (quote (-2.0d0)) (quote (0.4d0))))
+
+            (multiple-value-bind (u-traj x-traj status iterations sl-traj su-traj)
+                (solve-mpc solver x0)
+              (format t "~%Solver finished with status ~a after ~a iterations.~%" status iterations)
+              
+              (format t "~%Optimal state trajectory x* & slacks s_u* at mass 2:~%")
+              (dotimes (k (+ N 1))
+                (let* ((xk (aref x-traj k))
+                       (suk (aref su-traj k))
+                       (slack-val (if (> (length suk) 0) (aref suk 0) 0.0d0)))
+                  (format t "  Stage ~2d | x2 = ~8,4f m | upper slack = ~8,4f m~%"
+                          k (aref xk 2) slack-val)))
+              (format t "~%MPC soft-constraints demo complete.~%"))))))
+    *source-dir*))
+
+(format t "Generated mpc-soft-demo.lisp~%")
 (format t "~%=== Generation Complete (gen02.lisp) ===~%")
