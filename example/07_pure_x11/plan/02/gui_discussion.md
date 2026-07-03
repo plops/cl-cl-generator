@@ -24,19 +24,50 @@ To maintain a fast GUI response over a network (e.g. X11 forwarding over SSH or 
 
 ---
 
-## 2. Window-per-Widget vs. Windowless Widgets
+## 2. Declarative GUI Design
 
-For an Athena-style GUI, we choose a **Window-per-Widget** design (similar to the X Toolkit Intrinsics / Xt):
-*   Every Button, Checkbox, and Text Field is created as a **child subwindow** of the main window.
-*   **Why this is fast and robust**:
-    *   **Clipping**: The X server automatically clips text and lines to the widget's boundary. No client-side clipping math is needed.
-    *   **Automatic Redraws**: When a subwindow is uncovered, the X server sends an `Expose` event specifically for that widget's window ID.
-    *   **Event Routing**: The X server handles event routing (e.g., clicking on a button sends a `ButtonPress` with the button's subwindow ID). The client doesn't need to perform manual coordinate hit-testing.
-    *   **Bandwidth Efficiency**: We only request events we care about on a per-widget basis. For example, text fields listen for `KeyPress`, buttons listen for `ButtonPress` and `Enter/LeaveWindow`, while static labels listen for nothing but `Expose`.
+Instead of imperatively constructing windows, we declare the interface structure in a single nested S-expression:
+
+```lisp
+(ui-layout
+  (panel :name :main-panel :x 0 :y 0 :w 400 :h 300 :bg #x00d0d0d0
+    (label :name :title-lbl :text "Interactive GUI Demo" :x 20 :y 20)
+    (button :name :btn-inc :text "Increment" :x 20 :y 60 :w 120 :h 30
+            :on-click (lambda () (incf *counter*)))
+    (button :name :btn-dec :text "Decrement" :x 160 :y 60 :w 120 :h 30
+            :on-click (lambda () (decf *counter*)))
+    (text-input :name :txt-input :x 20 :y 110 :w 260 :h 30 :default "Hello")
+    (checkbox :name :chk-box :label "Enable Action" :x 20 :y 160 :w 150 :h 24)))
+```
+
+When this layout is compiled, we create **one single top-level X11 window** (reducing server resource utilization) and manage coordinates and events entirely on the client side using two spatial algorithms.
 
 ---
 
-## 3. Bulletproof Widget State Machines
+## 3. Spatial Event Assignment Algorithms
+
+### A. 2D Quadtree for Mouse Hit-Testing
+To handle mouse hover, clicks, and dragging efficiently without X11 subwindows:
+1.  **Quadtree Structure**: The client builds a 2D Quadtree in memory containing the bounding boxes of all widgets.
+2.  **Zero-Latency Routing**:
+    *   When the server sends a single `ButtonPress` or `MotionNotify` event for the main window, the client queries the Quadtree with the cursor `(x, y)` coordinate.
+    *   The Quadtree locates the targeted widget in $O(\log N)$ time locally, without querying the X11 server.
+    *   The client updates the widget's internal state (e.g., transitions a button to `Pressed`) and issues a one-way `PolyFillRectangle` or `PolySegment` command to redraw only the affected bounding box.
+
+### B. Delaunay Triangulation for Keyboard Navigation
+Determining focus shift (e.g., when the user presses Arrow Keys `Up/Down/Left/Right` or `Tab`) traditionally requires manual focus chain linking. We solve this dynamically:
+1.  **Spatial Graph Construction**:
+    *   At compile time, we extract the center coordinates `(cx, cy)` of all focusable widgets.
+    *   We construct the **Delaunay Triangulation** of these points.
+    *   The edges of the triangulation form the focus adjacency graph.
+2.  **Directional Event Dispatch**:
+    *   When the user presses the `Right` arrow key while focused on widget $A$, the client checks all Delaunay edges incident to $A$.
+    *   It measures the angles of these edges relative to the horizontal vector ($0^\circ$) and selects the closest neighbor $B$.
+    *   Focus shifts to $B$ instantly. This yields a completely self-organizing keyboard navigation layout.
+
+---
+
+## 4. Bulletproof Widget State Machines
 
 To make input widgets robust under high latency and quick mouse movements:
 
@@ -44,7 +75,7 @@ To make input widgets robust under high latency and quick mouse movements:
 *   **States**:
     *   `Idle`: Normal raised bevel.
     *   `Hover`: Mouse is over. (Optional: draw highlighted background).
-    *   `Pressed`: Mouse button 1 is down inside the button window. Sunken bevel.
+    *   `Pressed`: Mouse button 1 is down inside the button. Sunken bevel.
     *   `Pressed-Outside`: Mouse button 1 is down, but the user dragged the cursor outside the button. Raised bevel.
 *   **Transitions**:
     *   `EnterNotify` (while mouse button is up): `Idle` -> `Hover`
