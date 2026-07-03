@@ -22,6 +22,8 @@ You can easily customize the generated image directly in [gen_ai_env.lisp](file:
 | `*install-codex*` | Boolean | `t` | Copies the `codex` CLI tool from the local build context. |
 | `*install-copilot*` | Boolean | `t` | Copies the `copilot` CLI tool from the local build context. |
 | `*install-kiro-cli*` | Boolean | `t` | Copies the `kiro-cli` CLI tool from the local build context. |
+| `*install-rust*` | Boolean | `t` | Installs the Rust toolchain (via `rustup`) including `rustc`, `cargo`, `clippy`, and `rustfmt`. |
+| `*rust-cache-volume*` | Boolean | `t` | Appends `/root/.cargo` to the list of Docker `VOLUME` mounts to enable Cargo registry caching. |
 
 ---
 
@@ -43,10 +45,11 @@ To avoid authenticating every time you run a new container and to persist chat h
 - `/root/.config` (shared config directory, containing configuration files for `codex`, `copilot`, and `kiro-cli`)
 - `/root/.cache` (shared cache files for various runtimes/commands)
 - `/root/.gemini` (holds `agy` authentication details)
+- `/root/.cargo` (holds Cargo's downloaded crates, indexes, and git repositories, preventing re-downloads)
 
 ### How to Run
 
-Mount your host's home directories to these volumes when running the container:
+Mount your host's home directories and the cargo cache volume when running the container:
 
 ```bash
 docker run -it \
@@ -54,10 +57,11 @@ docker run -it \
   -v "$HOME/.config:/root/.config" \
   -v "$HOME/.cache:/root/.cache" \
   -v "$HOME/.gemini:/root/.gemini" \
+  -v my-ai-env-cargo-cache:/root/.cargo \
   my-ai-env:latest
 ```
 
-This mapping allows all CLI tools inside the Docker container to seamlessly share login state and outputs with the host machine.
+This mapping allows all CLI tools inside the Docker container to seamlessly share login state and outputs with the host machine, while the named volume `my-ai-env-cargo-cache` keeps your Rust dependencies cached across container rebuilds.
 
 ---
 
