@@ -74,8 +74,8 @@ When the user resizes the window, the X server sends a `ConfigureNotify` event c
 ### A. Paradigm Comparison:
 *   **Object-Oriented (OO)**: Widgets are stateful objects with layout bounds. Resizing recursively calls `.resize(new-w, new-h)` on layout managers.
     *   *Problem*: Leads to scattered, mutable state and layout synchronization bugs.
-*   **Functional Reactive Programming (FRP)**: Window size is modeled as a continuous signal (`window-size-stream`). Widget sizes are derived signals that propagate changes dynamically.
-    *   *Problem*: Elegant, but can introduce performance overhead during high-frequency drag-to-resize events.
+*   **Functional Reactive Programming (FRP)**: Window size is modeled as a continuous signal (`window-size-signal`), and widget sizes are derived signals that propagate changes dynamically.
+    *   *Problem*: Elegant, but can introduce heavy performance overhead during high-frequency drag-to-resize events.
 *   **Declarative Virtual Render (Elm Architecture)**:
     *   The UI is declared as a pure function of the window size and client state: `(render-ui width height state)`.
     *   *Solution*: This is the ideal match. The layout is rebuilt entirely from scratch upon resizing, and the spatial databases (Quadtree & Delaunay graph) are recomputed in memory.
@@ -88,3 +88,47 @@ When the user resizes the window, the X server sends a `ConfigureNotify` event c
     *   Issue a `ClearArea` request (with `exposures = True`) to clear the canvas on the server side and trigger a full redraw.
 2.  **Expose Event (Redraw)**:
     *   Traverse `*current-layout*` and render each widget asynchronously (with zero synchronous network queries).
+
+---
+
+## 5. Architectural Patterns: MVC vs. Model-Update-View (MUV)
+
+### A. Model-View-Controller (MVC)
+*   **How it works**: Models store state and notify observers. Views draw the graphics. Controllers modify the Model based on events.
+*   **The Issue**: Traditional MVC is highly stateful and imperative. Views and Models become tightly coupled, and keeping state synchronized across many individual widgets (e.g. checking whether a button text matches the model state) becomes complex and prone to race conditions.
+
+### B. Model-Update-View (MUV / The Elm Architecture) - Recommended
+An alternative, purely functional pattern that provides a **single source of truth** and **unidirectional data flow**:
+
+1.  **Model**: A single, immutable Lisp structure representing the entire application state.
+    ```lisp
+    (defstruct state
+      (clicks 0)
+      (input-buffer "")
+      (action-enabled-p nil))
+    ```
+2.  **Update**: A pure function that takes the current `state` and an `action-msg` (e.g., `:increment`, `:decrement`, `:type-char`, `:toggle-checkbox`) and returns a new `state` structure.
+    ```lisp
+    (defun update (state msg)
+      (ecase (car msg)
+        (:increment
+         (make-state :clicks (1+ (state-clicks state))
+                     :input-buffer (state-input-buffer state)
+                     :action-enabled-p (state-action-enabled-p state)))
+        (:toggle-checkbox
+         (make-state :clicks (state-clicks state)
+                     :input-buffer (state-input-buffer state)
+                     :action-enabled-p (not (state-action-enabled-p state))))))
+    ```
+3.  **View**: A pure function mapping the current `state` (and window size) to a virtual UI layout tree.
+    ```lisp
+    (defun view (w h state)
+      `(panel :w ,w :h ,h
+         (label :text ,(format nil "Clicks: ~a" (state-clicks state)) :x 20 :y 20)
+         (button :text "Click Me" :x 20 :y 60 :w 120 :h 30 :msg (:increment))))
+    ```
+
+### Why MUV is Clean and High-Performance:
+*   **No Redundant State**: Individual widgets do not store state. Focus, hover, and press states are easily managed at the toolkit level or in the Model.
+*   **Ease of Testing**: Since `Update` and `View` are pure Lisp functions, you can unit-test your entire application logic, layout positioning, and user interaction flows offline without running an X server or opening socket streams.
+*   **Unidirectional Flow**: Event -> Message -> Update -> New Model -> Re-render -> Rebuild Spatial Index.
