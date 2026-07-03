@@ -600,7 +600,7 @@
        ,@(when doc (list doc))
        (with-reply r
          (let* ,fields
-           (assert (= ,code code))
+           (assert (= ,code (logand code #x7f)))
            ,returns)))))
 
 (defun generate-lookup-function (name alist-var-name)
