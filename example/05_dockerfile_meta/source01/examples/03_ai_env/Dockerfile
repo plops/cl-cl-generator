@@ -31,6 +31,10 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates git jq build-essential gcc sbcl rlwrap emacs-nox python3-full \
  && rm -rf /var/lib/apt/lists/*
+# Install rustup and stable Rust toolchain
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
+ && chmod -R a+w /root/.rustup
+ENV PATH=/root/.cargo/bin:$PATH
 # Copy the isolated Python environment
 COPY --from=builder /workspace/.venv /workspace/.venv
 ENV PATH=/workspace/.venv/bin:$PATH
@@ -71,6 +75,6 @@ RUN emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-arch
 # Copy the modified .emacs configuration from the build context if present
 # Note: In real usage, ensure .emacs exists in the build context directory
 COPY .emacs /root/.emacs
-VOLUME ["/workspace/src", "/root/.config", "/root/.cache", "/root/.gemini"]
+VOLUME ["/workspace/src", "/root/.config", "/root/.cache", "/root/.gemini", "/root/.cargo"]
 # Default to launching a bash shell
 CMD ["/bin/bash"]
