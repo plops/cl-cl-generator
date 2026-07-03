@@ -46,8 +46,21 @@ This writes the following beautifully formatted code to `/tmp/output_example.lis
   (* x x))
 ```
 
+## Examples
+
+The repository contains several example generators in the [example/](file:///workspace/src/cl-cl-generator/example) directory:
+
+1. **[00_test](file:///workspace/src/cl-cl-generator/example/00_test)**: A basic helper generating a simple Lisp file with function definitions, local bindings, single/multi-line comments, and conditional statements. Shows how to embed Git commit hashes and generation timestamps.
+2. **[01_meta](file:///workspace/src/cl-cl-generator/example/01_meta)**: A bootstrapping meta-generator example where `cl-cl-generator` is used to generate its own core codebase ([cl.lisp](file:///workspace/src/cl-cl-generator/cl.lisp)).
+3. **[03_py_meta](file:///workspace/src/cl-cl-generator/example/03_py_meta)**: A meta-generator for the `cl-py-generator` transpiler's `py.lisp` compiler. Compiles Python generation templates into Lisp helper builders, supporting Python f-strings, imports, decorators, and operator precedence rules.
+4. **[04_tui_cockpit](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit)**: Code generators emitting interactive Lisp terminal utilities:
+   - `gen01.lisp` generates a non-interactive bandwidth-optimized `/proc` parser.
+   - `gen02.lisp` generates a fully featured interactive TUI application utilizing a system definition (`.asd`), package declarations, and an interactive dashboard using the `tuition` framework.
+5. **[05_dockerfile_meta](file:///workspace/src/cl-cl-generator/example/05_dockerfile_meta)**: Generates `cl-dockerfile-generator`, a domain-specific language (DSL) and compiler for writing Dockerfiles as S-expressions. Features case-inversion configuration and custom Lisp templates for Dockerfile instructions.
+
 ## Running Tests
 Run the test runner script:
 ```bash
 ./run-tests.sh
 ```
+
