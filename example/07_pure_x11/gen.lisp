@@ -115,7 +115,7 @@
               (card32 #x00ffffff)       ; border
               (card32 5)                ; bit-grav center
               (card32 1)                ; backing store
-              (card32 (event '(PointerMotion ButtonPress ButtonRelease Exposure)))
+              (card32 (event '(PointerMotion ButtonPress ButtonRelease Exposure StructureNotify)))
               (card32 #x0)              ; colormap
 
               (card8 55)                ; opcode create-gc (gc)
@@ -1214,8 +1214,6 @@
        (format t "Creating window...~%")
        (let ((win (make-window :width *window-width* :height *window-height*)))
          (format t "Window created with ID: ~a~%" win)
-         (format t "Mapping window...~%")
-         (map-window win)
          (let ((state initial-state)
                (layout nil)
                (keyboard-map (multiple-value-bind (map per-keycode)
@@ -1231,6 +1229,8 @@
                       (clear-area :w *window-width* :h *window-height*)
                       (render-layout layout *focused-widget* *pressed-widget* *hovered-widget*)))
              (rebuild-layout)
+             (format t "Mapping window...~%")
+             (map-window win)
              (format t "Entering event loop. Press Ctrl+C to exit.~%")
              (loop
                (let ((reply (read-reply-wait)))
