@@ -315,7 +315,9 @@
     (format out "  :serial t~%")
     (format out "  :components ((:file \"package\")~%")
     (format out "               (:file \"hpipm-cffi\")~%")
-    (format out "               (:file \"hpipm-wrappers\")))~%")))
+    (format out "               (:file \"hpipm-wrappers\")~%")
+    (format out "               (:file \"mpc-demo\")~%")
+    (format out "               (:file \"pendulum-demo\")))~%")))
 
 (format t "Generated hpipm.asd~%")
 
@@ -477,26 +479,76 @@
 (format t "Generated hpipm-wrappers.lisp~%")
 
 ;;; ============================================================
-;;; Section 10: Generate mpc-demo.lisp
+;;; Section 10: Generate mpc-demo.lisp (Mass-Spring-Damper)
 ;;; ============================================================
 
-;; Pre-compute discrete-time system matrices at generation time
+;; Pre-compute discrete-time system matrices for Coupled Mass-Spring-Damper
+;; System parameters:
+;;   m1 = 1.0 kg, m2 = 1.0 kg (masses)
+;;   k = 1.0 N/m (spring stiffness)
+;;   c = 0.1 N/m/s (damper coefficient)
+;;   dt = 0.1 s (sampling time)
+;; Dynamics equations (continuous):
+;;   x1_dot = v1
+;;   v1_dot = 1/m1 * (-2k*x1 + k*x2 - 2c*v1 + c*v2 + u)
+;;   x2_dot = v2
+;;   v2_dot = 1/m2 * (k*x1 - k*x2 + c*v1 - c*v2)
+;; Euler discretization: Ad = I + dt * Ac, Bd = dt * Bc
 (let* ((k 1.0d0) (c 0.1d0) (dt 0.1d0)
-       ;; Ad = I + dt * Ac (Euler discretization)
        (ad00 1.0d0)       (ad01 dt)          (ad02 0.0d0)       (ad03 0.0d0)
        (ad10 (* dt -2 k)) (ad11 (+ 1 (* dt -2 c))) (ad12 (* dt k)) (ad13 (* dt c))
        (ad20 0.0d0)       (ad21 0.0d0)       (ad22 1.0d0)       (ad23 dt)
        (ad30 (* dt k))    (ad31 (* dt c))    (ad32 (* dt (- k))) (ad33 (+ 1 (* dt (- c))))
-       ;; Bd = dt * Bc
        (bd0 0.0d0) (bd1 dt) (bd2 0.0d0) (bd3 0.0d0))
 
   (write-source "mpc-demo"
     `(toplevel
       ,@(make-header-comments)
-      (comment "MPC demo: two coupled masses with spring and damper")
-      (comment "System: m1*a1 = -2k*x1 + k*x2 - 2c*v1 + c*v2 + u")
-      (comment "         m2*a2 =  k*x1 - k*x2 + c*v1 - c*v2")
-      (comment "State: [x1 v1 x2 v2], Input: [F], Horizon: N=20")
+      (comment "================================================================================")
+      (comment " MPC Demo: Coupled Mass-Spring-Damper System Stabilizer")
+      (comment "================================================================================")
+      (comment " This file contains a complete, self-contained Model Predictive Control (MPC)")
+      (comment " simulation using the HPIPM high-performance QP solver.")
+      (comments
+       "System Description:"
+       "  We simulate two unit masses (m1 = m2 = 1.0 kg) connected to each other and to the"
+       "  walls via springs (stiffness k = 1.0 N/m) and dampers (damping c = 0.1 N/m/s)."
+       "  An actuator applies a force 'u' (in Newtons) directly to mass 1."
+       ""
+       "State Vector Layout (nx = 4):"
+       "  x[0] = x1 : position of mass 1 (meters)"
+       "  x[1] = v1 : velocity of mass 1 (meters/second)"
+       "  x[2] = x2 : position of mass 2 (meters)"
+       "  x[3] = v2 : velocity of mass 2 (meters/second)"
+       ""
+       "Control Vector Layout (nu = 1):"
+       "  u[0] = F  : force applied to mass 1 (Newtons)"
+       ""
+       "Continuous-Time System Equations (Ac & Bc):"
+       "  dx1/dt = v1"
+       "  dv1/dt = -2*k*x1 - 2*c*v1 + k*x2 + c*v2 + F"
+       "  dx2/dt = v2"
+       "  dv2/dt = k*x1 + c*v1 - k*x2 - c*v2"
+       ""
+       "Discrete-Time System Equations (Ad & Bd):"
+       "  Derived using Euler integration with sampling time dt = 0.1 seconds:"
+       "  x(k+1) = Ad * x(k) + Bd * u(k)"
+       ""
+       "Optimal Control Problem Formulation (solved at each step):"
+       "  minimize   Sum_{k=0..N-1} (x(k)^T * Q * x(k) + u(k)^T * R * u(k)) + x(N)^T * Q_term * x(N)"
+       "  subject to x(k+1) = Ad * x(k) + Bd * u(k)"
+       "             x(0)   = x0 (current measured state)"
+       "             -u_max <= u(k) <= u_max (actuator force constraints)"
+       ""
+       "HPIPM Lifecycle Steps demonstrated here:"
+       "  1. Allocate/initialize OCP QP Dimensions (dim)"
+       "  2. Allocate/initialize OCP QP Problem Data (qp) and set matrices (A, B, Q, R, bounds)"
+       "  3. Allocate/initialize OCP QP Solution structure (sol)"
+       "  4. Allocate/initialize Solver Settings (ipm_arg) and set defaults"
+       "  5. Allocate/initialize Solver Workspace (ipm_ws)"
+       "  6. Run the solver (d_ocp_qp_ipm_solve)"
+       "  7. Extract the optimal controls and predicted trajectories")
+      (comment "================================================================================")
 
       (defpackage :hpipm-demo
         (:use :cl :hpipm)
@@ -504,8 +556,14 @@
       (in-package :hpipm-demo)
 
       (defun run-mpc-demo ()
-        (let* ((N 20) (nx 4) (nu 1) (nbu 1) (nbx-0 4)
-               (comment "Discrete-time system matrices (Euler, dt=0.1)")
+        "Run the coupled mass-spring-damper MPC simulation."
+        (let* ((N 20)      (comment "Prediction horizon (20 steps * 0.1s = 2.0 seconds look-ahead)")
+               (nx 4)     (comment "Number of states")
+               (nu 1)     (comment "Number of inputs")
+               (nbu 1)    (comment "Number of bounded control inputs (u is bounded)")
+               (nbx-0 4)  (comment "Number of bounded states at stage 0 (used to lock initial state x0)")
+               
+               (comment "Discretized dynamics transition matrix Ad")
                (Ad (make-array (quote (4 4))
                     :element-type (quote double-float)
                     :initial-contents
@@ -513,28 +571,244 @@
                           (list ,ad10 ,ad11 ,ad12 ,ad13)
                           (list ,ad20 ,ad21 ,ad22 ,ad23)
                           (list ,ad30 ,ad31 ,ad32 ,ad33))))
+                          
+               (comment "Discretized dynamics input matrix Bd")
                (Bd (make-array (quote (4 1))
                     :element-type (quote double-float)
                     :initial-contents
                     (list (list ,bd0) (list ,bd1) (list ,bd2) (list ,bd3))))
-               (comment "Cost matrices")
+                    
+               (comment "State cost weighting matrix Q (penalizes deviations from zero)")
                (Q (make-array (quote (4 4))
                    :element-type (quote double-float)
                    :initial-contents
-                   (quote ((1.0d0 0.0d0 0.0d0 0.0d0)
-                           (0.0d0 0.1d0 0.0d0 0.0d0)
-                           (0.0d0 0.0d0 1.0d0 0.0d0)
-                           (0.0d0 0.0d0 0.0d0 0.1d0)))))
+                   (quote ((1.0d0 0.0d0 0.0d0 0.0d0)   (comment "Penalize mass 1 position displacement")
+                           (0.0d0 0.1d0 0.0d0 0.0d0)   (comment "Subtle penalty on mass 1 velocity to damp oscillations")
+                           (0.0d0 0.0d0 1.0d0 0.0d0)   (comment "Penalize mass 2 position displacement")
+                           (0.0d0 0.0d0 0.0d0 0.1d0))))) (comment "Subtle penalty on mass 2 velocity")
+                           
+               (comment "Control cost weighting matrix R (penalizes actuator effort)")
                (R (make-array (quote (1 1))
                    :element-type (quote double-float)
                    :initial-contents (quote ((0.01d0)))))
-               (comment "Constraints and initial state")
+                   
+               (comment "Constraints: maximum absolute force allowed (Newtons)")
                (u-max 5.0d0)
+               
+               (comment "Initial state: mass 1 at +1.0m, mass 2 at +0.5m, both stationary")
                (x0 (quote (1.0d0 0.0d0 0.5d0 0.0d0))))
 
           (format t "~%=== HPIPM MPC Demo: Mass-Spring-Damper ===~%")
           (format t "Horizon N=~a, nx=~a, nu=~a~%" N nx nu)
           (format t "Initial state: ~a~%" x0)
+
+          (comment "----------------------------------------------------------------")
+          (comment " Step 1: Set up OCP QP dimensions")
+          (comment "----------------------------------------------------------------")
+          (call-with-d-ocp-qp-dim N
+            (lambda (dim)
+              (comment "Loop over all stages to define state, control, and constraint counts")
+              (dotimes (k (+ N 1))
+                (d-ocp-qp-dim-set-nx k nx dim)
+                (if (< k N)
+                    (progn
+                      (d-ocp-qp-dim-set-nu k nu dim)
+                      (comment "We place box constraints on control inputs at stages 0..N-1")
+                      (d-ocp-qp-dim-set-nbu k nbu dim))
+                    (progn
+                      (d-ocp-qp-dim-set-nu k 0 dim)
+                      (d-ocp-qp-dim-set-nbu k 0 dim)))
+                (comment "We place box constraints on state ONLY at stage 0 (to enforce x0)")
+                (if (= k 0)
+                    (d-ocp-qp-dim-set-nbx k nbx-0 dim)
+                    (d-ocp-qp-dim-set-nbx k 0 dim)))
+
+              (comment "----------------------------------------------------------------")
+              (comment " Step 2: Set up OCP QP problem data")
+              (comment "----------------------------------------------------------------")
+              (call-with-d-ocp-qp dim
+                (lambda (qp)
+                  (comment "Set dynamics transition, input, and cost matrices for stage 0..N-1")
+                  (dotimes (k N)
+                    (d-ocp-qp-set-A k Ad qp)
+                    (d-ocp-qp-set-B k Bd qp)
+                    (d-ocp-qp-set-Q k Q qp)
+                    (d-ocp-qp-set-R k R qp)
+                    (comment "Enforce bounds on control: index 0 (u) is bounded by [-u-max, u-max]")
+                    (d-ocp-qp-set-idxbu k (quote (0)) qp)
+                    (d-ocp-qp-set-lbu k (list (- u-max)) qp)
+                    (d-ocp-qp-set-ubu k (list u-max) qp))
+                  
+                  (comment "Set terminal cost at stage N")
+                  (d-ocp-qp-set-Q N Q qp)
+                  
+                  (comment "Enforce initial state constraints: x(0) must equal x0")
+                  (comment "We lock all 4 states (indices 0, 1, 2, 3) to the initial value x0")
+                  (d-ocp-qp-set-idxbx 0 (quote (0 1 2 3)) qp)
+                  (d-ocp-qp-set-lbx 0 x0 qp)
+                  (d-ocp-qp-set-ubx 0 x0 qp)
+
+                  (comment "----------------------------------------------------------------")
+                  (comment " Step 3: Create solution structure")
+                  (comment "----------------------------------------------------------------")
+                  (call-with-d-ocp-qp-sol dim
+                    (lambda (sol)
+
+                      (comment "----------------------------------------------------------------")
+                      (comment " Step 4: Create solver settings / arguments")
+                      (comment "----------------------------------------------------------------")
+                      (call-with-d-ocp-qp-ipm-arg dim
+                        (lambda (arg)
+                          (comment "Choose balance mode (trade-off between speed and accuracy)")
+                          (d-ocp-qp-ipm-arg-set-default +hpipm-mode-balance+ arg)
+
+                          (comment "----------------------------------------------------------------")
+                          (comment " Step 5 & 6: Create solver workspace and solve the QP")
+                          (comment "----------------------------------------------------------------")
+                          (call-with-d-ocp-qp-ipm-ws dim arg
+                            (lambda (ws)
+                              (d-ocp-qp-ipm-solve qp sol arg ws)
+
+                              (comment "----------------------------------------------------------------")
+                              (comment " Step 7: Extract and print the optimal solution trajectory")
+                              (comment "----------------------------------------------------------------")
+                              (format t "~%Optimal control force input trajectory u* (Newtons):~%")
+                              (dotimes (k N)
+                                (let ((uk (d-ocp-qp-sol-get-u k nu sol)))
+                                  (format t "  u[~2d] = ~8,4f~%" k (aref uk 0))))
+                              
+                              (format t "~%Optimal state trajectory x* (predicted positions & velocities):~%")
+                              (dotimes (k (+ N 1))
+                                (let ((xk (d-ocp-qp-sol-get-x k nx sol)))
+                                  (format t "  x[~2d] = [pos1:~8,4f vel1:~8,4f pos2:~8,4f vel2:~8,4f]~%"
+                                          k 
+                                          (aref xk 0) (aref xk 1)
+                                          (aref xk 2) (aref xk 3))))
+                              (format t "~%MPC demo complete.~%"))))))))))))))
+    *source-dir*))
+
+(format t "Generated mpc-demo.lisp~%")
+
+;;; ============================================================
+;;; Section 11: Generate pendulum-demo.lisp (Inverted Pendulum)
+;;; ============================================================
+
+;; We now write a second, complete MPC simulation demo for an unstable inverted pendulum on a cart.
+;; We will write extensive comments directly in this generator file (using ;; comments) to make the code
+;; self-explanatory to developers reading gen01.lisp.
+;;
+;; Physical Equations and Linearization:
+;;   State space: x = [p, v, theta, omega]^T
+;;   Parameters:
+;;     M = 1.0 kg (cart mass)
+;;     m = 0.1 kg (pendulum mass)
+;;     l = 0.5 m  (half-pole length)
+;;     g = 9.81 m/s^2 (gravity)
+;;     b = 0.1 N/m/s (cart damping/friction)
+;;   Continuous-time linearized dynamics matrices (Ac & Bc) around upright position (theta = 0):
+;;     Ac[1, 1] = - (I + m*l^2)*b / den   where I = 1/3 * m * l^2, den = I*(M+m) + M*m*l^2
+;;     Ac[1, 2] = m^2 * l^2 * g / den
+;;     Ac[3, 1] = - m*l*b / den
+;;     Ac[3, 2] = m*l*(M+m)*g / den
+;;   Euler discretized matrices (Ad & Bd) with dt = 0.05 seconds (derived using python script above):
+(let* (;; Sampling time of 0.05 seconds is critical for keeping an unstable pendulum stable.
+       (dt 0.05d0)
+       ;; Ad = I + dt * Ac (Euler discretized transition matrix)
+       (pad00 1.00000000d0) (pad01 0.05000000d0) (pad02 0.00000000d0) (pad03 0.00000000d0)
+       (pad10 0.00000000d0) (pad11 0.99512195d0) (pad12 0.03589024d0) (pad13 0.00000000d0)
+       (pad20 0.00000000d0) (pad21 0.00000000d0) (pad22 1.00000000d0) (pad23 0.05000000d0)
+       (pad30 0.00000000d0) (pad31 -0.00731707d0) (pad32 0.78958537d0) (pad33 1.00000000d0)
+       ;; Bd = dt * Bc (Euler discretized input matrix)
+       (pbd0 0.00000000d0)
+       (pbd1 0.04878049d0)
+       (pbd2 0.00000000d0)
+       (pbd3 0.07317073d0))
+
+  (write-source "pendulum-demo"
+    `(toplevel
+      ,@(make-header-comments)
+      (comment "================================================================================")
+      (comment " MPC Demo: Inverted Pendulum on a Cart Stabilizer")
+      (comment "================================================================================")
+      (comment " This file contains a complete, self-contained Model Predictive Control (MPC)")
+      (comment " simulation to balance an unstable inverted pendulum on a moving cart.")
+      (comments
+       "System Description:"
+       "  An unstable pendulum is mounted on a cart. We want to stabilize the pendulum in the"
+       "  upright position (theta = 0) and keep the cart at position x = 0 by applying a force"
+       "  actuator 'u' directly to the cart."
+       ""
+       "State Vector Layout (nx = 4):"
+       "  x[0] = p     : cart position (meters)"
+       "  x[1] = v     : cart velocity (meters/second)"
+       "  x[2] = theta : pendulum angle (radians, 0 is upright, positive is tilted right)"
+       "  x[3] = omega : pendulum angular velocity (radians/second)"
+       ""
+       "Control Vector Layout (nu = 1):"
+       "  u[0] = F     : force applied to the cart (Newtons)"
+       ""
+       "Linearized continuous dynamics (around theta=0) with parameters:"
+       "  M = 1.0 kg, m = 0.1 kg, l = 0.5 m, g = 9.81 m/s^2, b = 0.1 N/m/s"
+       ""
+       "Discrete-Time dynamics (Ad & Bd):"
+       "  Euler discretized with sampling time dt = 0.05 seconds (20 Hz controller rate)"
+       ""
+       "Cost Function Weights:"
+       "  Penalizes angular deviation heavily to force stabilization, with minor penalty"
+       "  on cart position to slowly drift back to center.")
+      (comment "================================================================================")
+
+      (defpackage :hpipm-pendulum-demo
+        (:use :cl :hpipm)
+        (:export :run-pendulum-demo))
+      (in-package :hpipm-pendulum-demo)
+
+      (defun run-pendulum-demo ()
+        "Run the unstable inverted pendulum MPC stabilization simulation."
+        (let* ((N 30)      (comment "Prediction horizon (30 steps * 0.05s = 1.5 seconds look-ahead)")
+               (nx 4)     (comment "Number of states")
+               (nu 1)     (comment "Number of inputs")
+               (nbu 1)    (comment "Number of bounded control inputs (force on cart)")
+               (nbx-0 4)  (comment "Number of bounded states at stage 0 (locked to initial condition)")
+               
+               (comment "Discrete dynamics transition matrix Ad")
+               (Ad (make-array (quote (4 4))
+                    :element-type (quote double-float)
+                    :initial-contents
+                    (list (list ,pad00 ,pad01 ,pad02 ,pad03)
+                          (list ,pad10 ,pad11 ,pad12 ,pad13)
+                          (list ,pad20 ,pad21 ,pad22 ,pad23)
+                          (list ,pad30 ,pad31 ,pad32 ,pad33))))
+                          
+               (comment "Discrete dynamics input matrix Bd")
+               (Bd (make-array (quote (4 1))
+                    :element-type (quote double-float)
+                    :initial-contents
+                    (list (list ,pbd0) (list ,pbd1) (list ,pbd2) (list ,pbd3))))
+                    
+               (comment "State cost matrix Q: penalizes state deviation from center/upright")
+               (Q (make-array (quote (4 4))
+                   :element-type (quote double-float)
+                   :initial-contents
+                   (quote ((10.0d0 0.0d0 0.0d0 0.0d0)    (comment "Moderate weight on cart position (keep near 0)")
+                           (0.0d0 1.0d0 0.0d0 0.0d0)     (comment "Subtle weight on cart velocity")
+                           (0.0d0 0.0d0 100.0d0 0.0d0)   (comment "HEAVY weight on pendulum angle (vital for stabilization!)")
+                           (0.0d0 0.0d0 0.0d0 10.0d0))))) (comment "Moderate weight on angular velocity")
+                           
+               (comment "Control cost matrix R: penalizes high force usage")
+               (R (make-array (quote (1 1))
+                   :element-type (quote double-float)
+                   :initial-contents (quote ((0.1d0)))))
+                   
+               (comment "Constraint bounds: absolute force on cart limited to 10 Newtons")
+               (u-max 10.0d0)
+               
+               (comment "Initial state x0: Cart centered, stationary. Pendulum tilted right by 0.2 rad (approx 11.5 deg).")
+               (x0 (quote (0.0d0 0.0d0 0.2d0 0.0d0))))
+
+          (format t "~%=== HPIPM MPC Demo: Inverted Pendulum on Cart ===~%")
+          (format t "Horizon N=~a, nx=~a, nu=~a~%" N nx nu)
+          (format t "Initial state: ~a (tilted by ~5,2f deg)~%" x0 (* 0.2d0 (/ 180.0d0 pi)))
 
           (comment "1. Set up dimensions")
           (call-with-d-ocp-qp-dim N
@@ -563,9 +837,9 @@
                     (d-ocp-qp-set-idxbu k (quote (0)) qp)
                     (d-ocp-qp-set-lbu k (list (- u-max)) qp)
                     (d-ocp-qp-set-ubu k (list u-max) qp))
-                  (comment "Terminal cost")
                   (d-ocp-qp-set-Q N Q qp)
-                  (comment "Initial state constraint: lbx[0] = ubx[0] = x0")
+                  
+                  (comment "Lock initial state constraints at stage 0")
                   (d-ocp-qp-set-idxbx 0 (quote (0 1 2 3)) qp)
                   (d-ocp-qp-set-lbx 0 x0 qp)
                   (d-ocp-qp-set-ubx 0 x0 qp)
@@ -585,19 +859,22 @@
                               (d-ocp-qp-ipm-solve qp sol arg ws)
 
                               (comment "6. Extract and print results")
-                              (format t "~%Optimal inputs u*:~%")
+                              (format t "~%Optimal force trajectory u* (Newtons):~%")
                               (dotimes (k N)
                                 (let ((uk (d-ocp-qp-sol-get-u k nu sol)))
                                   (format t "  u[~2d] = ~8,4f~%" k (aref uk 0))))
-                              (format t "~%Optimal states x*:~%")
+                                  
+                              (format t "~%Optimal state trajectory x* (predicted cart position & pole angle):~%")
                               (dotimes (k (+ N 1))
                                 (let ((xk (d-ocp-qp-sol-get-x k nx sol)))
-                                  (format t "  x[~2d] = [~{~8,4f~^ ~}]~%"
-                                          k (coerce xk (quote list)))))
-                              (format t "~%MPC demo complete.~%"))))))))))))))
+                                  (format t "  x[~2d] = [cart_pos:~8,4f cart_vel:~8,4f pole_ang:~8,4f pole_vel:~8,4f]~%"
+                                          k 
+                                          (aref xk 0) (aref xk 1)
+                                          (aref xk 2) (aref xk 3))))
+                              (format t "~%Inverted pendulum stabilization complete.~%"))))))))))))))
     *source-dir*))
 
-(format t "Generated mpc-demo.lisp~%")
+(format t "Generated pendulum-demo.lisp~%")
 
 ;;; ============================================================
 ;;; Done
@@ -619,3 +896,4 @@
                    (length *lifecycle-objects*))))       ; call-with-*
   (format t "Functions per precision: ~a~%" per-prec)
   (format t "Total generated functions: ~a~%" (* 2 per-prec)))
+
