@@ -855,24 +855,53 @@
                              (declare (ignorable visual-id class bits-per-rgb colormap-entries
                                                  red-mask green-mask blue-mask unused)))))))))))
 
-           (defun connect (&key (ip #(127 0 0 1)) (filename nil) (port 6000))
-             "Connect to the X server."
-             (defparameter *s*
-               (if filename
-                   (socket-make-stream (let ((s (make-instance 'local-socket :type :stream)))
-                                         (socket-connect s filename)
-                                         s)
-                                       :element-type '(unsigned-byte 8)
-                                       :input t
-                                       :output t
-                                       :buffering :none)
-                   (socket-make-stream (let ((s (make-instance 'inet-socket :type :stream :protocol :tcp)))
-                                         (socket-connect s ip port)
-                                         s)
-                                       :element-type '(unsigned-byte 8)
-                                       :input t
-                                       :output t
-                                       :buffering :none)))
+           (defun connect (&key (ip #(127 0 0 1)) (filename nil) (port nil) (display nil))
+             "Connect to the X server. If display is not specified, it is read from the environment."
+             (let* ((display-str (or display (sb-ext:posix-getenv "DISPLAY") ":0"))
+                    (colon-pos (position #\: display-str)))
+               (cond
+                 (filename
+                  (defparameter *s*
+                    (socket-make-stream (let ((s (make-instance 'local-socket :type :stream)))
+                                          (socket-connect s filename)
+                                          s)
+                                        :element-type '(unsigned-byte 8)
+                                        :input t
+                                        :output t
+                                        :buffering :none)))
+                 ((or (null colon-pos) (= 0 colon-pos))
+                  (let* ((disp-num-str (if colon-pos
+                                           (subseq display-str (1+ colon-pos))
+                                           display-str))
+                         (dot-pos (position #\. disp-num-str))
+                         (disp-num (if dot-pos (subseq disp-num-str 0 dot-pos) disp-num-str))
+                         (path (format nil "/tmp/.X11-unix/X~a" disp-num)))
+                    (defparameter *s*
+                      (socket-make-stream (let ((s (make-instance 'local-socket :type :stream)))
+                                            (socket-connect s path)
+                                            s)
+                                          :element-type '(unsigned-byte 8)
+                                          :input t
+                                          :output t
+                                          :buffering :none))))
+                 (t
+                  (let* ((host (subseq display-str 0 colon-pos))
+                         (disp-num-str (subseq display-str (1+ colon-pos)))
+                         (dot-pos (position #\. disp-num-str))
+                         (disp-num-str-clean (if dot-pos (subseq disp-num-str 0 dot-pos) disp-num-str))
+                         (disp-num (parse-integer disp-num-str-clean :junk-allowed t))
+                         (resolved-port (or port (+ 6000 disp-num)))
+                         (resolved-ip (if (or (string= host "") (string= host "localhost"))
+                                          ip
+                                          ip)))
+                    (defparameter *s*
+                      (socket-make-stream (let ((s (make-instance 'inet-socket :type :stream :protocol :tcp)))
+                                            (socket-connect s resolved-ip resolved-port)
+                                            s)
+                                          :element-type '(unsigned-byte 8)
+                                          :input t
+                                          :output t
+                                          :buffering :none))))))
              (with-packet
                (card8 #x6c)            ; little endian
                (card8 0)
