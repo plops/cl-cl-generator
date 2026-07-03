@@ -201,7 +201,7 @@
     ;; 7. DrawWindow (PolySegment)
     (:name draw-window
      :doc "Draw a single line segment from (x1 y1) to (x2 y2)."
-     :params (x1 y1 x2 y2 &key (gc '*gc*))
+     :params (x1 y1 x2 y2 &key (gc *gc*))
      :decls ((declare ((unsigned-byte 16) x1 y1 x2 y2)))
      :bindings ((segs (list (list x1 y1 x2 y2))))
      :packet ((card8 66)
