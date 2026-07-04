@@ -49,6 +49,7 @@
        (emergency-p nil)
        (player-auto-defend-p t)
        (enemy-auto-defend-p nil)
+       (god-mode-p nil)
        ;; Enemy relative state: #(x y vx vy)
        (enemy-state (make-array 4 :element-type 'double-float :initial-contents '(40.0d0 50.0d0 0.0d0 0.0d0)) :type (simple-array double-float (4)))
        ;; Enemy subsystems
@@ -108,6 +109,9 @@
            
            (button :name :btn-juice :text \"Inject Juice (Reset Gs)\" :msg (:inject-juice)
                    :glue (:natural 28 :stretch 0 :shrink 0))
+           
+           (button :name :btn-god :text ,(if (app-state-god-mode-p state) \"God Mode: ACTIVE\" \"God Mode: INACTIVE\")
+                   :msg (:toggle-god-mode) :glue (:natural 28 :stretch 0 :shrink 0))
            
            (button :name :btn-restart :text \"Restart Simulation\" :msg (:restart-game)
                    :glue (:natural 28 :stretch 0 :shrink 0))
@@ -220,6 +224,10 @@
           (setf (app-state-enemy-auto-defend-p state) (not (app-state-enemy-auto-defend-p state)))
           state)
 
+         ((eq (car msg) :toggle-god-mode)
+          (setf (app-state-god-mode-p state) (not (app-state-god-mode-p state)))
+          state)
+
          ((eq (car msg) :restart-game)
           (let ((player-sol (app-state-player-solver state)))
             (setf state (make-app-state :player-solver player-sol))
@@ -321,13 +329,14 @@
                       (app-state-player-slugs state) (update-slugs (app-state-player-slugs state) ad bd dt)
                       (app-state-player-torpedoes state) (update-torpedoes (app-state-player-torpedoes state) enemy ad bd dt))
 
-                ;; 4. Check player collisions
-                (dolist (slug (app-state-slugs state))
-                  (when (check-collision ship (vector (first slug) (second slug) 0.0d0 0.0d0) 4.0d0)
-                    (setf (app-state-game-over-p state) t)))
-                (dolist (torp (app-state-torpedoes state))
-                  (when (check-collision ship (vector (first torp) (second torp) 0.0d0 0.0d0) 4.0d0)
-                    (setf (app-state-game-over-p state) t)))
+                ;; 4. Check player collisions (skip if God Mode is enabled)
+                (unless (app-state-god-mode-p state)
+                  (dolist (slug (app-state-slugs state))
+                    (when (check-collision ship (vector (first slug) (second slug) 0.0d0 0.0d0) 4.0d0)
+                      (setf (app-state-game-over-p state) t)))
+                  (dolist (torp (app-state-torpedoes state))
+                    (when (check-collision ship (vector (first torp) (second torp) 0.0d0 0.0d0) 4.0d0)
+                      (setf (app-state-game-over-p state) t))))
 
                 ;; 5. Check enemy hits
                 (when (> (app-state-enemy-reactor state) 0.0d0)
