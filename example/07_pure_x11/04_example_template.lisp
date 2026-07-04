@@ -1,0 +1,66 @@
+;;;; 04_example_template.lisp — Example app template specification
+
+(in-package :cl-cl-generator/example-x11-gen)
+
+(defparameter *example-template-code*
+  `(toplevel
+      ,@(make-header-comments)
+      (defpackage :pure-x11-gen/example
+        (:use :cl :pure-x11-gen)
+        (:export #:run-x11-example))
+      (in-package :pure-x11-gen/example)
+ 
+      (defstruct app-state
+        (clicks 0)
+        (input-buffer "Type here")
+        (cursor-pos 9)
+        (checkbox-val nil))
+ 
+      (defun update (state msg)
+        "Pure state update function."
+        (let ((clicks (app-state-clicks state))
+              (buf (app-state-input-buffer state))
+              (pos (app-state-cursor-pos state))
+              (chk (app-state-checkbox-val state)))
+          (case (car msg)
+            (:increment
+             (make-app-state :clicks (1+ clicks) :input-buffer buf :cursor-pos pos :checkbox-val chk))
+            (:decrement
+             (make-app-state :clicks (1- clicks) :input-buffer buf :cursor-pos pos :checkbox-val chk))
+            (:toggle-checkbox
+             (make-app-state :clicks clicks :input-buffer buf :cursor-pos pos :checkbox-val (not chk)))
+            (:text-change
+             (let ((new-text (cadr msg))
+                   (new-pos (caddr msg)))
+               (make-app-state :clicks clicks :input-buffer new-text :cursor-pos new-pos :checkbox-val chk)))
+            (:cursor-move
+             (let ((new-pos (caddr msg)))
+               (make-app-state :clicks clicks :input-buffer buf :cursor-pos new-pos :checkbox-val chk)))
+            (t state))))
+ 
+      (raw "
+ (defun view (w h state)
+   \"Pure layout render function returning the virtual DOM.\"
+   (let ((clicks (app-state-clicks state))
+         (buf (app-state-input-buffer state))
+         (pos (app-state-cursor-pos state))
+         (chk (app-state-checkbox-val state)))
+     `(panel :name :main-panel :x 0 :y 0 :w ,w :h ,h :bg #x00d0d0d0
+        (label :name :title-lbl :text \"Pure X11 Declarative GUI Demo\" :x 20 :y 30)
+        
+        (label :name :count-lbl :text ,(format nil \"Clicks: ~a\" clicks) :x 20 :y 70)
+        (button :name :btn-inc :text \"Increment\" :x 20 :y 90 :w 120 :h 30 :msg (:increment))
+        (button :name :btn-dec :text \"Decrement\" :x 160 :y 90 :w 120 :h 30 :msg (:decrement))
+        
+        (label :name :input-lbl :text \"Text Input field:\" :x 20 :y 160)
+        (text-input :name :txt-input :x 20 :y 180 :w ,(- w 40) :h 30
+                    :text ,buf :cursor-pos ,pos :msg-change (:text-change))
+        
+        (checkbox :name :chk-box :label \"Enable Action Mode\" :x 20 :y 240 :w 200 :h 24
+                  :checked-p ,chk :msg (:toggle-checkbox)))))
+ ")
+ 
+      (defun run-x11-example ()
+        "Connect to X11 and run the declarative GUI application."
+        (run-gui #'update #'view (make-app-state)))
+      ))

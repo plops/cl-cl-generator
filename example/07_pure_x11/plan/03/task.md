@@ -1,0 +1,14 @@
+- `[x]` Create generator script `/workspace/src/cl-cl-generator/example/07_pure_x11/gen.lisp` with specifications and code emitters
+- `[x]` Split `gen.lisp` into semantic sub-units:
+  - `[x]` `01_package.lisp` for environments, Quicklisp loading, and dummy package declarations
+  - `[x]` `02_x11_spec.lisp` for request and event declarations
+  - `[x]` `03_widgets_template.lisp` for MUV widget toolkit logic
+  - `[x]` `04_example_template.lisp` for declarative counter client demo
+  - `[x]` `05_tests_template.lisp` for automated unit/integration test suite
+  - `[x]` `generate.lisp` as the main orchestrator script
+- `[x]` Fix package-insensitive widget type matching using case-insensitive `symbol-name` comparisons
+- `[x]` Validate all modular template and source files are 100% parenthesised and balanced
+- `[x]` Compile and load generated library cleanly in SBCL
+- `[x]` Execute automated unit tests (all passed)
+- `[x]` Verify using Xvfb integration tests and inspect the output screenshot
+- `[x]` Create walkthrough artifact and clean up temporary files
