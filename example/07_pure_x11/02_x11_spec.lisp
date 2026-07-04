@@ -98,7 +98,7 @@
               (card16 0)                ; window-class
               (card32 0)                ; visual-id
               (card32 (value vals))
-              (card32 0)                ; bg
+              (card32 #x00c0c0c0)       ; bg (light gray, matches gc-face)
               (card32 #x00ffffff)       ; border
               (card32 5)                ; bit-grav center
               (card32 1)                ; backing store
@@ -107,48 +107,53 @@
 
               (card8 55)                ; opcode create-gc (gc-light: white fg, 0 bg)
               (card8 0)
-              (card16 6)
+              (card16 7)
               (card32 gc-light)
               (card32 window)
-              (card32 #x0c)
+              (card32 #x1000c)
               (card32 #x00ffffff)
+              (card32 0)
               (card32 0)
 
               (card8 55)                ; opcode create-gc (gc-face: light gray fg/bg)
               (card8 0)
-              (card16 6)
+              (card16 7)
               (card32 gc-face)
               (card32 window)
-              (card32 #x0c)
+              (card32 #x1000c)
               (card32 #x00c0c0c0)
               (card32 #x00c0c0c0)
+              (card32 0)
 
               (card8 55)                ; opcode create-gc (gc-shadow: mid gray fg, face bg)
               (card8 0)
-              (card16 6)
+              (card16 7)
               (card32 gc-shadow)
               (card32 window)
-              (card32 #x0c)
+              (card32 #x1000c)
               (card32 #x00808080)
               (card32 #x00c0c0c0)
+              (card32 0)
 
               (card8 55)                ; opcode create-gc (gc-dark: dark gray fg, face bg)
               (card8 0)
-              (card16 6)
+              (card16 7)
               (card32 gc-dark)
               (card32 window)
-              (card32 #x0c)
+              (card32 #x1000c)
               (card32 #x00404040)
               (card32 #x00c0c0c0)
+              (card32 0)
 
               (card8 55)                ; opcode create-gc (gc-text: black fg, face bg)
               (card8 0)
-              (card16 6)
+              (card16 7)
               (card32 gc-text)
               (card32 window)
-              (card32 #x0c)
+              (card32 #x1000c)
               (card32 #x00000000)
               (card32 #x00c0c0c0)
+              (card32 0)
 
               (card8 8)                 ; map-window
               (card8 0)
@@ -333,12 +338,13 @@
      :params (gc &key (foreground #x000000) (background #x00ffffff))
      :packet ((card8 55)
               (card8 0)
-              (card16 6)
+              (card16 7)
               (card32 gc)
               (card32 *window*)
-              (card32 #x0c)
+              (card32 #x1000c)
               (card32 foreground)
-              (card32 background)))
+              (card32 background)
+              (card32 0)))
 
     ;; 9g. CreatePixmap (opcode 53)
     (:name create-pixmap

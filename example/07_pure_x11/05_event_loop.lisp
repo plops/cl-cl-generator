@@ -35,9 +35,15 @@
              *prev-hovered* *hovered-widget*))
 
      (defun full-redraw (layout)
-       "Full render — layout manager fills background, avoiding fullscreen clear flicker."
-       (with-buffered-output
-         (render-layout layout *focused-widget* *pressed-widget* *hovered-widget*))
+       "Full render using window-wide double buffering to completely prevent flicker."
+       (let ((pix (next-resource-id))
+             (win-id *window*))
+         (with-buffered-output
+           (create-pixmap pix *window-width* *window-height* :depth (or *root-depth* 24))
+           (let ((*window* pix))
+             (render-layout layout *focused-widget* *pressed-widget* *hovered-widget*))
+           (copy-area pix win-id *gc-text* 0 0 0 0 *window-width* *window-height*)
+           (free-pixmap pix)))
        (save-visual-state))
 
      (defun partial-redraw (layout dirty-names)
@@ -116,8 +122,6 @@
                        (full-redraw layout))
                       (reply
                        (let ((code (logand (aref reply 0) #x7f)))
-                         (format t "Received event code ~a~%" code)
-                         (force-output)
                          (cond
                            ((= code 12) ; Expose
                             (full-redraw layout))

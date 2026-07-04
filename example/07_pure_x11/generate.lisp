@@ -230,8 +230,6 @@
                 "Read standard 32-byte reply header and optional variable-length body from *s*."
                 (let* ((buf (make-array 32 :element-type '(unsigned-byte 8))))
                   (read-exactly *s* buf)
-                  (format t "read-reply-wait: read packet code ~a~%" (aref buf 0))
-                  (force-output)
                   (with-reply buf
                     (let ((reply (card8))
                           (unused (card8))
