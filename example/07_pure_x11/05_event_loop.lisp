@@ -35,9 +35,8 @@
              *prev-hovered* *hovered-widget*))
 
      (defun full-redraw (layout)
-       "Full clear and render — used for Expose events and layout rebuilds."
+       "Full render — layout manager fills background, avoiding fullscreen clear flicker."
        (with-buffered-output
-         (clear-area :w *window-width* :h *window-height*)
          (render-layout layout *focused-widget* *pressed-widget* *hovered-widget*))
        (save-visual-state))
 
@@ -47,8 +46,10 @@
          (dolist (name dirty-names)
            (let ((w (find-widget-by-name layout name)))
              (when w
-               (clear-area :x (widget-x w) :y (widget-y w)
-                           :w (widget-w w) :h (widget-h w))
+               (let ((type (widget-type w)))
+                 (unless (and type (symbolp type) (string-equal (symbol-name type) "CANVAS"))
+                   (clear-area :x (widget-x w) :y (widget-y w)
+                               :w (widget-w w) :h (widget-h w))))
                (render-widget w *focused-widget* *pressed-widget* *hovered-widget*)))))
        (save-visual-state))
 
