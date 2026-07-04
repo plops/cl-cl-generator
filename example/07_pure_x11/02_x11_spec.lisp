@@ -334,7 +334,13 @@
                           (setf *big-request-opcode* (query-extension "BIG-REQUESTS")))))
      :packet ((card8 *big-request-opcode*)
               (card8 0)
-              (card16 1)))
+              (card16 1))
+     :reply ((reply (card8))
+             (unused (card8))
+             (sequence-number (card16))
+             (reply-length (card32))
+             (max-request-length (card32)))
+     :returns max-request-length)
 
     ;; 12. PutImageBigReq
     (:name put-image-big-req
@@ -604,7 +610,7 @@
              `(,@(when packet-code (list packet-code))
                ,@post
                ,@(when reply
-                   `((with-reply (read-reply-wait)
+                   `((with-reply (read-reply-packet)
                        (let* ,reply
                          ,returns))))
                ,@(when (and (not reply) returns)

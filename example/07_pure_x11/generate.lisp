@@ -45,6 +45,8 @@
                   #:ungrab-pointer
                   #:get-keyboard-mapping
                   #:read-reply-wait
+                  #:read-reply-packet
+                  #:*pending-events*
                   #:run-gui
                   
                   #:parse-expose
@@ -231,6 +233,20 @@
                          (let ((m (make-array (* 4 reply-length) :element-type '(unsigned-byte 8))))
                            (read-exactly *s* m)
                            (values (concatenate '(vector (unsigned-byte 8)) buf m) sequence-number)))))))
+
+             (defvar *pending-events* nil)
+
+             (defun read-reply-packet ()
+               "Read packets from *s* until we receive a reply (code 1) or error (code 0). Queue events in *pending-events*."
+               (loop
+                 (multiple-value-bind (buf seq) (read-reply-wait)
+                   (declare (ignore seq))
+                   (let ((code (logand (aref buf 0) #x7f)))
+                     (cond
+                       ((or (= code 0) (= code 1))
+                        (return buf))
+                       (t
+                        (setf *pending-events* (nconc *pending-events* (list buf)))))))))
 
              (defun read-connection-response ()
                "Read the initial connection response from X server."

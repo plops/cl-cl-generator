@@ -87,7 +87,9 @@
              ;; Initial draw
              (full-redraw layout)
              (loop
-               (let ((reply (read-reply-wait)))
+               (let ((reply (if *pending-events*
+                                (pop *pending-events*)
+                                (read-reply-wait))))
                  (let ((code (logand (aref reply 0) #x7f)))
                    (format t "Received event code ~a~%" code)
                    (force-output)
