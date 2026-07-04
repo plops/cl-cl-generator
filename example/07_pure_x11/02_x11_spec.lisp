@@ -102,7 +102,7 @@
               (card32 #x00ffffff)       ; border
               (card32 5)                ; bit-grav center
               (card32 1)                ; backing store
-              (card32 (event '(PointerMotion ButtonPress ButtonRelease Exposure StructureNotify)))
+              (card32 (event '(PointerMotion ButtonPress ButtonRelease KeyPress Exposure StructureNotify)))
               (card32 #x0)              ; colormap
 
               (card8 55)                ; opcode create-gc (gc-light: white fg, 0 bg)
