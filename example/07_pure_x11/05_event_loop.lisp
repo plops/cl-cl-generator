@@ -74,7 +74,8 @@
                                  (get-keyboard-mapping 8 248)
                                (list 8 per-keycode map))))
            (labels ((rebuild-layout ()
-                      (setf layout (funcall view-fn *window-width* *window-height* state))
+                      (let ((raw-layout (funcall view-fn *window-width* *window-height* state)))
+                        (setf layout (resolve-layout raw-layout 0 0 *window-width* *window-height*)))
                       (let ((focusable (collect-focusable-widgets layout)))
                         (when (and *focused-widget*
                                    (not (find *focused-widget* focusable :key #'widget-name)))

@@ -37,7 +37,7 @@
                         (button :name :b1 :x 10 :y 30 :w 100 :h 30)
                         (checkbox :name :c1 :x 10 :y 70 :w 100 :h 20)
                         (text-input :name :t1 :x 10 :y 100 :w 100 :h 30)))
-              (focusable (pure-x11-gen::collect-focusable-widgets layout)))
+              (focusable (pure-x11-gen::collect-focusable-widgets (pure-x11-gen::resolve-layout layout))))
          (assert-test (= (length focusable) 3) "Found 3 focusable widgets")
          (assert-test (eq (pure-x11-gen::widget-name (first focusable)) :b1) "First is :b1")
          (assert-test (eq (pure-x11-gen::widget-name (second focusable)) :c1) "Second is :c1")
@@ -45,9 +45,10 @@
 
      (defun test-hit-testing ()
        (format t "--- Running test-hit-testing ---~%")
-       (let* ((layout '(panel :name :main-panel :x 0 :y 0 :w 400 :h 300
-                        (button :name :b1 :x 10 :y 30 :w 100 :h 30)
-                        (button :name :b2 :x 120 :y 30 :w 100 :h 30))))
+       (let* ((layout (pure-x11-gen::resolve-layout
+                        '(panel :name :main-panel :x 0 :y 0 :w 400 :h 300
+                          (button :name :b1 :x 10 :y 30 :w 100 :h 30)
+                          (button :name :b2 :x 120 :y 30 :w 100 :h 30)))))
          (assert-test (eq (pure-x11-gen::widget-name (pure-x11-gen::find-widget-at layout 15 45)) :b1) "Hit button 1")
          (assert-test (eq (pure-x11-gen::widget-name (pure-x11-gen::find-widget-at layout 150 45)) :b2) "Hit button 2")
          (assert-test (eq (pure-x11-gen::widget-name (pure-x11-gen::find-widget-at layout 5 5)) :main-panel) "Hit panel background")
@@ -55,10 +56,11 @@
 
      (defun test-cone-focus-search ()
        (format t "--- Running test-cone-focus-search ---~%")
-       (let* ((layout '(panel :name :main-panel :x 0 :y 0 :w 400 :h 300
-                        (button :name :b1 :x 40 :y 40 :w 20 :h 20)
-                        (button :name :b2 :x 140 :y 40 :w 20 :h 20)
-                        (button :name :b3 :x 40 :y 140 :w 20 :h 20))))
+       (let* ((layout (pure-x11-gen::resolve-layout
+                        '(panel :name :main-panel :x 0 :y 0 :w 400 :h 300
+                          (button :name :b1 :x 40 :y 40 :w 20 :h 20)
+                          (button :name :b2 :x 140 :y 40 :w 20 :h 20)
+                          (button :name :b3 :x 40 :y 140 :w 20 :h 20)))))
          (assert-test (eq (pure-x11-gen::find-nearest-widget layout :b1 :right) :b2) "b1 -> right is b2")
          (assert-test (eq (pure-x11-gen::find-nearest-widget layout :b1 :down) :b3) "b1 -> down is b3")
          (assert-test (eq (pure-x11-gen::find-nearest-widget layout :b2 :left) :b1) "b2 -> left is b1")
@@ -71,7 +73,7 @@
            (lambda (w-struct focused pressed hovered)
              (declare (ignore focused pressed hovered))
              (setf rendered-p (eq (pure-x11-gen::widget-name w-struct) :my-mock))))
-         (pure-x11-gen::render-layout '(mock :name :my-mock) nil nil nil)
+         (pure-x11-gen::render-layout (pure-x11-gen::resolve-layout '(mock :name :my-mock)) nil nil nil)
          (assert-test rendered-p "Mock widget renderer dispatched successfully")))
 
      (defun test-glue-solver ()

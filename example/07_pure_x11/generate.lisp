@@ -66,6 +66,8 @@
                   #:*packet-buffer*
                   #:with-buffered-output
                   #:flush-packets
+                  #:resolve-layout
+                  #:widget-p
                   #:*big-request-opcode*)))
     *output-dir*)
 

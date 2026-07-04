@@ -17,37 +17,11 @@
 
      (register-widget "HBOX"
        (lambda (w-struct focused pressed hovered)
-         (let ((layout-results (compute-box-layout w-struct :x)))
-           (dolist (item layout-results)
-             (let ((child (first item))
-                   (cx (second item))
-                   (cy (third item))
-                   (cw (fourth item))
-                   (ch (fifth item)))
-               (when (listp child)
-                 (let ((cw-struct (parse-node child)))
-                   (setf (widget-x cw-struct) cx
-                         (widget-y cw-struct) cy
-                         (widget-w cw-struct) cw
-                         (widget-h cw-struct) ch)
-                   (render-widget cw-struct focused pressed hovered))))))))
+         (render-layout-children (widget-children w-struct) focused pressed hovered)))
 
      (register-widget "VBOX"
        (lambda (w-struct focused pressed hovered)
-         (let ((layout-results (compute-box-layout w-struct :y)))
-           (dolist (item layout-results)
-             (let ((child (first item))
-                   (cx (second item))
-                   (cy (third item))
-                   (cw (fourth item))
-                   (ch (fifth item)))
-               (when (listp child)
-                 (let ((cw-struct (parse-node child)))
-                   (setf (widget-x cw-struct) cx
-                         (widget-y cw-struct) cy
-                         (widget-w cw-struct) cw
-                         (widget-h cw-struct) ch)
-                   (render-widget cw-struct focused pressed hovered))))))))
+         (render-layout-children (widget-children w-struct) focused pressed hovered)))
 
      (register-widget "LABEL"
        (lambda (w-struct focused pressed hovered)
