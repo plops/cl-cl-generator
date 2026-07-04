@@ -121,6 +121,22 @@
            (assert-test (eq pure-x11-gen::*prev-focused* :w1) "prev-focused snapshot correct")
            (assert-test (null (pure-x11-gen::compute-dirty-widgets)) "No dirty widgets after save"))))
 
+     (defun test-x11-opcodes ()
+       (format t "--- Running test-x11-opcodes ---~%")
+       (let ((pure-x11-gen::*window* 123)
+             (pure-x11-gen::*gc-text* 456))
+         (pure-x11-gen::with-buffered-output
+           (pure-x11-gen::poly-fill-rectangle '((10 20 100 200)))
+           (pure-x11-gen::imagetext8 "Hello" :x 10 :y 20)
+           (pure-x11-gen::poly-rectangle '((10 20 100 200)))
+           (let* ((packets (reverse pure-x11-gen::*packet-buffer*))
+                  (p-fill-rect (first packets))
+                  (p-imagetext (second packets))
+                  (p-rect (third packets)))
+             (assert-test (= (aref p-fill-rect 0) 70) "poly-fill-rectangle major opcode is 70")
+             (assert-test (= (aref p-imagetext 0) 76) "imagetext8 major opcode is 76")
+             (assert-test (= (aref p-rect 0) 74) "poly-rectangle major opcode is 74")))))
+
      (defun run-all-tests ()
        (setf *test-failures* 0)
        (test-parse-node)
@@ -131,6 +147,7 @@
        (test-glue-solver)
        (test-bevel-coordinates)
        (test-dirty-widgets)
+       (test-x11-opcodes)
        (if (zerop *test-failures*)
            (format t "ALL TESTS PASSED!~%")
            (progn

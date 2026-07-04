@@ -292,7 +292,7 @@
     (:name poly-fill-rectangle
      :doc "Draw one or more filled rectangles."
      :params (rects &key (gc *gc-text*))
-     :packet ((card8 76)
+     :packet ((card8 70)
               (card8 0)
               (card16 (+ 3 (* 2 (length rects))))
               (card32 *window*)
