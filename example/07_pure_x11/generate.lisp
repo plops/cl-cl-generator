@@ -496,32 +496,32 @@
                                             :element-type '(unsigned-byte 8)
                                             :input t
                                             :output t
-                                            :buffering :none))))))
-               (multiple-value-bind (auth-name auth-data) (get-xauth-cookie display-str)
-                 (if (and auth-name auth-data)
-                     (with-packet
-                       (card8 #x6c)            ; little endian
-                       (card8 0)
-                       (card16 11)
-                       (card16 0)
-                       (card16 (length auth-name))
-                       (card16 (length auth-data))
-                       (card16 0)
-                       (string8 auth-name)
-                       (dotimes (i (pad (length auth-name))) (card8 0))
-                       (loop for b across auth-data do (card8 b))
-                       (dotimes (i (pad (length auth-data))) (card8 0)))
-                     (with-packet
-                       (card8 #x6c)            ; little endian
-                       (card8 0)
-                       (card16 11)
-                       (card16 0)
-                       (card16 0)
-                       (card16 0)
-                       (card16 0))))
-               (setf *resp* (read-connection-response))
-               (parse-initial-reply *resp*)
-               (big-requests-enable))
+                                            :buffering :none)))))
+                 (multiple-value-bind (auth-name auth-data) (get-xauth-cookie display-str)
+                   (if (and auth-name auth-data)
+                       (with-packet
+                         (card8 #x6c)            ; little endian
+                         (card8 0)
+                         (card16 11)
+                         (card16 0)
+                         (card16 (length auth-name))
+                         (card16 (length auth-data))
+                         (card16 0)
+                         (string8 auth-name)
+                         (dotimes (i (pad (length auth-name))) (card8 0))
+                         (loop for b across auth-data do (card8 b))
+                         (dotimes (i (pad (length auth-data))) (card8 0)))
+                       (with-packet
+                         (card8 #x6c)            ; little endian
+                         (card8 0)
+                         (card16 11)
+                         (card16 0)
+                         (card16 0)
+                         (card16 0)
+                         (card16 0)))
+                   (setf *resp* (read-connection-response))
+                   (parse-initial-reply *resp*)
+                   (big-requests-enable))))
 
              (comment "Flag and Option Lookups")
              (defparameter *set-of-value-mask* ',*set-of-value-mask*)
