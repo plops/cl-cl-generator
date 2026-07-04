@@ -26,7 +26,7 @@ sleep 1
 import -window root screenshot.png
 
 # Copy to artifacts directory
-cp screenshot.png /root/.gemini/antigravity-cli/brain/19e83a78-84ed-490b-9e5e-840eb2b263f2/screenshot.png
+cp screenshot.png /root/.gemini/antigravity-cli/brain/d3593425-01aa-4749-aed0-2057a557ae6b/screenshot.png
 
 # Kill background processes
 kill -9 $CLIENT_PID

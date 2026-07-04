@@ -288,7 +288,15 @@
                          (setf (aref m i) (aref buf i)))
                        (read-exactly *s* m 8 (+ 8 (* 4 reply-length)))
                        (ecase success-state
-                         (0 (error "Connection failed"))
+                         (0 (with-reply m
+                              (let ((state (card8))
+                                    (len (card8))
+                                    (major (card16))
+                                    (minor (card16))
+                                    (rep-len (card16)))
+                                (declare (ignore state major minor rep-len))
+                                (let ((reason (string8 len)))
+                                  (error "Connection failed: ~a" reason)))))
                          (2 (error "Authentication required"))
                          (1 m)))))))
 
@@ -368,6 +376,76 @@
                                (declare (ignorable visual-id class bits-per-rgb colormap-entries
                                                    red-mask green-mask blue-mask unused)))))))))))
 
+             (defun get-xauthority-path ()
+               (let ((env-val (sb-ext:posix-getenv "XAUTHORITY")))
+                 (if (and env-val (string/= env-val ""))
+                     (pathname env-val)
+                     (let ((home (user-homedir-pathname)))
+                       (when home
+                         (merge-pathnames ".Xauthority" home))))))
+
+             (defun read-xauthority (path)
+               (when (and path (probe-file path))
+                 (with-open-file (stream path :element-type '(unsigned-byte 8) :if-does-not-exist nil)
+                   (when stream
+                     (let ((entries nil))
+                       (handler-case
+                           (loop
+                             (let ((b1 (read-byte stream nil nil)))
+                               (unless b1 (return (nreverse entries)))
+                               (let* ((b2 (read-byte stream))
+                                      (family (+ (* 256 b1) b2))
+                                      (addr-len (+ (* 256 (read-byte stream)) (read-byte stream)))
+                                      (addr (make-array addr-len :element-type '(unsigned-byte 8))))
+                                 (read-sequence addr stream)
+                                 (let* ((num-len (+ (* 256 (read-byte stream)) (read-byte stream)))
+                                        (num (make-array num-len :element-type '(unsigned-byte 8))))
+                                   (read-sequence num stream)
+                                   (let* ((name-len (+ (* 256 (read-byte stream)) (read-byte stream)))
+                                          (name (make-array name-len :element-type '(unsigned-byte 8))))
+                                     (read-sequence name stream)
+                                     (let* ((data-len (+ (* 256 (read-byte stream)) (read-byte stream)))
+                                            (data (make-array data-len :element-type '(unsigned-byte 8))))
+                                       (read-sequence data stream)
+                                       (push (list :family family
+                                                   :address addr
+                                                   :number (map 'string #'code-char num)
+                                                   :name (map 'string #'code-char name)
+                                                   :data data)
+                                             entries)))))))
+                         (end-of-file ()
+                           (nreverse entries))))))))
+
+             (defun parse-display-num (display-str)
+               (let ((colon-pos (position #\: display-str)))
+                 (if colon-pos
+                     (let* ((after-colon (subseq display-str (1+ colon-pos)))
+                            (dot-pos (position #\. after-colon)))
+                       (if dot-pos
+                           (subseq after-colon 0 dot-pos)
+                           after-colon))
+                     "0")))
+
+             (defun get-xauth-cookie (display-str)
+               (let* ((path (get-xauthority-path))
+                      (entries (read-xauthority path))
+                      (display-num (parse-display-num display-str)))
+                 (when entries
+                   (let ((match (or (find-if (lambda (e)
+                                               (and (string= (getf e :name) "MIT-MAGIC-COOKIE-1")
+                                                    (string= (getf e :number) display-num)))
+                                             entries)
+                                    (find-if (lambda (e)
+                                               (string= (getf e :name) "MIT-MAGIC-COOKIE-1"))
+                                             entries))))
+                     (if match
+                         (progn
+                           (format t "Found X authority cookie for display ~a in ~a~%" (getf match :number) path)
+                           (values (getf match :name) (getf match :data)))
+                         (progn
+                           (format t "No matching X authority cookie found in ~a~%" path)
+                           (values nil nil)))))))
+
              (defun connect (&key (ip #(127 0 0 1)) (filename nil) (port nil) (display nil))
                "Connect to the X server. If display is not specified, it is read from the environment."
                (let* ((display-str (or display (sb-ext:posix-getenv "DISPLAY") ":0"))
@@ -406,7 +484,11 @@
                            (resolved-port (or port (+ 6000 disp-num)))
                            (resolved-ip (if (or (string= host "") (string= host "localhost"))
                                             ip
-                                            ip)))
+                                            (or (handler-case
+                                                    (sb-bsd-sockets:host-ent-address
+                                                     (sb-bsd-sockets:get-host-by-name host))
+                                                  (error () nil))
+                                                ip))))
                       (defparameter *s*
                         (socket-make-stream (let ((s (make-instance 'inet-socket :type :stream :protocol :tcp)))
                                               (socket-connect s resolved-ip resolved-port)
@@ -415,14 +497,28 @@
                                             :input t
                                             :output t
                                             :buffering :none))))))
-               (with-packet
-                 (card8 #x6c)            ; little endian
-                 (card8 0)
-                 (card16 11)
-                 (card16 0)
-                 (card16 0)
-                 (card16 0)
-                 (card16 0))
+               (multiple-value-bind (auth-name auth-data) (get-xauth-cookie display-str)
+                 (if (and auth-name auth-data)
+                     (with-packet
+                       (card8 #x6c)            ; little endian
+                       (card8 0)
+                       (card16 11)
+                       (card16 0)
+                       (card16 (length auth-name))
+                       (card16 (length auth-data))
+                       (card16 0)
+                       (string8 auth-name)
+                       (dotimes (i (pad (length auth-name))) (card8 0))
+                       (loop for b across auth-data do (card8 b))
+                       (dotimes (i (pad (length auth-data))) (card8 0)))
+                     (with-packet
+                       (card8 #x6c)            ; little endian
+                       (card8 0)
+                       (card16 11)
+                       (card16 0)
+                       (card16 0)
+                       (card16 0)
+                       (card16 0))))
                (setf *resp* (read-connection-response))
                (parse-initial-reply *resp*)
                (big-requests-enable))

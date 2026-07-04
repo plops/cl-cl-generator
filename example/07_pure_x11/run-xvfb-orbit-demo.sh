@@ -18,7 +18,7 @@ sleep 4 # Wait 4 seconds for the client to connect, map, render, and animate som
 import -window root orbit_screenshot.png
 
 # Copy to artifacts directory
-cp orbit_screenshot.png /root/.gemini/antigravity-cli/brain/072d4d39-ee6c-4fc5-9860-ad79ed181ec8/orbit_screenshot.png
+cp orbit_screenshot.png /root/.gemini/antigravity-cli/brain/d3593425-01aa-4749-aed0-2057a557ae6b/orbit_screenshot.png
 
 # Kill background processes
 kill -9 $CLIENT_PID
