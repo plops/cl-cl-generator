@@ -62,7 +62,7 @@
   (history nil)
   (animating-p t)
   (amplitude 5.0d0)
-  (frequency 50.0d0))
+  (frequency 2.0d0))
 
 (defun update-app (state msg)
   (case (car msg)

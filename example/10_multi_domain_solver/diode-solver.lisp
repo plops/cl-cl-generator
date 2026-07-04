@@ -60,7 +60,7 @@
     state))
 
 (defun run-simulation-steps (steps &key (time-step 1.0d-4) (amplitude 5.0d0)
-                             (frequency 50.0d0))
+                             (frequency 2.0d0))
   (declare (type integer steps)
            (type double-float time-step amplitude frequency))
   (let ((state (make-sim-state)) (results nil))
