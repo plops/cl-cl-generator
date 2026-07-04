@@ -1,0 +1,111 @@
+(in-package :cl-user)
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
+    (push current-dir asdf:*central-registry*)
+    (ql:quickload :cl-cl-generator)))
+
+(in-package :multi-domain-solver)
+
+(defun generate-diode-solver-file (filename &key (directory *default-pathname-defaults*))
+  (write-source filename
+    `(toplevel
+       (in-package :multi-domain-solver)
+
+       (defstruct sim-state
+         (time 0.0d0 :type double-float)
+         (v-d 0.0d0 :type double-float)      ; Diode voltage
+         (i-d 0.0d0 :type double-float)      ; Diode current
+         (temp 298.15d0 :type double-float)  ; Junction temperature (Kelvin)
+         (p-d 0.0d0 :type double-float)      ; Power dissipation (Watts)
+         (v-s 0.0d0 :type double-float))     ; Source voltage (Volts)
+
+       (defun step-simulation (state dt v-s-val)
+         (declare (type sim-state state)
+                  (type double-float dt v-s-val)
+                  (optimize (speed 3) (safety 0)))
+         (let* ((prev-temp (sim-state-temp state))
+                (v-d (sim-state-v-d state))
+                (temp (sim-state-temp state))
+                ;; Physical & circuit parameters
+                (r-s 100.0d0)            ; 100 Ohm resistor
+                (i-s0 1d-12)             ; Saturation current at T0 (1 pA)
+                (t0 298.15d0)            ; Nominal temperature (25 °C)
+                (gamma 0.07d0)           ; Temperature coefficient of saturation current
+                (t-amb 298.15d0)         ; Ambient temperature
+                (c-th 0.05d0)            ; Thermal capacitance (J/K)
+                (r-th 1000.0d0)           ; Thermal resistance to ambient (K/W)
+                (converged nil))
+           (declare (type double-float prev-temp v-d temp r-s i-s0 t0 gamma t-amb c-th r-th))
+           
+           ;; Newton-Raphson iterative solver for coupled v-d and temp
+           (dotimes (iter 40)
+             (unless converged
+               (let* ((is (* i-s0 (exp (* gamma (- temp t0)))))
+                      (vt (/ temp 11600.0d0))
+                      ;; Prevent exponential overflow
+                      (v-over-vt (max -20.0d0 (min 40.0d0 (/ v-d vt))))
+                      (exp-factor (exp v-over-vt))
+                      (i-d-val (* is (- exp-factor 1.0d0)))
+                      
+                      ;; Residuals: f1 (KCL at diode node), f2 (thermal power balance)
+                      (f1 (+ (/ (- v-d v-s-val) r-s) i-d-val))
+                      (f2 (+ (* (/ c-th dt) (- temp prev-temp))
+                             (/ (- temp t-amb) r-th)
+                             (- (* v-d i-d-val))))
+                      
+                      ;; Derivatives for the Jacobian matrix
+                      (did-dvd (* (/ is vt) exp-factor))
+                      (did-dtemp (- (* gamma i-d-val)
+                                    (* is (/ v-d (* temp vt)) exp-factor)))
+                      
+                      (df1-dvd (+ (/ 1.0d0 r-s) did-dvd))
+                      (df1-dtemp did-dtemp)
+                      (df2-dvd (- (+ i-d-val (* v-d did-dvd))))
+                      (df2-dtemp (+ (/ c-th dt) (/ 1.0d0 r-th) (- (* v-d did-dtemp))))
+                      
+                      ;; Solve J * dx = -F
+                      (det (- (* df1-dvd df2-dtemp) (* df1-dtemp df2-dvd))))
+                 (if (< (abs det) 1d-15)
+                     (setf converged t)
+                     (let* ((dv-d (/ (- (* df1-dtemp f2) (* df2-dtemp f1)) det))
+                            (dtemp (/ (- (* df2-dvd f1) (* df1-dvd f2)) det))
+                            ;; Clip steps to prevent divergence / oscillation
+                            (step-v (max -0.05d0 (min 0.05d0 dv-d)))
+                            (step-t (max -2.0d0 (min 2.0d0 dtemp))))
+                       (setf v-d (+ v-d step-v)
+                             temp (+ temp step-t))
+                       (when (and (< (abs dv-d) 1d-6) (< (abs dtemp) 1d-4))
+                         (setf converged t)))))))
+           
+           ;; Save state
+           (let* ((final-is (* i-s0 (exp (* gamma (- temp t0)))))
+                  (final-vt (/ temp 11600.0d0))
+                  (final-i-d (* final-is (- (exp (max -20.0d0 (min 40.0d0 (/ v-d final-vt)))) 1.0d0))))
+             (setf (sim-state-v-d state) v-d
+                   (sim-state-i-d state) final-i-d
+                   (sim-state-temp state) temp
+                   (sim-state-p-d state) (* v-d final-i-d)
+                   (sim-state-v-s state) v-s-val))
+           (incf (sim-state-time state) dt)
+           state))
+
+       (defun run-simulation-steps (steps &key (time-step 1d-4) (amplitude 5.0d0) (frequency 50.0d0))
+         (declare (type integer steps)
+                  (type double-float time-step amplitude frequency))
+         (let ((state (make-sim-state))
+               (results nil))
+           (dotimes (i steps)
+             (let* ((t-curr (sim-state-time state))
+                    (v-s-val (* amplitude (sin (* 2.0d0 pi frequency t-curr)))))
+               (step-simulation state time-step v-s-val)
+               (push (list (sim-state-time state)
+                           (sim-state-v-s state)
+                           (sim-state-v-d state)
+                           (sim-state-i-d state)
+                           (sim-state-temp state)
+                           (sim-state-p-d state))
+                     results)))
+           (nreverse results)))
+       )
+    directory))
