@@ -11,3 +11,7 @@ example/**/run_*.lisp
 
 # Ignore screenshots
 *.png
+
+# Ignore untracked binaries
+example/05_dockerfile_meta/source01/examples/03_ai_env/bin/
+
