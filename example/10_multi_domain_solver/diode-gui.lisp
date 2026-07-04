@@ -13,11 +13,12 @@
 
 ;; Compile the diode netlist to code
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
+  (let* ((current-dir (make-pathname :directory (pathname-directory *load-pathname*)))
+         (output-dir (merge-pathnames "source01/" current-dir)))
     (format t "Generating electro-thermal diode solver...~%")
-    (generate-diode-solver-file "diode-solver" :directory current-dir)
+    (generate-diode-solver-file "diode-solver" :directory output-dir)
     (format t "Loading generated diode solver...~%")
-    (load (merge-pathnames "diode-solver.lisp" current-dir))))
+    (load (merge-pathnames "diode-solver.lisp" output-dir))))
 
 ;; Define the GUI package
 (defpackage :multi-domain-solver/diode-gui

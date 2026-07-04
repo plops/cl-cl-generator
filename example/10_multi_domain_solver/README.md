@@ -101,4 +101,4 @@ Run the helper script directly:
 ./example/10_multi_domain_solver/run-gui.sh
 ```
 
-This compiles the mechanical mass-spring-damper system netlist, generates the Lisp solver [oscillator-solver.lisp](file:///workspace/src/cl-cl-generator/example/10_multi_domain_solver/oscillator-solver.lisp), loads it, and pops open a window showing the physical animation and a real-time oscilloscope rolling trace of the mass displacement $x(t)$.
+This compiles the mechanical mass-spring-damper system netlist, generates the Lisp solver [oscillator-solver.lisp](file:///workspace/src/cl-cl-generator/example/10_multi_domain_solver/source01/oscillator-solver.lisp), loads it, and pops open a window showing the physical animation and a real-time oscilloscope rolling trace of the mass displacement $x(t)$.

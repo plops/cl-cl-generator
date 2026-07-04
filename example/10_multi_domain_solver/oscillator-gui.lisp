@@ -16,7 +16,8 @@
 ;;; ============================================================================
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
+  (let* ((current-dir (make-pathname :directory (pathname-directory *load-pathname*)))
+         (output-dir (merge-pathnames "source01/" current-dir)))
     (format t "Compiling Mass-Spring-Damper netlist to Lisp solver...~%")
     (compile-netlist-to-file
       "oscillator-solver"
@@ -24,10 +25,10 @@
         (inductor k1 :nodes (1 0) :value 0.1d0)     ; Spring k = 10.0 N/m => L = 1/k = 0.1
         (resistor b1 :nodes (1 0) :value 2.0d0)     ; Damper b = 0.5 Ns/m => R = 1/b = 2.0 (G = 0.5)
         (current-source f1 :nodes (1 0) :value f-ext))
-      :directory current-dir
+      :directory output-dir
       :dt 0.05d0)
     ;; Load the generated solver
-    (load (merge-pathnames "oscillator-solver.lisp" current-dir))))
+    (load (merge-pathnames "oscillator-solver.lisp" output-dir))))
 
 ;;; ============================================================================
 ;;; 2. GUI Definition

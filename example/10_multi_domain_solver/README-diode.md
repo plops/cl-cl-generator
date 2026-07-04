@@ -79,8 +79,8 @@ $$\Delta T_{\text{lim}} = \text{clamp}(-2.0, \Delta T, 2.0)$$
 
 Die Implementierung nutzt die Stärken von Lisp als Code-Generator:
 1.  **[generate-diode-solver.lisp](file:///workspace/src/cl-cl-generator/example/10_multi_domain_solver/generate-diode-solver.lisp)** definiert die Code-Generierungs-Logik unter Verwendung von `cl-cl-generator`.
-2.  Beim Start lädt das GUI-Skript diese Datei und ruft `(generate-diode-solver-file "diode-solver" :directory current-dir)` auf.
-3.  Dies erzeugt die Datei `diode-solver.lisp`, welche die allokationsfreie und hochoptimierte Lisp-Struktur `sim-state` sowie die Iterationsschleife in `step-simulation` enthält.
+2.  Beim Start lädt das GUI-Skript diese Datei und ruft `(generate-diode-solver-file "diode-solver" :directory output-dir)` auf, wobei `output-dir` auf das Unterverzeichnis `source01/` zeigt.
+3.  Dies erzeugt die Datei `source01/diode-solver.lisp`, welche die allokationsfreie und hochoptimierte Lisp-Struktur `sim-state` sowie die Iterationsschleife in `step-simulation` enthält.
 4.  Diese generierte Datei wird anschließend geladen und ausgeführt.
 
 ---
