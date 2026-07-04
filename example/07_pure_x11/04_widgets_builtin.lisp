@@ -116,85 +116,94 @@
                (w (widget-w w-struct))
                (h (widget-h w-struct))
                (props (widget-props w-struct)))
-           ;; Draw background and sunken frame
-           (poly-fill-rectangle (list (list x y w h)) :gc *gc-light*)
+           ;; Draw sunken bevel frame on the actual window FIRST
            (draw-bevel x y w h :style :sunken)
             
-           (let ((xmin (getf props :xmin -1.8))
-                 (xmax (getf props :xmax 1.8))
-                 (ymin (getf props :ymin -1.8))
-                 (ymax (getf props :ymax 1.8))
-                 (shapes (getf props :shapes nil))
-                 (draw-axes-p (getf props :draw-axes-p t)))
-             (labels ((to-screen-x (wx)
-                        (+ x (round (* w (/ (- wx xmin) (- xmax xmin))))))
-                      (to-screen-y (wy)
-                        (+ y h -1 (round (* (- h) (/ (- wy ymin) (- ymax ymin))))))
-                      (draw-world-line (x1 y1 x2 y2 &key (gc *gc-text*))
-                        (draw-line (to-screen-x x1) (to-screen-y y1)
-                                   (to-screen-x x2) (to-screen-y y2)
-                                   :gc gc))
-                      (draw-world-circle (cx cy r &key (gc *gc-text*) fill-p)
-                        (let* ((sx1 (to-screen-x (- cx r)))
-                               (sy1 (to-screen-y (+ cy r)))
-                               (sx2 (to-screen-x (+ cx r)))
-                               (sy2 (to-screen-y (- cy r)))
-                               (sw (- sx2 sx1))
-                               (sh (- sy2 sy1)))
-                          (if fill-p
-                              (poly-fill-arc (list (list sx1 sy1 sw sh 0 23040)) :gc gc)
-                              (poly-arc (list (list sx1 sy1 sw sh 0 23040)) :gc gc)))))
-               (declare (ignorable #'draw-world-line #'draw-world-circle))
+           ;; Offscreen double buffering inside the bevel borders (2px margin)
+           (let* ((dw (- w 4))
+                  (dh (- h 4))
+                  (win-id *window*)
+                  (pix (next-resource-id)))
+             (create-pixmap pix dw dh :depth (or *root-depth* 24))
+             (let ((*window* pix)
+                   (xmin (getf props :xmin -1.8))
+                   (xmax (getf props :xmax 1.8))
+                   (ymin (getf props :ymin -1.8))
+                   (ymax (getf props :ymax 1.8))
+                   (shapes (getf props :shapes nil))
+                   (draw-axes-p (getf props :draw-axes-p t)))
+               ;; Clear pixmap background to face color
+               (poly-fill-rectangle (list (list 0 0 dw dh)) :gc *gc-light*)
                 
-               (let ((x-axis-y (if (<= ymin 0 ymax) 0.0 ymin))
-                     (y-axis-x (if (<= xmin 0 xmax) 0.0 xmin)))
-                 ;; 1. Draw Grid Lines (subtle crosshairs)
-                 (let* ((x-range (- xmax xmin))
-                        (x-spacing (power-of-ten-nice-spacing (/ x-range 8)))
-                        (start-x-tick (* (ceiling (/ xmin x-spacing)) x-spacing)))
-                   (loop for tx = start-x-tick then (+ tx x-spacing)
-                         while (<= tx xmax) do
-                         (let ((tsx (to-screen-x tx)))
-                           (draw-line tsx (+ y 2) tsx (+ y h -2) :gc *gc-face*))))
-                  
-                 (let* ((y-range (- ymax ymin))
-                        (y-spacing (power-of-ten-nice-spacing (/ y-range 8)))
-                        (start-y-tick (* (ceiling (/ ymin y-spacing)) y-spacing)))
-                   (loop for ty = start-y-tick then (+ ty y-spacing)
-                         while (<= ty ymax) do
-                         (let ((tsy (to-screen-y ty)))
-                           (draw-line (+ x 2) tsy (+ x w -2) tsy :gc *gc-face*))))
-                  
-                 ;; 2. Draw Solid Axes & Ticks
-                 (when draw-axes-p
-                   ;; Draw Axes
-                   (draw-world-line xmin x-axis-y xmax x-axis-y :gc *gc-shadow*)
-                   (draw-world-line y-axis-x ymin y-axis-x ymax :gc *gc-shadow*)
-                    
-                   ;; X-Axis Ticks
+               (labels ((to-screen-x (wx)
+                          (round (* dw (/ (- wx xmin) (- xmax xmin)))))
+                        (to-screen-y (wy)
+                          (+ dh -1 (round (* (- dh) (/ (- wy ymin) (- ymax ymin))))))
+                        (draw-world-line (x1 y1 x2 y2 &key (gc *gc-text*))
+                          (draw-line (to-screen-x x1) (to-screen-y y1)
+                                     (to-screen-x x2) (to-screen-y y2)
+                                     :gc gc))
+                        (draw-world-circle (cx cy r &key (gc *gc-text*) fill-p)
+                          (let* ((sx1 (to-screen-x (- cx r)))
+                                 (sy1 (to-screen-y (+ cy r)))
+                                 (sx2 (to-screen-x (+ cx r)))
+                                 (sy2 (to-screen-y (- cy r)))
+                                 (sw (- sx2 sx1))
+                                 (sh (- sy2 sy1)))
+                            (if fill-p
+                                (poly-fill-arc (list (list sx1 sy1 sw sh 0 23040)) :gc gc)
+                                (poly-arc (list (list sx1 sy1 sw sh 0 23040)) :gc gc)))))
+                 (declare (ignorable #'draw-world-line #'draw-world-circle))
+                
+                 (let ((x-axis-y (if (<= ymin 0 ymax) 0.0 ymin))
+                       (y-axis-x (if (<= xmin 0 xmax) 0.0 xmin)))
+                   ;; 1. Draw Grid Lines (subtle crosshairs)
                    (let* ((x-range (- xmax xmin))
-                          (tick-spacing (power-of-ten-nice-spacing (/ x-range 8)))
-                          (start-tick (* (ceiling (/ xmin tick-spacing)) tick-spacing)))
-                     (loop for tx = start-tick then (+ tx tick-spacing)
+                          (x-spacing (power-of-ten-nice-spacing (/ x-range 8)))
+                          (start-x-tick (* (ceiling (/ xmin x-spacing)) x-spacing)))
+                     (loop for tx = start-x-tick then (+ tx x-spacing)
                            while (<= tx xmax) do
-                           (let ((tsx (to-screen-x tx))
-                                 (tsy (to-screen-y x-axis-y)))
-                             (draw-line tsx (- tsy 4) tsx (+ tsy 4) :gc *gc-dark*)
-                             (let ((lbl (format nil "~,2f" tx)))
-                               (imagetext8 lbl :x (- tsx (* 3 (length lbl))) :y (+ tsy 14) :gc *gc-text*)))))
-                    
-                   ;; Y-Axis Ticks
+                           (let ((tsx (to-screen-x tx)))
+                             (draw-line tsx 0 tsx dh :gc *gc-face*))))
+                  
                    (let* ((y-range (- ymax ymin))
-                          (tick-spacing (power-of-ten-nice-spacing (/ y-range 8)))
-                          (start-tick (* (ceiling (/ ymin tick-spacing)) tick-spacing)))
-                      (loop for ty = start-tick then (+ ty tick-spacing)
-                            while (<= ty ymax) do
-                            (unless (= 0 (round ty))
-                              (let ((tsx (to-screen-x y-axis-x))
-                                    (tsy (to-screen-y ty)))
-                                (draw-line (- tsx 4) tsy (+ tsx 4) tsy :gc *gc-dark*)
-                                (let ((lbl (format nil "~,2f" ty)))
-                                  (imagetext8 lbl :x (- tsx (* 6 (length lbl)) 6) :y (+ tsy 4) :gc *gc-text*))))))))
+                          (y-spacing (power-of-ten-nice-spacing (/ y-range 8)))
+                          (start-y-tick (* (ceiling (/ ymin y-spacing)) y-spacing)))
+                     (loop for ty = start-y-tick then (+ ty y-spacing)
+                           while (<= ty ymax) do
+                           (let ((tsy (to-screen-y ty)))
+                             (draw-line 0 tsy dw tsy :gc *gc-face*))))
+                  
+                   ;; 2. Draw Solid Axes & Ticks
+                   (when draw-axes-p
+                     ;; Draw Axes
+                     (draw-world-line xmin x-axis-y xmax x-axis-y :gc *gc-shadow*)
+                     (draw-world-line y-axis-x ymin y-axis-x ymax :gc *gc-shadow*)
+                    
+                     ;; X-Axis Ticks
+                     (let* ((x-range (- xmax xmin))
+                            (tick-spacing (power-of-ten-nice-spacing (/ x-range 8)))
+                            (start-tick (* (ceiling (/ xmin tick-spacing)) tick-spacing)))
+                       (loop for tx = start-tick then (+ tx tick-spacing)
+                             while (<= tx xmax) do
+                             (let ((tsx (to-screen-x tx))
+                                   (tsy (to-screen-y x-axis-y)))
+                               (draw-line tsx (- tsy 4) tsx (+ tsy 4) :gc *gc-dark*)
+                               (let ((lbl (format nil "~,2f" tx)))
+                                 (imagetext8 lbl :x (- tsx (* 3 (length lbl))) :y (+ tsy 14) :gc *gc-text*)))))
+                    
+                     ;; Y-Axis Ticks
+                     (let* ((y-range (- ymax ymin))
+                            (tick-spacing (power-of-ten-nice-spacing (/ y-range 8)))
+                            (start-tick (* (ceiling (/ ymin tick-spacing)) tick-spacing)))
+                       (loop for ty = start-tick then (+ ty tick-spacing)
+                             while (<= ty ymax) do
+                             (unless (= 0 (round ty))
+                               (let ((tsx (to-screen-x y-axis-x))
+                                     (tsy (to-screen-y ty)))
+                                 (draw-line (- tsx 4) tsy (+ tsx 4) tsy :gc *gc-dark*)
+                                 (let ((lbl (format nil "~,2f" ty)))
+                                   (imagetext8 lbl :x (- tsx (* 6 (length lbl)) 6) :y (+ tsy 4) :gc *gc-text*))))))))
                   
                  ;; 3. Draw Shapes
                  (dolist (shape shapes)
@@ -218,5 +227,8 @@
                           (destructuring-bind (points &key (color *gc-text*)) args
                             (loop for (p1 p2) on points by #'cdr
                                   while p2
-                                  do (draw-world-line (car p1) (cadr p1) (car p2) (cadr p2) :gc color)))))))))))))
-      ))
+                                  do (draw-world-line (car p1) (cadr p1) (car p2) (cadr p2) :gc color))))))))))
+             
+             ;; Copy offscreen pixmap onto the window, offset by (+ x 2), (+ y 2) to fit inside bevel
+             (copy-area pix win-id *gc-text* 0 0 (+ x 2) (+ y 2) dw dh)
+             (free-pixmap pix)))))))

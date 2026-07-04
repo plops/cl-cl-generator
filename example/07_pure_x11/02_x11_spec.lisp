@@ -340,6 +340,44 @@
               (card32 foreground)
               (card32 background)))
 
+    ;; 9g. CreatePixmap (opcode 53)
+    (:name create-pixmap
+     :doc "Create a new pixmap resource."
+     :params (pix width height &key (depth 24))
+     :packet ((card8 53)
+              (card8 depth)
+              (card16 4)
+              (card32 pix)
+              (card32 *window*)
+              (card16 width)
+              (card16 height)))
+
+    ;; 9h. FreePixmap (opcode 54)
+    (:name free-pixmap
+     :doc "Free a pixmap resource."
+     :params (pix)
+     :packet ((card8 54)
+              (card8 0)
+              (card16 2)
+              (card32 pix)))
+
+    ;; 9i. CopyArea (opcode 62)
+    (:name copy-area
+     :doc "Copy a rectangular area from source to destination."
+     :params (src dst gc src-x src-y dst-x dst-y width height)
+     :packet ((card8 62)
+              (card8 0)
+              (card16 7)
+              (card32 src)
+              (card32 dst)
+              (card32 gc)
+              (card16 src-x)
+              (card16 src-y)
+              (card16 dst-x)
+              (card16 dst-y)
+              (card16 width)
+              (card16 height)))
+
     ;; 10. QueryExtension
     (:name query-extension
      :doc "Query if an extension is supported and get its major opcode."

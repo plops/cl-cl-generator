@@ -36,6 +36,10 @@
                   #:poly-arc
                   #:poly-fill-arc
                   #:create-gc
+                  #:create-pixmap
+                  #:free-pixmap
+                  #:copy-area
+                  #:*root-depth*
                   #:next-resource-id
                   #:read-reply-timeout
                   #:query-pointer
@@ -113,6 +117,7 @@
              (defparameter *s* nil "Socket for communication with X server.")
              (defparameter *resp* nil "Reply of the X server to a request")
              (defparameter *root* nil "Root ID as extracted from the initial reply of the X server.")
+             (defparameter *root-depth* nil)
              (defparameter *window* nil)
              (defparameter *gc-light* nil)
              (defparameter *gc-face* nil)
@@ -157,9 +162,9 @@
                 (declare ((unsigned-byte 8) a))
                 (push a l))
               (card16 (a)
-                (declare ((unsigned-byte 16) a))
-                (dotimes (i 2)
-                  (push (ldb (byte 8 (* 8 i)) a) l)))
+                (let ((v (ldb (byte 16 0) a)))
+                  (dotimes (i 2)
+                    (push (ldb (byte 8 (* 8 i)) v) l))))
               (card32 (a)
                 (declare ((unsigned-byte 32) a))
                 (dotimes (i 4)
@@ -344,6 +349,7 @@
                                            max-installed-maps root-visual backing-stores save-unders
                                            root-depth number-of-allowed-depths))
                        (defparameter *root* root)
+                       (defparameter *root-depth* root-depth)
                        (dotimes (i number-of-allowed-depths)
                          (let ((depth (card8))
                                (unused (card8))
