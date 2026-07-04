@@ -12,7 +12,7 @@
 
 - `[x]` completed / `[/]` in progress / `[ ]` not started
 
-### Status: `[ ]`
+### Status: `[x]`
 
 ### What to do
 
@@ -20,10 +20,10 @@ Rename and split the existing template files to match the new organization. Upda
 
 ### Steps
 
-- `[ ]` **1a.** Rename `04_example_template.lisp` → `06_example_template.lisp`
-- `[ ]` **1b.** Rename `05_tests_template.lisp` → `07_tests_template.lisp`
-- `[ ]` **1c.** Create empty placeholder files `03_widgets_core.lisp`, `04_widgets_builtin.lisp`, `05_event_loop.lisp` (content will be filled by Tasks 3-5). Each must start with `(in-package :cl-cl-generator/example-x11-gen)` and define a `defparameter` for its template code (e.g., `*widgets-core-template-code*`, `*widgets-builtin-template-code*`, `*event-loop-template-code*`).
-- `[ ]` **1d.** Update `generate.lisp` lines 6-10 to load:
+- `[x]` **1a.** Rename `04_example_template.lisp` → `06_example_template.lisp`
+- `[x]` **1b.** Rename `05_tests_template.lisp` → `07_tests_template.lisp`
+- `[x]` **1c.** Create empty placeholder files `03_widgets_core.lisp`, `04_widgets_builtin.lisp`, `05_event_loop.lisp` (content will be filled by Tasks 3-5). Each must start with `(in-package :cl-cl-generator/example-x11-gen)` and define a `defparameter` for its template code (e.g., `*widgets-core-template-code*`, `*widgets-builtin-template-code*`, `*event-loop-template-code*`).
+- `[x]` **1d.** Update `generate.lisp` lines 6-10 to load:
   ```lisp
   (load "01_package.lisp")
   (load "02_x11_spec.lisp")
@@ -33,13 +33,13 @@ Rename and split the existing template files to match the new organization. Upda
   (load "06_example_template.lisp")
   (load "07_tests_template.lisp")
   ```
-- `[ ]` **1e.** Update `run-generator` in `generate.lisp` to emit the new files. Currently it emits `widgets`, `example`, `tests`. Change to emit:
+- `[x]` **1e.** Update `run-generator` in `generate.lisp` to emit the new files. Currently it emits `widgets`, `example`, `tests`. Change to emit:
   - `"widgets-core"` from `*widgets-core-template-code*`
   - `"widgets-builtin"` from `*widgets-builtin-template-code*`
   - `"event-loop"` from `*event-loop-template-code*`
   - `"example"` from `*example-template-code*`
   - `"tests"` from `*tests-template-code*`
-- `[ ]` **1f.** Update the `.asd` system definition in `generate.lisp` (lines 68-77) to list the new components in order:
+- `[x]` **1f.** Update the `.asd` system definition in `generate.lisp` (lines 68-77) to list the new components in order:
   ```lisp
   :components ((:file "package")
                (:file "x11-core")
@@ -49,7 +49,7 @@ Rename and split the existing template files to match the new organization. Upda
                (:file "example")
                (:file "tests"))
   ```
-- `[ ]` **1g.** Delete the old `03_widgets_template.lisp` file once its content has been migrated to the three new files (Tasks 3-5).
+- `[x]` **1g.** Delete the old `03_widgets_template.lisp` file once its content has been migrated to the three new files (Tasks 3-5).
 
 ### Validation
 
@@ -66,7 +66,7 @@ ls source/
 
 ## Task 2: Add GCs and Buffered Output to X11 Core
 
-### Status: `[ ]`
+### Status: `[x]`
 
 ### What to do
 
@@ -88,7 +88,7 @@ These use hardcoded TrueColor pixel values — no `AllocColor` round trips.
 
 ### Steps
 
-- `[ ]` **2a.** In [02_x11_spec.lisp](file:///workspace/src/cl-cl-generator/example/07_pure_x11/02_x11_spec.lisp), modify the `make-window` request spec (lines 71-124). Change the `:bindings` to allocate 5 GC resource IDs instead of 2:
+- `[x]` **2a.** In [02_x11_spec.lisp](file:///workspace/src/cl-cl-generator/example/07_pure_x11/02_x11_spec.lisp), modify the `make-window` request spec (lines 71-124). Change the `:bindings` to allocate 5 GC resource IDs instead of 2:
   ```lisp
   :bindings ((window   (logior *resource-id-base* (logand *resource-id-mask* 1)))
              (gc-light (logior *resource-id-base* (logand *resource-id-mask* 2)))
@@ -120,7 +120,7 @@ These use hardcoded TrueColor pixel values — no `AllocColor` round trips.
   ```
   The background pixel for all GCs should be `#x00c0c0c0` (face color) except `*gc-light*` which can use `0`.
 
-- `[ ]` **2b.** In [generate.lisp](file:///workspace/src/cl-cl-generator/example/07_pure_x11/generate.lisp), update the `defparameter` declarations (around line 94-97) to declare the 5 GC variables:
+- `[x]` **2b.** In [generate.lisp](file:///workspace/src/cl-cl-generator/example/07_pure_x11/generate.lisp), update the `defparameter` declarations (around line 94-97) to declare the 5 GC variables:
   ```lisp
   (defparameter *gc-light* nil)
   (defparameter *gc-face* nil)
@@ -130,7 +130,7 @@ These use hardcoded TrueColor pixel values — no `AllocColor` round trips.
   ```
   Remove the old `*gc*` and `*gc2*` declarations.
 
-- `[ ]` **2c.** In [generate.lisp](file:///workspace/src/cl-cl-generator/example/07_pure_x11/generate.lisp), replace the `with-packet` macro (lines 107-131, inside a `(raw "...")` block) with a dual-mode version. The new macro should:
+- `[x]` **2c.** In [generate.lisp](file:///workspace/src/cl-cl-generator/example/07_pure_x11/generate.lisp), replace the `with-packet` macro (lines 107-131, inside a `(raw "...")` block) with a dual-mode version. The new macro should:
   - Check if `*packet-buffer*` is bound and non-nil
   - If so: append the byte vector to `*packet-buffer*` (a list of byte vectors)
   - If not: write directly to `*s*` and `force-output` as before
@@ -173,7 +173,7 @@ These use hardcoded TrueColor pixel values — no `AllocColor` round trips.
                  (force-output *s*)))))))
   ```
 
-- `[ ]` **2d.** Update the package exports in `generate.lisp` (lines 22-60). Remove `#:*gc*` and `#:*gc2*`. Add:
+- `[x]` **2d.** Update the package exports in `generate.lisp` (lines 22-60). Remove `#:*gc*` and `#:*gc2*`. Add:
   ```lisp
   #:*gc-light*
   #:*gc-face*
@@ -185,7 +185,7 @@ These use hardcoded TrueColor pixel values — no `AllocColor` round trips.
   #:flush-packets
   ```
 
-- `[ ]` **2e.** Add a `draw-line` request to [02_x11_spec.lisp](file:///workspace/src/cl-cl-generator/example/07_pure_x11/02_x11_spec.lisp) `*x11-requests*` — a simpler line-drawing function that takes an explicit `:gc` parameter (the bevel code needs to draw lines with different GCs). This is a thin wrapper around PolySegment (opcode 66):
+- `[x]` **2e.** Add a `draw-line` request to [02_x11_spec.lisp](file:///workspace/src/cl-cl-generator/example/07_pure_x11/02_x11_spec.lisp) `*x11-requests*` — a simpler line-drawing function that takes an explicit `:gc` parameter (the bevel code needs to draw lines with different GCs). This is a thin wrapper around PolySegment (opcode 66):
   ```lisp
   (:name draw-line
    :doc "Draw a single line segment from (x1,y1) to (x2,y2) using specified GC."
@@ -210,6 +210,7 @@ sbcl --load generate.lisp
 #   - flush-packets function
 #   - draw-line function
 #   - 5 CreateGC blocks inside make-window
+#   - 5 CreateGC blocks inside make-window
 grep -c "gc-light\|gc-face\|gc-shadow\|gc-dark\|gc-text" source/x11-core.lisp
 # Should be >= 10 (declarations + usages)
 grep "packet-buffer" source/x11-core.lisp
@@ -220,7 +221,7 @@ grep "packet-buffer" source/x11-core.lisp
 
 ## Task 3: Widget Core — Registry, Bevels, Layout Engine
 
-### Status: `[ ]`
+### Status: `[x]`
 
 ### What to do
 
@@ -240,14 +241,14 @@ Migrate the following functions from the OLD [03_widgets_template.lisp](file:///
 
 ### Steps
 
-- `[ ]` **3a.** Create the file `03_widgets_core.lisp` in the project root (same directory as `generate.lisp`). It must:
+- `[x]` **3a.** Create the file `03_widgets_core.lisp` in the project root (same directory as `generate.lisp`). It must:
   - Be in package `:cl-cl-generator/example-x11-gen`
   - Define `*widgets-core-template-code*` as a `defparameter` containing a `(toplevel ...)` S-expression template
   - Include `(in-package :pure-x11-gen)` as the first form inside `toplevel`
 
-- `[ ]` **3b.** Migrate the 7 functions listed above into the template. Keep them exactly as they are — they work correctly.
+- `[x]` **3b.** Migrate the 7 functions listed above into the template. Keep them exactly as they are — they work correctly.
 
-- `[ ]` **3c.** Add the **widget type registry** to the template:
+- `[x]` **3c.** Add the **widget type registry** to the template:
   ```lisp
   (defvar *widget-renderers* (make-hash-table :test 'equal))
 
@@ -287,7 +288,7 @@ Migrate the following functions from the OLD [03_widgets_template.lisp](file:///
           (render-widget w-struct focused pressed hovered)))))
   ```
 
-- `[ ]` **3d.** Add the **bevel drawing primitives**. These use the GCs from Task 2 and the `draw-line` function. Since this code will be inside a `(raw "...")` or regular S-expression template, make sure you reference the GC variables correctly (`*gc-light*`, `*gc-face*`, `*gc-shadow*`, `*gc-dark*`):
+- `[x]` **3d.** Add the **bevel drawing primitives**. These use the GCs from Task 2 and the `draw-line` function. Since this code will be inside a `(raw "...")` or regular S-expression template, make sure you reference the GC variables correctly (`*gc-light*`, `*gc-face*`, `*gc-shadow*`, `*gc-dark*`):
 
   ```lisp
   (defun draw-bevel (x y w h &key (style :raised) (bevel-width 2))
@@ -313,7 +314,7 @@ Migrate the following functions from the OLD [03_widgets_template.lisp](file:///
         )))
   ```
 
-- `[ ]` **3e.** Add the **TeX-style glue layout solver**:
+- `[x]` **3e.** Add the **TeX-style glue layout solver**:
 
   ```lisp
   (defstruct glue
@@ -347,7 +348,7 @@ Migrate the following functions from the OLD [03_widgets_template.lisp](file:///
                        glue-items)))))))
   ```
 
-- `[ ]` **3f.** Add the **hbox/vbox layout computation** helper. This is called by the hbox/vbox container renderers (Task 4) to compute child positions:
+- `[x]` **3f.** Add the **hbox/vbox layout computation** helper. This is called by the hbox/vbox container renderers (Task 4) to compute child positions:
 
   ```lisp
   (defun compute-box-layout (w-struct axis)
@@ -410,7 +411,7 @@ grep "register-widget\|draw-bevel\|solve-glue\|compute-box-layout" source/widget
 
 ## Task 4: Built-in Widget Renderers
 
-### Status: `[ ]`
+### Status: `[x]`
 
 ### What to do
 
@@ -435,30 +436,30 @@ The OLD rendering code is in [03_widgets_template.lisp](file:///workspace/src/cl
 
 ### Steps
 
-- `[ ]` **4a.** Create `04_widgets_builtin.lisp` with `(in-package :cl-cl-generator/example-x11-gen)` and `*widgets-builtin-template-code*` defparameter. The template starts with `(in-package :pure-x11-gen)`.
+- `[x]` **4a.** Create `04_widgets_builtin.lisp` with `(in-package :cl-cl-generator/example-x11-gen)` and `*widgets-builtin-template-code*` defparameter. The template starts with `(in-package :pure-x11-gen)`.
 
-- `[ ]` **4b.** Register **panel** renderer. A panel:
+- `[x]` **4b.** Register **panel** renderer. A panel:
   - Fills its rectangle with `*gc-face*` via `poly-fill-rectangle`
   - Draws a raised bevel via `(draw-bevel x y w h :style :raised)`
   - Renders children via `render-layout-children`
 
-- `[ ]` **4c.** Register **hbox** renderer. An hbox:
+- `[x]` **4c.** Register **hbox** renderer. An hbox:
   - Calls `(compute-box-layout w-struct :x)` to get child positions
   - For each `(child cx cy cw ch)` in the result, it renders the child with the computed absolute coordinates. Since the child S-expression has its own `:x`/`:y`/`:w`/`:h`, the renderer needs to **override** those values. One approach: rebuild the child node with updated coordinates before passing to `render-widget`.
   - Does NOT draw a background or bevel by default (it's a layout-only container)
 
-- `[ ]` **4d.** Register **vbox** renderer. Same as hbox but with `(compute-box-layout w-struct :y)`.
+- `[x]` **4d.** Register **vbox** renderer. Same as hbox but with `(compute-box-layout w-struct :y)`.
 
-- `[ ]` **4e.** Register **label** renderer. A label:
+- `[x]` **4e.** Register **label** renderer. A label:
   - Draws text at `(x, y)` using `(imagetext8 text :x x :y y)` — note that X11's ImageText8 positions text at the **baseline**, so `y` is the baseline Y coordinate. The current code already handles this correctly.
 
-- `[ ]` **4f.** Register **button** renderer. A button:
+- `[x]` **4f.** Register **button** renderer. A button:
   - Fills the rectangle with `*gc-face*` via `poly-fill-rectangle`
   - If pressed (`(eq name pressed)`): draws sunken bevel via `(draw-bevel x y w h :style :sunken)`, draws text offset by +1,+1
   - If not pressed: draws raised bevel via `(draw-bevel x y w h :style :raised)`, draws text centered
   - Text centering: `text-x = x + (w - 6*length) / 2`, `text-y = y + h/2 + 4` (assuming ~6px per character for the default fixed font)
 
-- `[ ]` **4g.** Register **checkbox** renderer. A checkbox:
+- `[x]` **4g.** Register **checkbox** renderer. A checkbox:
   - Draws a 14x14 sunken-beveled indicator box at `(x+2, y + (h-14)/2)`:
     - Fill the inside with `*gc-light*` (white) via `poly-fill-rectangle` (inset by bevel width)
     - Draw sunken bevel: `(draw-bevel bx by 14 14 :style :sunken)`
@@ -466,7 +467,7 @@ The OLD rendering code is in [03_widgets_template.lisp](file:///workspace/src/cl
   - Draws the label text to the right at `(x+22, y + h/2 + 4)`
   - If focused: draw a dotted/solid rectangle around the label text using `*gc-text*`
 
-- `[ ]` **4h.** Register **text-input** renderer. A text-input:
+- `[x]` **4h.** Register **text-input** renderer. A text-input:
   - Fill the entire rectangle with `*gc-light*` (white background)
   - Draw sunken bevel: `(draw-bevel x y w h :style :sunken)`
   - Draw the text inside at `(x+6, y + h/2 + 4)` using `*gc-text*`
@@ -486,7 +487,7 @@ grep "draw-bevel" source/widgets-builtin.lisp
 
 ## Task 5: Event Loop with Dirty Tracking and Buffered Output
 
-### Status: `[ ]`
+### Status: `[x]`
 
 ### What to do
 
@@ -505,9 +506,9 @@ The OLD event loop code is in [03_widgets_template.lisp](file:///workspace/src/c
 
 ### Steps
 
-- `[ ]` **5a.** Create the file with the standard boilerplate. Define `*event-loop-template-code*`.
+- `[x]` **5a.** Create the file with the standard boilerplate. Define `*event-loop-template-code*`.
 
-- `[ ]` **5b.** Migrate the state variables:
+- `[x]` **5b.** Migrate the state variables:
   ```lisp
   (defvar *window-width* 400)
   (defvar *window-height* 300)
@@ -519,7 +520,7 @@ The OLD event loop code is in [03_widgets_template.lisp](file:///workspace/src/c
   (defvar *prev-hovered* nil)
   ```
 
-- `[ ]` **5c.** Add dirty widget computation:
+- `[x]` **5c.** Add dirty widget computation:
   ```lisp
   (defun compute-dirty-widgets ()
     "Return list of widget names whose visual state changed since last render."
@@ -542,7 +543,7 @@ The OLD event loop code is in [03_widgets_template.lisp](file:///workspace/src/c
           *prev-hovered* *hovered-widget*))
   ```
 
-- `[ ]` **5d.** Add rendering functions:
+- `[x]` **5d.** Add rendering functions:
   ```lisp
   (defun full-redraw (layout)
     "Full clear and render — used for Expose events and layout rebuilds."
@@ -569,7 +570,7 @@ The OLD event loop code is in [03_widgets_template.lisp](file:///workspace/src/c
         (partial-redraw layout dirty))))
   ```
 
-- `[ ]` **5e.** Migrate the `run-gui` function from the old code. The overall structure stays the same (MUV loop), but:
+- `[x]` **5e.** Migrate the `run-gui` function from the old code. The overall structure stays the same (MUV loop), but:
   - On **Expose** (code 12): call `(full-redraw layout)` instead of `(redraw)`
   - On **ConfigureNotify** (code 22): same as before, but call `(full-redraw layout)` after rebuild
   - On **MotionNotify** (code 6): update `*hovered-widget*`, then call `(smart-redraw layout)` instead of `(redraw)`
@@ -591,7 +592,7 @@ grep "save-visual-state\|compute-dirty" source/event-loop.lisp
 
 ## Task 6: Update Example and Tests
 
-### Status: `[ ]`
+### Status: `[x]`
 
 ### What to do
 
@@ -599,9 +600,9 @@ Update the example app and tests to work with the new API (new GC names, hbox/vb
 
 ### Steps
 
-- `[ ]` **6a.** Update [06_example_template.lisp](file:///workspace/src/cl-cl-generator/example/07_pure_x11/06_example_template.lisp) (renamed from `04_example_template.lisp`). Change the `view` function to use `vbox`/`hbox` containers with `:glue` properties instead of absolute positioning. Refer to the example in [plan/04/implementation_plan.md](file:///workspace/src/cl-cl-generator/example/07_pure_x11/plan/04/implementation_plan.md) under "Example and Tests". The `update` function stays the same since MUV is unchanged.
+- `[x]` **6a.** Update [06_example_template.lisp](file:///workspace/src/cl-cl-generator/example/07_pure_x11/06_example_template.lisp) (renamed from `04_example_template.lisp`). Change the `view` function to use `vbox`/`hbox` containers with `:glue` properties instead of absolute positioning. Refer to the example in [plan/04/implementation_plan.md](file:///workspace/src/cl-cl-generator/example/07_pure_x11/plan/04/implementation_plan.md) under "Example and Tests". The `update` function stays the same since MUV is unchanged.
 
-- `[ ]` **6b.** Update [07_tests_template.lisp](file:///workspace/src/cl-cl-generator/example/07_pure_x11/07_tests_template.lisp) (renamed from `05_tests_template.lisp`). Add these test functions:
+- `[x]` **6b.** Update [07_tests_template.lisp](file:///workspace/src/cl-cl-generator/example/07_pure_x11/07_tests_template.lisp) (renamed from `05_tests_template.lisp`). Add these test functions:
 
   - `test-widget-registry`: Register a mock renderer, call `render-widget`, verify it dispatches correctly
   - `test-glue-solver`: Test `solve-glue` with known inputs:
@@ -615,7 +616,7 @@ Update the example app and tests to work with the new API (new GC names, hbox/vb
 
   Update `run-all-tests` to call the new test functions too.
 
-- `[ ]` **6c.** Update the references in tests from `*gc*`/`*gc2*` if any exist (check the old test code — the current tests don't reference GCs directly, but verify).
+- `[x]` **6c.** Update the references in tests from `*gc*`/`*gc2*` if any exist (check the old test code — the current tests don't reference GCs directly, but verify).
 
 ### Validation
 
@@ -633,7 +634,7 @@ sbcl --eval '(push "/workspace/src/cl-cl-generator/example/07_pure_x11/source/" 
 
 ## Task 7: Final Integration and Cleanup
 
-### Status: `[ ]`
+### Status: `[x]`
 
 ### What to do
 
@@ -641,9 +642,9 @@ Final integration, cleanup, and verification that everything generates and loads
 
 ### Steps
 
-- `[ ]` **7a.** Delete the old `03_widgets_template.lisp` (after confirming all content has been migrated to the three new files).
-- `[ ]` **7b.** Run the full generator: `sbcl --load generate.lisp`
-- `[ ]` **7c.** Verify all generated files exist in `source/`:
+- `[x]` **7a.** Delete the old `03_widgets_template.lisp` (after confirming all content has been migrated to the three new files).
+- `[x]` **7b.** Run the full generator: `sbcl --load generate.lisp`
+- `[x]` **7c.** Verify all generated files exist in `source/`:
   - `package.lisp`
   - `pure-x11-gen.asd`
   - `x11-core.lisp`
@@ -652,22 +653,22 @@ Final integration, cleanup, and verification that everything generates and loads
   - `event-loop.lisp`
   - `example.lisp`
   - `tests.lisp`
-- `[ ]` **7d.** Verify the ASDF system loads without errors:
+- `[x]` **7d.** Verify the ASDF system loads without errors:
   ```bash
   sbcl --eval '(push "source/" asdf:*central-registry*)' \
        --eval '(ql:quickload :pure-x11-gen)' \
        --eval '(format t "LOAD OK~%")' \
        --eval '(sb-ext:exit)'
   ```
-- `[ ]` **7e.** Run tests: `(pure-x11-gen/tests:run-all-tests)` — all must pass.
-- `[ ]` **7f.** If an X server is available (Xvfb or real), run the example to visually verify beveled widgets:
+- `[x]` **7e.** Run tests: `(pure-x11-gen/tests:run-all-tests)` — all must pass.
+- `[x]` **7f.** If an X server is available (Xvfb or real), run the example to visually verify beveled widgets:
   ```bash
   Xvfb :99 -screen 0 800x600x24 &
   DISPLAY=:99 sbcl --eval '(push "source/" asdf:*central-registry*)' \
                     --eval '(ql:quickload :pure-x11-gen)' \
                     --eval '(pure-x11-gen/example:run-x11-example)'
   ```
-- `[ ]` **7g.** Update [README.md](file:///workspace/src/cl-cl-generator/example/07_pure_x11/README.md) to document:
+- `[x]` **7g.** Update [README.md](file:///workspace/src/cl-cl-generator/example/07_pure_x11/README.md) to document:
   - The new GC system (5 GCs, Xaw3d color scheme)
   - The widget registry and how to add custom widgets via `register-widget`
   - The buffered output system (`with-buffered-output`)
