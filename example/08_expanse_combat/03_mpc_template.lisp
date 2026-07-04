@@ -94,6 +94,7 @@
            (set-general-constraints solver horizon c-n nil (coerce lg-n 'list) (coerce ug-n 'list)))
 
          ;; Solve the optimal control QP
-         (multiple-value-bind (u-traj x-pred status iterations) (solve-mpc solver current-state)
-           (values u-traj x-pred status iterations))))
+         (sb-int:with-float-traps-masked (:divide-by-zero :invalid :overflow :underflow :inexact)
+           (multiple-value-bind (u-traj x-pred status iterations) (solve-mpc solver current-state)
+             (values u-traj x-pred status iterations)))))
      ))

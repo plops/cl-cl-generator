@@ -47,6 +47,8 @@
        (juice-count 3)
        (autopilot-p nil)
        (emergency-p nil)
+       (player-auto-defend-p t)
+       (enemy-auto-defend-p nil)
        ;; Enemy relative state: #(x y vx vy)
        (enemy-state (make-array 4 :element-type 'double-float :initial-contents '(40.0d0 50.0d0 0.0d0 0.0d0)) :type (simple-array double-float (4)))
        ;; Enemy subsystems
@@ -59,6 +61,7 @@
        (torpedoes nil)     ;; list of (x y vx vy fuel)
        (slugs nil)         ;; list of (x y vx vy)
        (pdc-bullet nil)    ;; active bullet trail (x1 y1 x2 y2) or nil
+       (enemy-pdc-bullet nil) ;; active enemy bullet trail (x1 y1 x2 y2) or nil
        (player-torpedoes nil) ;; player launched torpedoes: list of (x y vx vy fuel)
        (player-slugs nil)  ;; player launched railgun slugs: list of (x y vx vy)
        ;; Solvers
@@ -71,8 +74,7 @@
        (victory-p nil)
        (time-seconds 0.0d0))
 
-     ;; --- View Layout ---
-     (raw "
+      (raw "
 (defun view (w h state)
   (let ((fuel (app-state-fuel state))
         (strain (app-state-crew-strain state))
@@ -98,7 +100,16 @@
              (button :name :btn-burn :text ,(if (app-state-emergency-p state) \"Safe Burn\" \"High-G Burn\")
                      :msg (:toggle-emergency) :glue (:natural 90 :stretch 1 :shrink 0)))
            
+           (hbox :name :defend-btns :glue (:natural 28 :stretch 0 :shrink 0) :spacing 5
+             (button :name :btn-player-def :text ,(if (app-state-player-auto-defend-p state) \"PDC Auto ON\" \"PDC Auto OFF\")
+                     :msg (:toggle-player-defend) :glue (:natural 90 :stretch 1 :shrink 0))
+             (button :name :btn-enemy-def :text ,(if (app-state-enemy-auto-defend-p state) \"AI Def ON\" \"AI Def OFF\")
+                     :msg (:toggle-enemy-defend) :glue (:natural 90 :stretch 1 :shrink 0)))
+           
            (button :name :btn-juice :text \"Inject Juice (Reset Gs)\" :msg (:inject-juice)
+                   :glue (:natural 28 :stretch 0 :shrink 0))
+           
+           (button :name :btn-restart :text \"Restart Simulation\" :msg (:restart-game)
                    :glue (:natural 28 :stretch 0 :shrink 0))
            
            (label :name :lbl-weapons :text \"--- WEAPON TARGETS ---\")
@@ -121,8 +132,7 @@
                                             ((app-state-victory-p state) \"HANGAR SECURED (VICTORY)\")
                                             ((app-state-game-over-p state) \"VESSEL LOST (DEFEATED)\")
                                             ((app-state-autopilot-p state) \"AUTO PILOT ACTIVE\")
-                                            (t \"MANUAL PILOT (WASD)\"))))))))
-")
+                                            (t \"MANUAL PILOT (WASD)\"))))))))")
 
      ;; --- Drawing compiler ---
      (defun compile-tactical-shapes (state)
@@ -138,9 +148,20 @@
            ;; 2. Draw PDC range boundary
            (push (list :circle sx sy 45.0d0 :color *gc-shadow*) shapes)
 
+           ;; 2b. Draw enemy PDC range boundary if enemy has auto-defend enabled
+           (when (and (> (app-state-enemy-reactor state) 0.0d0)
+                      (app-state-enemy-auto-defend-p state))
+             (push (list :circle ex ey 45.0d0 :color *gc-shadow*) shapes))
+
            ;; 3. Draw active PDC bullet trail (flak lines)
            (when (app-state-pdc-bullet state)
              (let ((bullet (app-state-pdc-bullet state)))
+               (push (list :line (first bullet) (second bullet)
+                                 (third bullet) (fourth bullet) :color *gc-pdc-bullets*) shapes)))
+
+           ;; 3b. Draw active enemy PDC bullet trail
+           (when (app-state-enemy-pdc-bullet state)
+             (let ((bullet (app-state-enemy-pdc-bullet state)))
                (push (list :line (first bullet) (second bullet)
                                  (third bullet) (fourth bullet) :color *gc-pdc-bullets*) shapes)))
 
@@ -190,6 +211,19 @@
          ((eq (car msg) :toggle-emergency)
           (setf (app-state-emergency-p state) (not (app-state-emergency-p state)))
           state)
+
+         ((eq (car msg) :toggle-player-defend)
+          (setf (app-state-player-auto-defend-p state) (not (app-state-player-auto-defend-p state)))
+          state)
+
+         ((eq (car msg) :toggle-enemy-defend)
+          (setf (app-state-enemy-auto-defend-p state) (not (app-state-enemy-auto-defend-p state)))
+          state)
+
+         ((eq (car msg) :restart-game)
+          (let ((player-sol (app-state-player-solver state)))
+            (setf state (make-app-state :player-solver player-sol))
+            state))
 
          ((eq (car msg) :inject-juice)
           (when (> (app-state-juice-count state) 0)
@@ -264,11 +298,22 @@
                 ;; 1. Update timeline
                 (incf (app-state-time-seconds state) dt)
 
-                ;; 2. PDC automated defense
-                (multiple-value-bind (rem-torps bullet-trail)
-                    (update-pdc-defense ship (app-state-torpedoes state) 45.0d0 dt)
-                  (setf (app-state-torpedoes state) rem-torps
-                        (app-state-pdc-bullet state) bullet-trail))
+                ;; 2. Player PDC automated defense (if enabled)
+                (if (app-state-player-auto-defend-p state)
+                    (multiple-value-bind (rem-torps bullet-trail)
+                        (update-pdc-defense ship (app-state-torpedoes state) 45.0d0 dt)
+                      (setf (app-state-torpedoes state) rem-torps
+                            (app-state-pdc-bullet state) bullet-trail))
+                    (setf (app-state-pdc-bullet state) nil))
+
+                ;; 2b. Enemy PDC automated defense (if enabled)
+                (if (and (> (app-state-enemy-reactor state) 0.0d0)
+                         (app-state-enemy-auto-defend-p state))
+                    (multiple-value-bind (rem-torps bullet-trail)
+                        (update-pdc-defense enemy (app-state-player-torpedoes state) 45.0d0 dt)
+                      (setf (app-state-player-torpedoes state) rem-torps
+                            (app-state-enemy-pdc-bullet state) bullet-trail))
+                    (setf (app-state-enemy-pdc-bullet state) nil))
 
                 ;; 3. Update active weapons positions
                 (setf (app-state-slugs state) (update-slugs (app-state-slugs state) ad bd dt)
@@ -396,6 +441,8 @@
 
      (defun run-game ()
        "Launch the raw socket-based X11 orbital space combat game."
+       (setf pure-x11-gen::*window-width* 800
+             pure-x11-gen::*window-height* 600)
        (let* ((n 15) ;; 15 stage horizon
               (ad (make-array '(4 4) :element-type 'double-float :initial-element 0.0d0))
               (bd (make-array '(4 2) :element-type 'double-float :initial-element 0.0d0))
