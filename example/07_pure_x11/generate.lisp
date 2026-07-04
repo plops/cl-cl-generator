@@ -10,6 +10,7 @@
 (load "05_event_loop.lisp")
 (load "06_example_template.lisp")
 (load "07_tests_template.lisp")
+(load "08_orbit_demo_template.lisp")
 
 (in-package :cl-cl-generator/example-x11-gen)
 
@@ -32,6 +33,11 @@
                   #:draw-window
                   #:poly-rectangle
                   #:poly-fill-rectangle
+                  #:poly-arc
+                  #:poly-fill-arc
+                  #:create-gc
+                  #:next-resource-id
+                  #:read-reply-timeout
                   #:query-pointer
                   #:imagetext8
                   #:query-extension
@@ -89,6 +95,7 @@
                              (:file "widgets-builtin")
                              (:file "event-loop")
                              (:file "example")
+                             (:file "orbit-demo")
                              (:file "tests"))))))
     (ensure-directories-exist asd-path)
     (with-open-file (stream asd-path
@@ -215,24 +222,37 @@
                  buf))
 
              (defun read-reply-wait ()
-               "Read standard 32-byte reply header and optional variable-length body from *s*."
-               (let* ((buf (make-array 32 :element-type '(unsigned-byte 8))))
-                 (read-exactly *s* buf)
-                 (format t "read-reply-wait: read packet code ~a~%" (aref buf 0))
-                 (force-output)
-                 (with-reply buf
-                   (let ((reply (card8))
-                         (unused (card8))
-                         (sequence-number (card16))
-                         (reply-length (card32)))
-                     (declare (ignorable reply unused))
-                     (if (or (= reply 0)
-                             (< 1 reply)
-                             (and (= reply 1) (= 0 reply-length)))
-                         (values buf sequence-number)
-                         (let ((m (make-array (* 4 reply-length) :element-type '(unsigned-byte 8))))
-                           (read-exactly *s* m)
-                           (values (concatenate '(vector (unsigned-byte 8)) buf m) sequence-number)))))))
+                "Read standard 32-byte reply header and optional variable-length body from *s*."
+                (let* ((buf (make-array 32 :element-type '(unsigned-byte 8))))
+                  (read-exactly *s* buf)
+                  (format t "read-reply-wait: read packet code ~a~%" (aref buf 0))
+                  (force-output)
+                  (with-reply buf
+                    (let ((reply (card8))
+                          (unused (card8))
+                          (sequence-number (card16))
+                          (reply-length (card32)))
+                      (declare (ignorable reply unused))
+                      (if (or (= reply 0)
+                              (< 1 reply)
+                              (and (= reply 1) (= 0 reply-length)))
+                          (values buf sequence-number)
+                          (let ((m (make-array (* 4 reply-length) :element-type '(unsigned-byte 8))))
+                            (read-exactly *s* m)
+                            (values (concatenate '(vector (unsigned-byte 8)) buf m) sequence-number)))))))
+
+              (defun read-reply-timeout (timeout-sec)
+                "Wait up to TIMEOUT-SEC seconds for input on *s*. Returns the packet buffer if read, or NIL on timeout."
+                (when *s*
+                  (let ((fd (sb-sys:fd-stream-fd *s*)))
+                    (if (sb-sys:wait-until-fd-usable fd :input (coerce timeout-sec 'double-float))
+                        (read-reply-wait)
+                        nil))))
+
+              (defvar *resource-id-counter* 10)
+              (defun next-resource-id ()
+                "Allocate a new X11 resource ID dynamically."
+                (logior *resource-id-base* (logand *resource-id-mask* (incf *resource-id-counter*))))
 
              (defvar *pending-events* nil)
 
@@ -427,6 +447,9 @@
 
   ;; 5. Emit example.lisp
   (write-source "example" *example-template-code* *output-dir*)
+
+  ;; 5b. Emit orbit-demo.lisp
+  (write-source "orbit-demo" *orbit-demo-template-code* *output-dir*)
 
   ;; 6. Emit tests.lisp
   (write-source "tests" *tests-template-code* *output-dir*)

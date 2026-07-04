@@ -301,6 +301,45 @@
                 (dolist (v r)
                   (card16 v)))))
 
+    ;; 9d. PolyArc (opcode 68)
+    (:name poly-arc
+     :doc "Draw outlines of one or more arcs."
+     :params (arcs &key (gc *gc-text*))
+     :packet ((card8 68)
+              (card8 0)
+              (card16 (+ 3 (* 3 (length arcs))))
+              (card32 *window*)
+              (card32 gc)
+              (dolist (a arcs)
+                (dolist (v a)
+                  (card16 v)))))
+
+    ;; 9e. PolyFillArc (opcode 71)
+    (:name poly-fill-arc
+     :doc "Draw one or more filled arcs."
+     :params (arcs &key (gc *gc-text*))
+     :packet ((card8 71)
+              (card8 0)
+              (card16 (+ 3 (* 3 (length arcs))))
+              (card32 *window*)
+              (card32 gc)
+              (dolist (a arcs)
+                (dolist (v a)
+                  (card16 v)))))
+
+    ;; 9f. CreateGC (opcode 55)
+    (:name create-gc
+     :doc "Create a new graphics context."
+     :params (gc &key (foreground #x000000) (background #x00ffffff))
+     :packet ((card8 55)
+              (card8 0)
+              (card16 6)
+              (card32 gc)
+              (card32 *window*)
+              (card32 #x0c)
+              (card32 foreground)
+              (card32 background)))
+
     ;; 10. QueryExtension
     (:name query-extension
      :doc "Query if an extension is supported and get its major opcode."

@@ -8,3 +8,6 @@
 
 # Ignore generated output files in examples
 example/**/run_*.lisp
+
+# Ignore screenshots
+*.png
