@@ -198,10 +198,9 @@
                                      (when next-focus
                                        (setf *focused-widget* next-focus)
                                        (smart-redraw layout))))
-                                  (*focused-widget*
+                                  ((and *focused-widget* focused-is-text-input)
                                    (let ((w-struct (find-widget-by-name layout *focused-widget*)))
-                                     (when (and w-struct (let ((type (widget-type w-struct)))
-                                                          (and type (symbolp type) (string-equal (symbol-name type) "TEXT-INPUT"))))
+                                     (when w-struct
                                        (let ((current-text (getf (widget-props w-struct) :text ""))
                                              (cursor-pos (getf (widget-props w-struct) :cursor-pos 0))
                                              (msg-change (getf (widget-props w-struct) :msg-change)))
@@ -235,6 +234,10 @@
                                                    (msg (append msg-change (list new-text new-pos))))
                                               (setf state (funcall update-fn state msg))
                                               (rebuild-layout)
-                                              (full-redraw layout))))))))))))))))))))))
+                                              (full-redraw layout)))))))
+                                  (t
+                                   (setf state (funcall update-fn state (list :key-press keysym)))
+                                   (rebuild-layout)
+                                   (full-redraw layout)))))))))))))))))
       ))
 )
