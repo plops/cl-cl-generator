@@ -48,34 +48,44 @@ The transpiler uses generator-time loops like `,@(loop for req in *x11-requests*
 
 ---
 
-## 4. API Reference
+### 4. API Reference
 
 ### Connection & Setup
-*   `connect (&key ip filename port)`: Connects to the X server (via local Unix sockets or TCP), negotiates the initial connection handshake, and retrieves server constants (like screen size, root window ID, and resource mask).
+*   `connect (&key ip filename port)`: Connects to the X server, negotiates connection handshake, and retrieves server constants.
 *   `big-requests-enable ()`: Enables the X11 extension for sending very large request payloads (e.g., big image uploads).
 
-### Window Management
-*   `make-window (&key width height x y border)`: Creates a new window, maps (shows) it on the screen, and creates two graphics contexts (`*gc*` for white pixel drawing and `*gc2*` for black pixel drawing). Returns the unique window ID.
+### Window & GC Management
+*   `make-window (&key width height x y border)`: Creates a new window, maps it on the screen, and creates 5 Graphics Contexts:
+    *   `*gc-light*`: Bevel highlight (white, `#ffffff`)
+    *   `*gc-face*`: Widget face fill/background (light gray, `#c0c0c0`)
+    *   `*gc-shadow*`: Bevel shadow (mid gray, `#808080`)
+    *   `*gc-dark*`: Bevel dark edge (dark gray, `#404040`)
+    *   `*gc-text*`: Default text and border color (black, `#000000`)
 *   `map-window (window)`: Makes the window visible on the screen.
 *   `destroy-window (window)`: Destroys the window and releases its resources.
 
-### Drawing
-*   `draw-window (x1 y1 x2 y2 &key gc)`: Draws a line segment from `(x1, y1)` to `(x2, y2)`. By default, it uses the foreground graphics context `*gc*`.
-*   `imagetext8 (str &key x y)`: Draws a single-byte string `str` at coordinate `(x, y)`.
-*   `put-image-big-req (img &key dst-x dst-y)`: Uploads a 3D raw byte array of pixels to the window using high-performance big request packets.
+### Drawing & Buffering
+*   `draw-line (x1 y1 x2 y2 &key gc)`: Draws a line segment from `(x1, y1)` to `(x2, y2)` using the specified Graphics Context (defaults to `*gc-text*`).
+*   `imagetext8 (str &key x y gc)`: Draws a single-byte string `str` at coordinate `(x, y)` using the specified GC (defaults to `*gc-text*`).
+*   `with-buffered-output (&body body)`: Executes the body with request buffering enabled. All X11 packets generated inside the body are accumulated and written to the socket in a single batch, minimizing RTT overhead.
+*   `flush-packets ()`: Flushes the accumulated packets to the socket.
 
-### Input & Querying
-*   `query-pointer ()`: Queries and returns multiple values: `(values root-x root-y win-x win-y)` indicating the current mouse position.
-*   `get-keyboard-mapping (first-keycode count)`: Queries the keyboard mapping layout from the server.
-*   `grab-pointer (grab-window event-mask &key ...)`: Grabs exclusive mouse pointer control.
-*   `ungrab-pointer (&key time)`: Releases pointer grab.
+### Widgets & Layout Engine
+*   `defstruct widget`: Standard structure representing a widget node (`type`, `name`, `x`, `y`, `w`, `h`, `props`, `children`).
+*   `register-widget (type-name render-fn)`: Registers a renderer function for a widget type. The renderer function is called as `(funcall render-fn w-struct focused pressed hovered)`.
+*   `render-layout (layout focused pressed hovered)`: Renders the layout tree starting from the root node.
+*   `defstruct glue`: Represents layout elasticity (`natural` size, `stretch` factor, and `shrink` factor).
+*   `solve-glue (items available-space)`: Distributes space among a list of glue structures using TeX's layout algorithm.
+*   `compute-box-layout (w-struct axis)`: Lays out children of `hbox` (`axis=:x`) or `vbox` (`axis=:y`) container nodes.
 
-### Event Parsers
-Events are read from the socket using `(read-reply-wait)`. You inspect the first byte (the event code) and call the corresponding event parser to extract values:
-*   `parse-expose (reply-buffer)`: Extracts `(values sequence-number window x y width height count)`. Tells you which part of the window needs redrawing.
-*   `parse-motion-notify (reply-buffer)`: Extracts `(values event-x event-y state time)`. Tells you the cursor coordinates.
-*   `parse-button-press (reply-buffer)`: Extracts `(values detail-button event-x event-y state time)`.
-*   `parse-button-release (reply-buffer)`: Extracts `(values detail-button event-x event-y state time)`.
+### Event loop & Parsers
+*   `run-gui (update-fn view-fn initial-state)`: Starts the Elm-style Model-Update-View (MUV) event loop with state dirty-tracking and partial widget redraws.
+*   `parse-expose (reply-buffer)`: Parses Expose events.
+*   `parse-motion-notify (reply-buffer)`: Parses mouse motion coordinates.
+*   `parse-button-press (reply-buffer)`: Parses mouse clicks.
+*   `parse-button-release (reply-buffer)`: Parses mouse releases.
+*   `parse-key-press (reply-buffer)`: Parses key presses.
+*   `parse-configure-notify (reply-buffer)`: Parses window resize notifications.
 
 ---
 
@@ -84,47 +94,61 @@ Events are read from the socket using `(read-reply-wait)`. You inspect the first
 The generated demo in `source/example.lisp` demonstrates how to coordinate these calls into a working window application:
 
 ```lisp
-(defun run-x11-example ()
-  ;; 1. Connect to the local X Server (starts handshake)
-  (connect)
+(defstruct app-state
+  (clicks 0)
+  (input-buffer "Type here")
+  (cursor-pos 9)
+  (checkbox-val nil))
 
-  ;; 2. Create the window and show it on the display
-  (let ((win (make-window :width 400 :height 300)))
-    (map-window win)
-    
-    ;; 3. Initial drawing (some text and a line)
-    (imagetext8 "Hello Pure X11!" :x 20 :y 50)
-    (draw-window 20 60 200 60)
-    
-    ;; 4. Start the event loop
-    (loop
-      ;; Wait for an event packet (32 bytes) from the X server
-      (let* ((reply (read-reply-wait))
-             (code (aref reply 0)))
-        (cond
-          ;; Code 12 = Expose event (window exposed, needs redraw)
-          ((= code 12)
-           (multiple-value-bind (seq w x y width height count) (parse-expose reply)
-             (declare (ignorable seq w count))
-             (format t "Expose event: x=~a, y=~a, w=~a, h=~a~%" x y width height)
-             ;; Redraw graphics
-             (imagetext8 "Hello Pure X11!" :x 20 :y 50)
-             (draw-window 20 60 200 60)))
-          
-          ;; Code 6 = MotionNotify (mouse moved inside window)
-          ((= code 6)
-           (multiple-value-bind (x y state time) (parse-motion-notify reply)
-             (declare (ignorable time))
-             (format t "MotionNotify event: x=~a, y=~a, state=~a~%" x y state)))
-          
-          ;; Code 4 = ButtonPress (mouse button clicked)
-          ((= code 4)
-           (multiple-value-bind (btn x y state time) (parse-button-press reply)
-             (declare (ignorable state time))
-             (format t "ButtonPress event: button=~a, x=~a, y=~a~%" btn x y)))
-          
-          (t
-           (format t "Received event code ~a~%" code)))))))
+(defun update (state msg)
+  "Pure state update function."
+  (let ((clicks (app-state-clicks state))
+        (buf (app-state-input-buffer state))
+        (pos (app-state-cursor-pos state))
+        (chk (app-state-checkbox-val state)))
+    (case (car msg)
+      (:increment
+       (make-app-state :clicks (1+ clicks) :input-buffer buf :cursor-pos pos :checkbox-val chk))
+      (:decrement
+       (make-app-state :clicks (1- clicks) :input-buffer buf :cursor-pos pos :checkbox-val chk))
+      (:toggle-checkbox
+       (make-app-state :clicks clicks :input-buffer buf :cursor-pos pos :checkbox-val (not chk)))
+      (:text-change
+       (let ((new-text (cadr msg))
+             (new-pos (caddr msg)))
+         (make-app-state :clicks clicks :input-buffer new-text :cursor-pos new-pos :checkbox-val chk)))
+      (:cursor-move
+       (let ((new-pos (caddr msg)))
+         (make-app-state :clicks clicks :input-buffer buf :cursor-pos new-pos :checkbox-val chk)))
+      (t state))))
+
+(defun view (w h state)
+  "Pure layout render function returning the virtual DOM."
+  (let ((clicks (app-state-clicks state))
+        (buf (app-state-input-buffer state))
+        (pos (app-state-cursor-pos state))
+        (chk (app-state-checkbox-val state)))
+    `(panel :name :root :x 0 :y 0 :w ,w :h ,h
+       (vbox :name :main-vbox :x 10 :y 10 :w ,(- w 20) :h ,(- h 20) :padding 0 :spacing 10
+         (label :name :title :text ,(format nil "Athena GUI Demo (Clicks: ~a)" clicks)
+                :glue (:natural 20 :stretch 0 :shrink 0))
+         (hbox :name :buttons :glue (:natural 30 :stretch 0 :shrink 0) :spacing 10
+           (button :name :btn-inc :text "Increment" :msg (:increment)
+                   :glue (:natural 120 :stretch 1 :shrink 0))
+           (button :name :btn-dec :text "Decrement" :msg (:decrement)
+                   :glue (:natural 120 :stretch 1 :shrink 0)))
+         (text-input :name :txt :text ,buf
+                     :cursor-pos ,pos
+                     :msg-change (:text-change)
+                     :glue (:natural 30 :stretch 1 :shrink 0))
+         (checkbox :name :chk :label "Enable Action Mode"
+                   :checked-p ,chk
+                   :msg (:toggle-checkbox)
+                   :glue (:natural 24 :stretch 0 :shrink 0))))))
+
+(defun run-x11-example ()
+  "Connect to X11 and run the declarative GUI application."
+  (run-gui #'update #'view (make-app-state)))
 ```
 
 ---
@@ -136,7 +160,6 @@ Start an SBCL process, add the generated source folder to your central registry,
 ```lisp
 (push "/workspace/src/cl-cl-generator/example/07_pure_x11/source/" asdf:*central-registry*)
 (ql:quickload :pure-x11-gen)
-(load "/workspace/src/cl-cl-generator/example/07_pure_x11/source/example.lisp")
 
 ;; Run the client!
 (pure-x11-gen/example:run-x11-example)

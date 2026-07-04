@@ -18,7 +18,7 @@ sleep 3 # Wait 3 seconds for the client to connect, map, and render
 import -window root screenshot.png
 
 # Copy to artifacts directory
-cp screenshot.png /root/.gemini/antigravity-cli/brain/ccd19f32-884b-4c10-b790-27368a380c29/screenshot.png
+cp screenshot.png /root/.gemini/antigravity-cli/brain/3fc14aeb-84aa-4fd8-86f3-af9e5b26ceae/screenshot.png
 
 # Kill background processes
 kill -9 $CLIENT_PID

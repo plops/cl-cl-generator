@@ -5,9 +5,11 @@
 ;; Load sub-files in order
 (load "01_package.lisp")
 (load "02_x11_spec.lisp")
-(load "03_widgets_template.lisp")
-(load "04_example_template.lisp")
-(load "05_tests_template.lisp")
+(load "03_widgets_core.lisp")
+(load "04_widgets_builtin.lisp")
+(load "05_event_loop.lisp")
+(load "06_example_template.lisp")
+(load "07_tests_template.lisp")
 
 (in-package :cl-cl-generator/example-x11-gen)
 
@@ -52,11 +54,18 @@
                   #:parse-key-press
                   #:parse-configure-notify
 
+                  #:draw-line
                   #:*s*
                   #:*root*
                   #:*window*
-                  #:*gc*
-                  #:*gc2*
+                  #:*gc-light*
+                  #:*gc-face*
+                  #:*gc-shadow*
+                  #:*gc-dark*
+                  #:*gc-text*
+                  #:*packet-buffer*
+                  #:with-buffered-output
+                  #:flush-packets
                   #:*big-request-opcode*)))
     *output-dir*)
 
@@ -72,7 +81,9 @@
                 :serial t
                 :components ((:file "package")
                              (:file "x11-core")
-                             (:file "widgets")
+                             (:file "widgets-core")
+                             (:file "widgets-builtin")
+                             (:file "event-loop")
                              (:file "example")
                              (:file "tests"))))))
     (ensure-directories-exist asd-path)
@@ -92,8 +103,11 @@
              (defparameter *resp* nil "Reply of the X server to a request")
              (defparameter *root* nil "Root ID as extracted from the initial reply of the X server.")
              (defparameter *window* nil)
-             (defparameter *gc* nil)
-             (defparameter *gc2* nil)
+             (defparameter *gc-light* nil)
+             (defparameter *gc-face* nil)
+             (defparameter *gc-shadow* nil)
+             (defparameter *gc-dark* nil)
+             (defparameter *gc-text* nil)
              (defparameter *big-request-opcode* nil)
 
              (defun pad (n)
@@ -101,11 +115,28 @@
                (if (= 0 (mod n 4))
                    0
                    (- (* 4 (1+ (floor n 4))) n)))
-
              (comment "Macros for packet writing and reply reading")
              (raw "
+(defvar *packet-buffer* nil)
+(defvar *buffering-p* nil)
+
+(defun flush-packets ()
+  \"Write all buffered packets to the socket in one batch.\"
+  (when (and *packet-buffer* *s*)
+    (dolist (buf (nreverse *packet-buffer*))
+      (write-sequence buf *s*))
+    (force-output *s*))
+  (setf *packet-buffer* nil))
+
+(defmacro with-buffered-output (&body body)
+  \"Execute body with request buffering. Flushes on exit.\"
+  `(let ((*packet-buffer* (list))
+         (*buffering-p* t))
+     (unwind-protect (progn ,@body)
+       (flush-packets))))
+
 (defmacro with-packet (&body body)
-  \"Write values into a list of bytes and send over the socket *s*.\"
+  \"Write values into a list of bytes and send over the socket *s* or buffer it.\"
   `(let* ((l ()))
      (labels ((string8 (a)
                 (declare (type string a))
@@ -126,8 +157,11 @@
        (let ((buf (make-array (length l)
                               :element-type '(unsigned-byte 8)
                               :initial-contents (nreverse l))))
-         (write-sequence buf *s*)
-         (force-output *s*)))))
+         (if *buffering-p*
+             (push buf *packet-buffer*)
+             (progn
+               (write-sequence buf *s*)
+               (force-output *s*)))))))
 ")
 
              (raw "
@@ -368,8 +402,10 @@
               )))
   (write-source "x11-core" x11-core-code *output-dir*))
 
-  ;; 4. Emit widgets.lisp
-  (write-source "widgets" *widgets-template-code* *output-dir*)
+  ;; 4. Emit widget & event-loop files
+  (write-source "widgets-core" *widgets-core-template-code* *output-dir*)
+  (write-source "widgets-builtin" *widgets-builtin-template-code* *output-dir*)
+  (write-source "event-loop" *event-loop-template-code* *output-dir*)
 
   ;; 5. Emit example.lisp
   (write-source "example" *example-template-code* *output-dir*)

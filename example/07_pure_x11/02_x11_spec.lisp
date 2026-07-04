@@ -69,16 +69,22 @@
   `(
     ;; 1. CreateWindow & MapWindow (make-window combines them)
     (:name make-window
-     :doc "Create a window and map it, creating GCs for white/black pixel foregrounds."
+     :doc "Create a window and map it, creating GCs for Athena 3D bevels and text."
      :params (&key (width 512) (height 512) (x 0) (y 0) (border 1))
      :bindings ((window (logior *resource-id-base* (logand *resource-id-mask* 1)))
-                (gc (logior *resource-id-base* (logand *resource-id-mask* 2)))
-                (gc2 (logior *resource-id-base* (logand *resource-id-mask* 3)))
+                (gc-light (logior *resource-id-base* (logand *resource-id-mask* 2)))
+                (gc-face (logior *resource-id-base* (logand *resource-id-mask* 3)))
+                (gc-shadow (logior *resource-id-base* (logand *resource-id-mask* 4)))
+                (gc-dark (logior *resource-id-base* (logand *resource-id-mask* 5)))
+                (gc-text (logior *resource-id-base* (logand *resource-id-mask* 6)))
                 (vals '(colormap backing-store event-mask bit-gravity border-pixel background-pixel))
                 (n (length vals)))
      :post ((defparameter *window* window)
-            (defparameter *gc* gc)
-            (defparameter *gc2* gc2))
+            (defparameter *gc-light* gc-light)
+            (defparameter *gc-face* gc-face)
+            (defparameter *gc-shadow* gc-shadow)
+            (defparameter *gc-dark* gc-dark)
+            (defparameter *gc-text* gc-text))
      :packet ((card8 1)                 ; opcode create-window
               (card8 0)                 ; depth
               (card16 (+ 8 n))          ; length
@@ -99,23 +105,50 @@
               (card32 (event '(PointerMotion ButtonPress ButtonRelease Exposure StructureNotify)))
               (card32 #x0)              ; colormap
 
-              (card8 55)                ; opcode create-gc (gc)
+              (card8 55)                ; opcode create-gc (gc-light: white fg, 0 bg)
               (card8 0)
               (card16 6)
-              (card32 gc)
+              (card32 gc-light)
               (card32 window)
               (card32 #x0c)
               (card32 #x00ffffff)
               (card32 0)
 
-              (card8 55)                ; opcode create-gc (gc2)
+              (card8 55)                ; opcode create-gc (gc-face: light gray fg/bg)
               (card8 0)
               (card16 6)
-              (card32 gc2)
+              (card32 gc-face)
               (card32 window)
               (card32 #x0c)
-              (card32 0)
-              (card32 #x00ffffff)
+              (card32 #x00c0c0c0)
+              (card32 #x00c0c0c0)
+
+              (card8 55)                ; opcode create-gc (gc-shadow: mid gray fg, face bg)
+              (card8 0)
+              (card16 6)
+              (card32 gc-shadow)
+              (card32 window)
+              (card32 #x0c)
+              (card32 #x00808080)
+              (card32 #x00c0c0c0)
+
+              (card8 55)                ; opcode create-gc (gc-dark: dark gray fg, face bg)
+              (card8 0)
+              (card16 6)
+              (card32 gc-dark)
+              (card32 window)
+              (card32 #x0c)
+              (card32 #x00404040)
+              (card32 #x00c0c0c0)
+
+              (card8 55)                ; opcode create-gc (gc-text: black fg, face bg)
+              (card8 0)
+              (card16 6)
+              (card32 gc-text)
+              (card32 window)
+              (card32 #x0c)
+              (card32 #x00000000)
+              (card32 #x00c0c0c0)
 
               (card8 8)                 ; map-window
               (card8 0)
@@ -182,7 +215,7 @@
     ;; 7. DrawWindow (PolySegment)
     (:name draw-window
      :doc "Draw a single line segment from (x1 y1) to (x2 y2)."
-     :params (x1 y1 x2 y2 &key (gc *gc*))
+     :params (x1 y1 x2 y2 &key (gc *gc-text*))
      :decls ((declare ((unsigned-byte 16) x1 y1 x2 y2)))
      :bindings ((segs (list (list x1 y1 x2 y2))))
      :packet ((card8 66)
@@ -193,6 +226,17 @@
               (dolist (s segs)
                 (dolist (p s)
                   (card16 p)))))
+
+    ;; 7b. DrawLine (simpler single segment)
+    (:name draw-line
+     :doc "Draw a single line segment from (x1,y1) to (x2,y2) using specified GC."
+     :params (x1 y1 x2 y2 &key (gc *gc-text*))
+     :packet ((card8 66)
+              (card8 0)
+              (card16 5)
+              (card32 *window*)
+              (card32 gc)
+              (card16 x1) (card16 y1) (card16 x2) (card16 y2)))
 
     ;; 8. QueryPointer
     (:name query-pointer
@@ -217,14 +261,14 @@
     ;; 9. ImageText8
     (:name imagetext8
      :doc "Draw text string on the window."
-     :params (str &key (x 0) (y 0))
+     :params (str &key (x 0) (y 0) (gc *gc-text*))
      :bindings ((n (length str))
                 (p (pad n)))
      :packet ((card8 76)
               (card8 n)
               (card16 (+ 4 (/ (+ n p) 4)))
               (card32 *window*)
-              (card32 *gc*)
+              (card32 gc)
               (card16 x)
               (card16 y)
               (string8 str)
@@ -234,7 +278,7 @@
     ;; 9b. PolyRectangle
     (:name poly-rectangle
      :doc "Draw outlines of one or more rectangles."
-     :params (rects &key (gc *gc*))
+     :params (rects &key (gc *gc-text*))
      :packet ((card8 74)
               (card8 0)
               (card16 (+ 3 (* 2 (length rects))))
@@ -247,7 +291,7 @@
     ;; 9c. PolyFillRectangle
     (:name poly-fill-rectangle
      :doc "Draw one or more filled rectangles."
-     :params (rects &key (gc *gc*))
+     :params (rects &key (gc *gc-text*))
      :packet ((card8 76)
               (card8 0)
               (card16 (+ 3 (* 2 (length rects))))
@@ -309,7 +353,7 @@
               (card16 0)                ; big request indicator
               (card32 (+ 7 (/ (+ n p) 4)))
               (card32 *window*)
-              (card32 *gc*)
+              (card32 *gc-text*)
               (card16 w)
               (card16 h)
               (card16 dst-x)
