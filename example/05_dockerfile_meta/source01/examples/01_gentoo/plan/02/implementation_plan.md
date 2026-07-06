@@ -37,13 +37,14 @@ This plan describes modifications to [gen_gentoo.lisp](file:///workspace/src/cl-
 > - The large `config6.18.18` kernel configuration (207KB) will remain a file copy to prevent bloat of the generator source code.
 
 > [!IMPORTANT]
-> **Validation, External Distfiles Caching, and Scripts:**
-> - **Validation & Obsolete USE Flag Reporting:** Every build will automatically execute `eix-update && eix-test-obsolete > /packages_obsolete.txt` to produce a report of any redundant/stale packages and USE flags in portage. This report is exported along with system logs.
+> **Validation, Distfiles Caching, and External Volume Exports:**
+> - **Validation & Obsolete USE Flag Reporting:** Every build will automatically execute `eix-update && eix-test-obsolete > /packages_obsolete.txt` to produce a report of any redundant/stale packages and USE flags in portage.
 > - **Distfiles Volume Cache:** All emerge commands will run under a BuildKit cache mount (`--mount=type=cache,target=/var/cache/distfiles`) so that downloaded package tarballs are cached persistent across container rebuilds on the host machine.
+> - **External Volume Mapping for Exports:** We will expose a script `copy_output.sh` that mounts a host output directory (`-v $(pwd)/output:/output`) and copies all generated build products (squashfs files, ext4 file, kernel vmlinuz, initramfs, packages list, and the validation report) directly into this host volume.
 > - **Build/Execution Scripts:** We will provide three simple bash scripts:
->   - `build.sh`: Generates the Dockerfile from Lisp and triggers `docker build` with BuildKit.
+>   - `build.sh`: Generates the Dockerfile from Lisp, triggers `docker build` with BuildKit, and redirects stdout/stderr to a log file (`output/build.log`) in the mapped host directory.
 >   - `enter_container.sh`: Launches a bash shell inside the built image.
->   - `copy_output.sh`: Automatically creates a temporary container and copies out the final kernel, initramfs, squashfs/ext4 files, packages lists, and validation reports to the host.
+>   - `copy_output.sh`: Runs the image and copies all final outputs directly into the mapped host volume.
 
 ## Proposed Changes
 
