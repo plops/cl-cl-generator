@@ -12,9 +12,10 @@ This plan describes modifications to [gen_gentoo.lisp](file:///workspace/src/cl-
 > - `*portage-date*` (`:auto` or string like `"20260624"`): Automatically calculates today's date or locks a specific date.
 > - `*stage3-date*` (`:auto` or string like `"20260622"`): Automatically calculates the date of the most recent Monday or locks a specific date.
 > - `*minimal-image*` (`T` or `NIL`): If `T`, builds a minimal squashfs with only Xorg, xterm, and basic tools.
+> - `*enable-flaggie-cleanup*` (`T` or `NIL`, defaults to `NIL`): If `T`, installs `flaggie` and cleans up redundant package USE flags.
 > - Feature flags (`*enable-emacs-sbcl*`, `*enable-rust*`, `*enable-go*`, `*enable-uv-ruff*`, `*enable-nvidia*`, `*enable-nvidia-cuda*`, `*enable-wireshark*`, `*enable-lua*`, `*enable-firefox*`, `*enable-google-chrome*`, `*enable-llvm*`, `*enable-clion*`, and `*audio-system*`).
 > 
-> **NEW: Logical Package Grouping Flags (Freely Selected):**
+> **Logical Package Grouping Flags (Freely Selected):**
 > We grouped all remaining packages from the original `world` file into logical flags for modular customization:
 > - `*enable-docker*`: Container tooling (`app-containers/docker`, `docker-buildx`, `docker-cli`).
 > - `*enable-dev-tools*`: High-performance compiler/debugging tools (`dev-build/ninja`, `dev-debug/strace`, `dev-debug/ltrace`, `sys-devel/mold`).
@@ -35,6 +36,15 @@ This plan describes modifications to [gen_gentoo.lisp](file:///workspace/src/cl-
 > - To optimize caching, small configuration files (`make.conf`, `package.use`, `package.accept_keywords`, `package.env`, `env/low-mem`, `env/lto-gcc`, `resolv.conf`, user profile and all OpenRC service scripts) will be outputted as **inline heredocs** directly in the Dockerfile using the DSL's `:heredoc` support.
 > - The large `config6.18.18` kernel configuration (207KB) will remain a file copy to prevent bloat of the generator source code.
 
+> [!IMPORTANT]
+> **Validation, External Distfiles Caching, and Scripts:**
+> - **Validation & Obsolete USE Flag Reporting:** Every build will automatically execute `eix-update && eix-test-obsolete > /packages_obsolete.txt` to produce a report of any redundant/stale packages and USE flags in portage. This report is exported along with system logs.
+> - **Distfiles Volume Cache:** All emerge commands will run under a BuildKit cache mount (`--mount=type=cache,target=/var/cache/distfiles`) so that downloaded package tarballs are cached persistent across container rebuilds on the host machine.
+> - **Build/Execution Scripts:** We will provide three simple bash scripts:
+>   - `build.sh`: Generates the Dockerfile from Lisp and triggers `docker build` with BuildKit.
+>   - `enter_container.sh`: Launches a bash shell inside the built image.
+>   - `copy_output.sh`: Automatically creates a temporary container and copies out the final kernel, initramfs, squashfs/ext4 files, packages lists, and validation reports to the host.
+
 ## Proposed Changes
 
 ### Configuration Directory Copy
@@ -49,6 +59,7 @@ We will copy only the large/binary configuration files (like `config6.18.18`, an
 - Implement helper functions for dynamic date calculation:
   - Portage date: Today's date (`YYYYMMDD`).
   - Stage3 date: The most recent Monday's date (`YYYYMMDD`).
+- Implement helper macro `run-emerge` to automatically wrap package compilation steps in a BuildKit cache mount targeting `/var/cache/distfiles`.
 - Generate configuration content dynamically based on selected flags and write them inside the container via heredocs:
   - `/etc/portage/make.conf` (sets correct `VIDEO_CARDS`, `LLVM_TARGETS` and audio USE flags).
   - `/etc/portage/package.use` (sets Vulkan, PipeWire, ALSA, squashfs-tools options based on target/audio).
@@ -59,18 +70,23 @@ We will copy only the large/binary configuration files (like `config6.18.18`, an
   - If `*split-world-build*` is `T`, generate the 10-layer split compilation.
   - If `*target-machine*` is `:thinkpad`, skip NVIDIA/CUDA dependencies and avoid building `/gentoo.squashfs_nv`.
   - Only clean up compiler toolchains (Rust, Go) if they are not explicitly enabled by their respective feature flags.
+  - If `*enable-flaggie-cleanup*` is `T`, install flaggie and execute cleanup.
+  - Run the `eix-test-obsolete` validation and dump the output to `/packages_obsolete.txt`.
+
+#### [NEW] Scripts under `/workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/examples/01_gentoo/`
+- `build.sh`
+- `enter_container.sh`
+- `copy_output.sh`
 
 ## Verification Plan
 
 ### Automated Tests
-1. Run the SBCL load command to check that `gen_gentoo.lisp` compiles and generates a valid Dockerfile:
-   ```bash
-   sbcl --load /workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/examples/01_gentoo/gen_gentoo.lisp --eval "(quit)"
-   ```
+1. Run the `build.sh` script to verify that the Dockerfile generates and builds successfully.
 2. Verify the contents of the generated `Dockerfile` under different flag combinations:
    - Target `:thinkpad` vs `:workstation`.
    - `*split-world-build*` as `T` vs `NIL`.
    - `*minimal-image*` as `T` vs `NIL`.
+3. Check that the output directory contains the squashfs files, kernel, initramfs, packages list, and validation report.
 
 ### Manual Verification
 - Confirm that the `config/` directory contains all files, including `config6.18.18`.
