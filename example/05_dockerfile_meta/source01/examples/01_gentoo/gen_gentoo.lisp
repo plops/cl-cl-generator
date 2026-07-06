@@ -24,40 +24,42 @@
 (defparameter *enable-flaggie-cleanup* nil
   "If T, run flaggie cleanup to remove redundant USE flags.")
 
-;; --- Optional feature flags ---
-(defparameter *enable-emacs-sbcl* nil)
-(defparameter *enable-rust* nil)
-(defparameter *enable-go* nil)
-(defparameter *enable-uv-ruff* nil)
-(defparameter *enable-nvidia* nil)
-(defparameter *enable-nvidia-cuda* nil)
-(defparameter *enable-wireshark* nil)
-(defparameter *enable-lua* nil)
-(defparameter *enable-firefox* nil)
-(defparameter *enable-google-chrome* nil)
-(defparameter *enable-llvm* nil)
-(defparameter *enable-clion* nil)
+;; --- Optional feature flags: each entry is (symbol . default-value) ---
+(defparameter *feature-flags*
+  '((*enable-emacs-sbcl*        . nil)
+    (*enable-rust*               . nil)
+    (*enable-go*                 . nil)
+    (*enable-uv-ruff*            . nil)
+    (*enable-nvidia*             . nil)
+    (*enable-nvidia-cuda*        . nil)
+    (*enable-wireshark*          . nil)
+    (*enable-lua*                . nil)
+    (*enable-firefox*            . nil)
+    (*enable-google-chrome*      . nil)
+    (*enable-llvm*               . nil)
+    (*enable-clion*              . nil)
+    (*enable-docker*             . nil)
+    (*enable-slstatus*           . nil)
+    (*enable-dev-tools*          . nil)
+    (*enable-media-playback*     . nil)
+    (*enable-network-admin*      . nil)
+    (*enable-remote-access*      . nil)
+    (*enable-cli-productivity*   . nil)
+    (*enable-sys-monitoring-hw*  . nil)
+    (*enable-power-management*   . nil)
+    (*enable-desktop-extras*     . nil)
+    (*enable-signal*             . nil)
+    (*enable-pdf-viewer*         . nil)
+    (*enable-ios-sync*           . nil)
+    (*enable-alacritty*          . nil)
+    (*enable-dracut-ssh*         . nil)))
+
+;; Instantiate all feature flags from the table above
+(dolist (entry *feature-flags*)
+  (set (car entry) (cdr entry)))
+
 (defparameter *audio-system* :pipewire
   "Audio system. Choices: :pipewire, :alsa, :none")
-
-;; --- Logical category flags ---
-(defparameter *enable-docker* nil)
-(defparameter *enable-slstatus* nil
-  "If T, build and install slstatus. Note: slstatus requires git (which is installed by default in the base system packages).")
-(defparameter *enable-dev-tools* nil)
-(defparameter *enable-media-playback* nil)
-(defparameter *enable-network-admin* nil)
-(defparameter *enable-remote-access* nil)
-(defparameter *enable-cli-productivity* nil)
-(defparameter *enable-sys-monitoring-hw* nil)
-(defparameter *enable-power-management* nil)
-(defparameter *enable-desktop-extras* nil)
-(defparameter *enable-signal* nil)
-(defparameter *enable-pdf-viewer* nil)
-(defparameter *enable-ios-sync* nil)
-(defparameter *enable-alacritty* nil)
-
-(defparameter *enable-dracut-ssh* nil)
 
 (defparameter *kver* "6.18.36")
 
@@ -83,184 +85,181 @@
       *stage3-date*))
 
 ;; --- Dynamic Configuration File Generators ---
-(defun generate-world-packages ()
-  (let ((pkgs '("app-admin/sudo"
-                "app-admin/sysklogd"
-                "sys-apps/ripgrep"
-                "sys-process/htop"
-                "x11-base/xorg-server"
-                "x11-terms/xterm"
-                "x11-wm/dwm"
-                "sys-kernel/gentoo-sources"
-                "sys-kernel/linux-firmware"
-                "sys-kernel/dracut"
-                "sys-fs/e2fsprogs"
-                "sys-fs/erofs-utils"
-                "sys-fs/squashfs-tools"
-                "sys-fs/lvm2"
-                "sys-fs/btrfs-progs"
-                "sys-fs/cryptsetup"
-                "app-portage/cpuid2cpuflags"
-                "app-portage/eix"
-                "app-portage/gentoolkit"
-                "dev-vcs/git"
-                "net-wireless/iwd"
-                "net-wireless/iw"
-                "net-misc/dhcpcd"
-                "net-misc/autossh")))
-    (unless *minimal-image*
-      (setf pkgs (append pkgs '("app-containers/docker"
-                                "app-containers/docker-buildx"
-                                "app-containers/docker-cli"
-                                "app-crypt/p11-kit"
-                                "app-misc/fastfetch"
-                                "app-misc/fdupes"
-                                "app-misc/jq"
-                                "app-misc/mc"
-                                "app-misc/tmate"
-                                "app-misc/tmux"
-                                "app-pda/ifuse"
-                                "app-shells/bash-completion"
-                                "app-shells/zsh"
-                                "app-text/mupdf"
-                                "app-text/tree"
-                                "dev-build/ninja"
-                                "dev-debug/ltrace"
-                                "dev-debug/strace"
-                                "dev-libs/nss"
-                                "dev-python/btrfs"
-                                "media-fonts/wqy-zenhei"
-                                "media-gfx/feh"
-                                "media-gfx/scrot"
-                                "media-sound/pulsemixer"
-                                "media-video/mpv"
-                                "net-analyzer/hping"
-                                "net-analyzer/iftop"
-                                "net-analyzer/iptraf-ng"
-                                "net-analyzer/macchanger"
-                                "net-analyzer/netcat"
-                                "net-analyzer/nethogs"
-                                "net-analyzer/ngrep"
-                                "net-analyzer/ssmping"
-                                "net-dns/bind-tools"
-                                "net-dns/dnsmasq"
-                                "net-im/signal-desktop-bin"
-                                "net-misc/bridge-utils"
-                                "net-misc/chrony"
-                                "net-misc/dhcp"
-                                "net-misc/freerdp"
-                                "net-misc/ipcalc"
-                                "net-misc/mosh"
-                                "net-misc/sipcalc"
-                                "net-misc/socat"
-                                "net-misc/udpcast"
-                                "net-misc/whois"
-                                "net-print/cups"
-                                "net-vpn/tailscale"
-                                "sys-apps/cpuid"
-                                "sys-apps/dmidecode"
-                                "sys-apps/ethtool"
-                                "sys-apps/lm-sensors"
-                                "sys-apps/lshw"
-                                "sys-apps/pciutils"
-                                "sys-apps/pv"
-                                "sys-apps/qdirstat"
-                                "sys-apps/smartmontools"
-                                "sys-apps/usbutils"
-                                "sys-devel/mold"
-                                "sys-firmware/sof-firmware"
-                                "sys-power/acpi"
-                                "sys-power/tlp"
-                                "sys-process/btop"
-                                "sys-process/iotop"
-                                "sys-process/lsof"
-                                "sys-process/psmisc"
-                                "x11-apps/setxkbmap"
-                                "x11-apps/xhost"
-                                "x11-apps/xkill"
-                                "x11-apps/xrandr"
-                                "x11-apps/xset"
-                                "x11-libs/libXtst"
-                                "x11-misc/redshift"
-                                "x11-misc/xclip"
-                                "x11-misc/xtrlock"
-                                "x11-terms/alacritty"))))
-    
-    (when (or *enable-docker* (and (not *minimal-image*) (not (member "app-containers/docker" pkgs :test #'string=))))
-      (setf pkgs (append pkgs '("app-containers/docker" "app-containers/docker-buildx" "app-containers/docker-cli"))))
-    (when *enable-dev-tools*
-      (setf pkgs (append pkgs '("dev-build/ninja" "dev-debug/strace" "dev-debug/ltrace" "sys-devel/mold"))))
-    (when *enable-media-playback*
-      (setf pkgs (append pkgs '("media-video/mpv" "media-gfx/feh" "media-gfx/scrot" "media-sound/pulsemixer"))))
-    (when *enable-network-admin*
-      (setf pkgs (append pkgs '("net-analyzer/hping" "net-analyzer/iftop" "net-analyzer/iptraf-ng" "net-analyzer/macchanger" "net-analyzer/netcat" "net-analyzer/nethogs" "net-analyzer/ngrep" "net-analyzer/ssmping" "net-dns/bind-tools" "net-dns/dnsmasq"))))
-    (when *enable-remote-access*
-      (setf pkgs (append pkgs '("net-misc/autossh" "net-misc/mosh" "net-misc/freerdp" "net-vpn/tailscale" "net-misc/bridge-utils"))))
-    (when *enable-cli-productivity*
-      (setf pkgs (append pkgs '("app-misc/jq" "app-misc/mc" "app-misc/tmate" "app-misc/tmux" "app-shells/zsh" "app-shells/bash-completion" "app-text/tree"))))
-    (when *enable-sys-monitoring-hw*
-      (setf pkgs (append pkgs '("sys-apps/cpuid" "sys-apps/dmidecode" "sys-apps/ethtool" "sys-apps/lm-sensors" "sys-apps/lshw" "sys-apps/nvme-cli" "sys-apps/pciutils" "sys-apps/usbutils" "sys-process/btop" "sys-process/iotop" "sys-process/lsof" "sys-process/psmisc"))))
-    (when *enable-power-management*
-      (setf pkgs (append pkgs '("sys-power/acpi" "sys-power/tlp"))))
-    (when *enable-desktop-extras*
-      (setf pkgs (append pkgs '("media-fonts/wqy-zenhei" "x11-misc/redshift" "x11-misc/xclip" "x11-misc/xtrlock"))))
-    (when *enable-signal*
-      (setf pkgs (append pkgs '("net-im/signal-desktop-bin"))))
-    (when *enable-pdf-viewer*
-      (setf pkgs (append pkgs '("app-text/mupdf"))))
-    (when *enable-ios-sync*
-      (setf pkgs (append pkgs '("app-pda/ifuse"))))
-    (when *enable-alacritty*
-      (setf pkgs (append pkgs '("x11-terms/alacritty"))))
-    (when *enable-dracut-ssh*
-      (setf pkgs (append pkgs '("sys-kernel/dracut-crypt-ssh"))))
 
-    (when *enable-emacs-sbcl*
-      (setf pkgs (append pkgs '("app-editors/emacs" "dev-lisp/sbcl"))))
-    (when *enable-rust*
-      (setf pkgs (append pkgs '("dev-lang/rust-bin" "virtual/rust" "dev-util/cargo-c"))))
-    (when *enable-go*
-      (setf pkgs (append pkgs '("dev-lang/go" "dev-lang/go-bootstrap"))))
-    (when *enable-uv-ruff*
-      (setf pkgs (append pkgs '("dev-python/uv" "dev-util/ruff"))))
+;; Base world packages always present in a minimal image
+(defparameter *world-base-packages*
+  '("app-admin/sudo"
+    "app-admin/sysklogd"
+    "sys-apps/ripgrep"
+    "sys-process/htop"
+    "x11-base/xorg-server"
+    "x11-terms/xterm"
+    "x11-wm/dwm"
+    "sys-kernel/gentoo-sources"
+    "sys-kernel/linux-firmware"
+    "sys-kernel/dracut"
+    "sys-fs/e2fsprogs"
+    "sys-fs/erofs-utils"
+    "sys-fs/squashfs-tools"
+    "sys-fs/lvm2"
+    "sys-fs/btrfs-progs"
+    "sys-fs/cryptsetup"
+    "app-portage/cpuid2cpuflags"
+    "app-portage/eix"
+    "app-portage/gentoolkit"
+    "dev-vcs/git"
+    "net-wireless/iwd"
+    "net-wireless/iw"
+    "net-misc/dhcpcd"
+    "net-misc/autossh"))
+
+;; Additional packages included in a non-minimal (full) image
+(defparameter *world-full-extra-packages*
+  '("app-containers/docker"
+    "app-containers/docker-buildx"
+    "app-containers/docker-cli"
+    "app-crypt/p11-kit"
+    "app-misc/fastfetch"
+    "app-misc/fdupes"
+    "app-misc/jq"
+    "app-misc/mc"
+    "app-misc/tmate"
+    "app-misc/tmux"
+    "app-pda/ifuse"
+    "app-shells/bash-completion"
+    "app-shells/zsh"
+    "app-text/mupdf"
+    "app-text/tree"
+    "dev-build/ninja"
+    "dev-debug/ltrace"
+    "dev-debug/strace"
+    "dev-libs/nss"
+    "dev-python/btrfs"
+    "media-fonts/wqy-zenhei"
+    "media-gfx/feh"
+    "media-gfx/scrot"
+    "media-sound/pulsemixer"
+    "media-video/mpv"
+    "net-analyzer/hping"
+    "net-analyzer/iftop"
+    "net-analyzer/iptraf-ng"
+    "net-analyzer/macchanger"
+    "net-analyzer/netcat"
+    "net-analyzer/nethogs"
+    "net-analyzer/ngrep"
+    "net-analyzer/ssmping"
+    "net-dns/bind-tools"
+    "net-dns/dnsmasq"
+    "net-im/signal-desktop-bin"
+    "net-misc/bridge-utils"
+    "net-misc/chrony"
+    "net-misc/dhcp"
+    "net-misc/freerdp"
+    "net-misc/ipcalc"
+    "net-misc/mosh"
+    "net-misc/sipcalc"
+    "net-misc/socat"
+    "net-misc/udpcast"
+    "net-misc/whois"
+    "net-print/cups"
+    "net-vpn/tailscale"
+    "sys-apps/cpuid"
+    "sys-apps/dmidecode"
+    "sys-apps/ethtool"
+    "sys-apps/lm-sensors"
+    "sys-apps/lshw"
+    "sys-apps/pciutils"
+    "sys-apps/pv"
+    "sys-apps/qdirstat"
+    "sys-apps/smartmontools"
+    "sys-apps/usbutils"
+    "sys-devel/mold"
+    "sys-firmware/sof-firmware"
+    "sys-power/acpi"
+    "sys-power/tlp"
+    "sys-process/btop"
+    "sys-process/iotop"
+    "sys-process/lsof"
+    "sys-process/psmisc"
+    "x11-apps/setxkbmap"
+    "x11-apps/xhost"
+    "x11-apps/xkill"
+    "x11-apps/xrandr"
+    "x11-apps/xset"
+    "x11-libs/libXtst"
+    "x11-misc/redshift"
+    "x11-misc/xclip"
+    "x11-misc/xtrlock"
+    "x11-terms/alacritty"))
+
+;; Conditional package sets: (flag pkg ...) -- appended when flag is non-nil.
+;; Machine-restricted packages (nvidia, cuda) are handled separately below.
+(defparameter *conditional-package-sets*
+  '((*enable-docker*           "app-containers/docker" "app-containers/docker-buildx" "app-containers/docker-cli")
+    (*enable-dev-tools*        "dev-build/ninja" "dev-debug/strace" "dev-debug/ltrace" "sys-devel/mold")
+    (*enable-media-playback*   "media-video/mpv" "media-gfx/feh" "media-gfx/scrot" "media-sound/pulsemixer")
+    (*enable-network-admin*    "net-analyzer/hping" "net-analyzer/iftop" "net-analyzer/iptraf-ng"
+                               "net-analyzer/macchanger" "net-analyzer/netcat" "net-analyzer/nethogs"
+                               "net-analyzer/ngrep" "net-analyzer/ssmping"
+                               "net-dns/bind-tools" "net-dns/dnsmasq")
+    (*enable-remote-access*    "net-misc/autossh" "net-misc/mosh" "net-misc/freerdp"
+                               "net-vpn/tailscale" "net-misc/bridge-utils")
+    (*enable-cli-productivity* "app-misc/jq" "app-misc/mc" "app-misc/tmate" "app-misc/tmux"
+                               "app-shells/zsh" "app-shells/bash-completion" "app-text/tree")
+    (*enable-sys-monitoring-hw* "sys-apps/cpuid" "sys-apps/dmidecode" "sys-apps/ethtool"
+                                "sys-apps/lm-sensors" "sys-apps/lshw" "sys-apps/nvme-cli"
+                                "sys-apps/pciutils" "sys-apps/usbutils"
+                                "sys-process/btop" "sys-process/iotop" "sys-process/lsof" "sys-process/psmisc")
+    (*enable-power-management* "sys-power/acpi" "sys-power/tlp")
+    (*enable-desktop-extras*   "media-fonts/wqy-zenhei" "x11-misc/redshift" "x11-misc/xclip" "x11-misc/xtrlock")
+    (*enable-signal*           "net-im/signal-desktop-bin")
+    (*enable-pdf-viewer*       "app-text/mupdf")
+    (*enable-ios-sync*         "app-pda/ifuse")
+    (*enable-alacritty*        "x11-terms/alacritty")
+    (*enable-dracut-ssh*       "sys-kernel/dracut-crypt-ssh")
+    (*enable-emacs-sbcl*       "app-editors/emacs" "dev-lisp/sbcl")
+    (*enable-rust*             "dev-lang/rust-bin" "virtual/rust" "dev-util/cargo-c")
+    (*enable-go*               "dev-lang/go" "dev-lang/go-bootstrap")
+    (*enable-uv-ruff*          "dev-python/uv" "dev-util/ruff")
+    (*enable-wireshark*        "net-analyzer/wireshark")
+    (*enable-lua*              "dev-lang/lua")
+    (*enable-firefox*          "www-client/firefox-bin")
+    (*enable-google-chrome*    "www-client/google-chrome")
+    (*enable-llvm*             "llvm-core/llvm" "llvm-core/clang" "dev-util/clang-format")
+    (*enable-clion*            "dev-util/clion")))
+
+(defun generate-world-packages ()
+  (let ((pkgs (copy-list *world-base-packages*)))
+    (unless *minimal-image*
+      (setf pkgs (append pkgs *world-full-extra-packages*)))
+    ;; Append each conditional set whose flag is set
+    (dolist (entry *conditional-package-sets*)
+      (when (symbol-value (car entry))
+        (setf pkgs (append pkgs (cdr entry)))))
+    ;; Machine-restricted packages
     (when (and *enable-nvidia* (member *target-machine* '(:both :workstation)))
       (setf pkgs (append pkgs '("x11-drivers/nvidia-drivers"))))
     (when (and *enable-nvidia-cuda* (member *target-machine* '(:both :workstation)))
       (setf pkgs (append pkgs '("dev-util/nvidia-cuda-toolkit"))))
-    (when *enable-wireshark*
-      (setf pkgs (append pkgs '("net-analyzer/wireshark"))))
-    (when *enable-lua*
-      (setf pkgs (append pkgs '("dev-lang/lua"))))
-    (when *enable-firefox*
-      (setf pkgs (append pkgs '("www-client/firefox-bin"))))
-    (when *enable-google-chrome*
-      (setf pkgs (append pkgs '("www-client/google-chrome"))))
-    (when *enable-llvm*
-      (setf pkgs (append pkgs '("llvm-core/llvm" "llvm-core/clang" "dev-util/clang-format"))))
-    (when *enable-clion*
-      (setf pkgs (append pkgs '("dev-util/clion"))))
-    
+    ;; Audio system packages
     (case *audio-system*
-      (:pipewire
-       (setf pkgs (append pkgs '("media-video/pipewire" "media-video/wireplumber" "media-sound/pulsemixer"))))
-      (:alsa
-       (setf pkgs (append pkgs '("media-libs/alsa-lib" "media-sound/alsa-utils" "media-plugins/alsa-plugins")))))
-    
+      (:pipewire (setf pkgs (append pkgs '("media-video/pipewire" "media-video/wireplumber" "media-sound/pulsemixer"))))
+      (:alsa     (setf pkgs (append pkgs '("media-libs/alsa-lib" "media-sound/alsa-utils" "media-plugins/alsa-plugins")))))
     (remove-duplicates pkgs :test #'string=)))
 
 (defun generate-make-conf ()
   (let ((video-cards (case *target-machine*
-                       (:thinkpad "amdgpu radeonsi")
+                       (:thinkpad    "amdgpu radeonsi")
                        (:workstation "nvidia")
-                       (t "nvidia amdgpu radeonsi")))
+                       (t            "nvidia amdgpu radeonsi")))
         (llvm-targets (case *target-machine*
-                        (:thinkpad "X86 AMDGPU")
+                        (:thinkpad    "X86 AMDGPU")
                         (:workstation "X86 NVPTX")
-                        (t "X86 NVPTX AMDGPU")))
+                        (t            "X86 NVPTX AMDGPU")))
         (use-flags (case *audio-system*
                      (:pipewire "-vaapi -doc -cups -opencl -jemalloc -wayland pipewire dbus elogind policykit udev")
-                     (:alsa "-vaapi -doc -cups -opencl -jemalloc -wayland -pipewire alsa dbus elogind policykit udev")
-                     (t "-vaapi -doc -cups -opencl -jemalloc -wayland -pipewire -alsa dbus elogind policykit udev"))))
+                     (:alsa     "-vaapi -doc -cups -opencl -jemalloc -wayland -pipewire alsa dbus elogind policykit udev")
+                     (t         "-vaapi -doc -cups -opencl -jemalloc -wayland -pipewire -alsa dbus elogind policykit udev"))))
     (format nil "COMMON_FLAGS=\"-O2 -pipe\"
 CFLAGS=\"${COMMON_FLAGS}\"
 CXXFLAGS=\"${COMMON_FLAGS}\"
@@ -321,21 +320,26 @@ GENTOO_MIRRORS=\"https://pkg.adfinis-on-exoscale.ch/gentoo/ \\
       (push "dev-util/nvidia-cuda-toolkit ~amd64" lines))
     (format nil "~{~a~^~%~}~%" (nreverse lines))))
 
-(defun generate-package-env ()
-  (let ((lines '("llvm-core/llvm low-mem"
-                 "sys-devel/gcc low-mem"
-                 "dev-lang/rust low-mem"
-                 "www-client/google-chrome low-mem"
-                 "www-client/chromium low-mem"
-                 "www-client/firefox low-mem"
-                 "dev-vcs/git lto-gcc"
-                 "app-editors/emacs lto-gcc"
-                 "media-video/ffmpeg lto-gcc"
-                 "media-video/mpv lto-gcc"
-                 "net-misc/freerdp lto-gcc")))
-    (format nil "~{~a~^~%~}~%" lines)))
+;; Package -> build environment mappings as a flat data table
+(defparameter *package-env-table*
+  '(("llvm-core/llvm"        . "low-mem")
+    ("sys-devel/gcc"         . "low-mem")
+    ("dev-lang/rust"         . "low-mem")
+    ("www-client/google-chrome" . "low-mem")
+    ("www-client/chromium"   . "low-mem")
+    ("www-client/firefox"    . "low-mem")
+    ("dev-vcs/git"           . "lto-gcc")
+    ("app-editors/emacs"     . "lto-gcc")
+    ("media-video/ffmpeg"    . "lto-gcc")
+    ("media-video/mpv"       . "lto-gcc")
+    ("net-misc/freerdp"      . "lto-gcc")))
 
-;; --- Helper macro for emerge commands with dual host+cache mounts ---
+(defun generate-package-env ()
+  (format nil "~{~a~^~%~}~%"
+          (mapcar (lambda (e) (format nil "~a ~a" (car e) (cdr e)))
+                  *package-env-table*)))
+
+;; --- Helper: emerge RUN with dual host+cache mounts ---
 (defun run-emerge (command)
   (let ((mounts-str "type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \\
 --mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \\
@@ -354,7 +358,7 @@ GENTOO_MIRRORS=\"https://pkg.adfinis-on-exoscale.ch/gentoo/ \\
                "cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true"
                "cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true"))))
 
-;; --- Inline service & configuration files content ---
+;; --- Inline service & configuration file strings ---
 (defparameter *resolv-conf*
   "nameserver 1.1.1.1
 nameserver 8.8.8.8
@@ -384,46 +388,41 @@ command_background=\"yes\"
 pidfile=\"${XDG_RUNTIME_DIR}/dbus-session.pid\"
 ")
 
-(defparameter *user-pipewire-initd*
-  "#!/sbin/openrc-run
-description=\"PipeWire media server\"
-command=\"/usr/bin/pipewire\"
-command_background=\"yes\"
-pidfile=\"${XDG_RUNTIME_DIR}/pipewire.pid\"
-depend() {
-  need dbus
-}
-")
+;; PipeWire-family OpenRC initd: (var description command depends)
+;; Each entry generates one initd script string via format.
+(defparameter *pipewire-initd-specs*
+  '((*user-pipewire-initd*
+     "PipeWire media server" "/usr/bin/pipewire" "dbus")
+    (*user-pipewire-pulse-initd*
+     "PipeWire PulseAudio compatibility server" "/usr/bin/pipewire-pulse" "pipewire dbus")
+    (*user-wireplumber-initd*
+     "WirePlumber session manager" "/usr/bin/wireplumber" "pipewire dbus")))
 
-(defparameter *user-pipewire-pulse-initd*
-  "#!/sbin/openrc-run
-description=\"PipeWire PulseAudio compatibility server\"
-command=\"/usr/bin/pipewire-pulse\"
+(dolist (spec *pipewire-initd-specs*)
+  (destructuring-bind (var description command depends) spec
+    (set var (format nil "#!/sbin/openrc-run
+description=~s
+command=~s
 command_background=\"yes\"
-pidfile=\"${XDG_RUNTIME_DIR}/pipewire-pulse.pid\"
+pidfile=\"${XDG_RUNTIME_DIR}/~a.pid\"
 depend() {
-  need pipewire dbus
+  need ~a
 }
-")
+" description command (pathname-name (pathname command)) depends))))
 
-(defparameter *user-wireplumber-initd*
-  "#!/sbin/openrc-run
-description=\"WirePlumber session manager\"
-command=\"/usr/bin/wireplumber\"
-command_background=\"yes\"
-pidfile=\"${XDG_RUNTIME_DIR}/wireplumber.pid\"
-depend() {
-  need pipewire dbus
-}
-")
+;; Autossh reverse-SSH tunnel initd: (var name remote-host port)
+(defparameter *reverse-ssh-specs*
+  '((*reverse-ssh-eu-initd* "reverse-ssh-eu" "tinyeu" 2332)
+    (*reverse-ssh-us-initd* "reverse-ssh-us" "tinyus" 2332)))
 
-(defparameter *reverse-ssh-eu-initd*
-  "#!/sbin/openrc-run
-name=\"reverse-ssh-eu\"
-description=\"Reverse SSH tunnel to tinyeu\"
+(dolist (spec *reverse-ssh-specs*)
+  (destructuring-bind (var name host port) spec
+    (set var (format nil "#!/sbin/openrc-run
+name=~s
+description=\"Reverse SSH tunnel to ~a\"
 supervisor=\"supervise-daemon\"
 command=\"/usr/bin/autossh\"
-command_args=\"-M 0 -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -R 2332:localhost:22 tinyeu\"
+command_args=\"-M 0 -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -R ~d:localhost:22 ~a\"
 command_user=\"kiel\"
 supervise_daemon_args=\"-e HOME=/home/kiel\"
 depend() {
@@ -431,23 +430,7 @@ depend() {
     after iwd
     want tailscale
 }
-")
-
-(defparameter *reverse-ssh-us-initd*
-  "#!/sbin/openrc-run
-name=\"reverse-ssh-us\"
-description=\"Reverse SSH tunnel to tinyus\"
-supervisor=\"supervise-daemon\"
-command=\"/usr/bin/autossh\"
-command_args=\"-M 0 -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -R 2332:localhost:22 tinyus\"
-command_user=\"kiel\"
-supervise_daemon_args=\"-e HOME=/home/kiel\"
-depend() {
-    use net
-    after iwd
-    want tailscale
-}
-")
+" name host port host))))
 
 (defparameter *user-runtime-initd*
   "#!/sbin/openrc-run
@@ -500,6 +483,55 @@ cd /home/kiel
 exec dbus-run-session dwm
 #exec /usr/local/bin/plwm
 ")
+
+;; --- Helper: mksquashfs RUN command builder ---
+;; extra-setup  - list of shell commands run before mksquashfs
+;; extra-excludes - list of additional paths to exclude (appended to common set)
+(defun make-squashfs-run (output-image echo-msg extra-setup extra-excludes)
+  (let* ((common-excludes
+          '("usr/src"
+            "var/cache/binpkgs"
+            "var/cache/distfiles"
+            "var/cache/binhost"
+            "\"gentoo*squashfs*\""
+            "\"gentoo*ext4\""
+            "\"usr/lib64/libQt*.a\""
+            "usr/share/genkernel/distfiles"
+            "usr/src/linux"
+            "usr/share/sgml"
+            "var/cache/eix/previous.eix"
+            "boot"
+            "persistent"
+            "home/*/.cache"
+            "var/log/journal"
+            "var/cache/genkernel"
+            "var/tmp"
+            "initramfs-with-squashfs.img"
+            "lost+found"))
+         (all-excludes (append common-excludes extra-excludes))
+         (setup-str (if extra-setup
+                        (format nil "~{~%  && ~a \\~}" extra-setup)
+                        ""))
+         (exclude-str (format nil "~{~%       ~a \\~}" all-excludes)))
+    `(run ,(format nil "set -e \\
+  && echo ~s ~a\\
+  && mksquashfs / ~a \\
+    -comp zstd \\
+    -Xcompression-level 19 \\
+    -b 256K \\
+    -mem 10G \\
+    -xattrs \\
+    -noappend \\
+    -not-reproducible \\
+    -progress \\
+    -one-file-system-x \\
+    -p \"/dev d 755 0 0\" \\
+    -p \"/proc d 555 0 0\" \\
+    -p \"/sys d 555 0 0\" \\
+    -noI -noX \\
+    -wildcards \\
+    -e ~a"
+                   echo-msg setup-str output-image exclude-str))))
 
 ;; --- Main Dockerfile Meta-Generator ---
 (defparameter *gentoo-code*
@@ -646,22 +678,26 @@ IUSE="experimental"
      
      (copy :heredoc "/home/kiel/.xinitrc" ,*xinitrc*)
      
-     (copy "config/activate" "/home/kiel/activate")
-     (copy "config/start2" "/home/kiel/start2")
-     (copy "config/start-pipewire.sh" "/home/kiel/start-pipewire.sh")
+     ;; Home config files: data-driven loop
+     ,@(loop for (src dst) in '(("config/activate"          "/home/kiel/activate")
+                                 ("config/start2"            "/home/kiel/start2")
+                                 ("config/start-pipewire.sh" "/home/kiel/start-pipewire.sh"))
+             collect `(copy ,src ,dst))
      
      (run (and "chmod +x /home/kiel/activate /home/kiel/start2 /home/kiel/start-pipewire.sh"
                "chown kiel:kiel /home/kiel/activate /home/kiel/start2 /home/kiel/start-pipewire.sh"))
      
-     (copy :heredoc "/etc/init.d/user-runtime" ,*user-runtime-initd*)
-     (copy :heredoc "/etc/profile.d/zz-openrc-user-session.sh" ,*user-session-sh*)
-     (copy :heredoc "/etc/user/init.d/dbus" ,*user-dbus-initd*)
-     (copy :heredoc "/etc/user/init.d/pipewire" ,*user-pipewire-initd*)
-     (copy :heredoc "/etc/user/init.d/pipewire-pulse" ,*user-pipewire-pulse-initd*)
-     (copy :heredoc "/etc/user/init.d/wireplumber" ,*user-wireplumber-initd*)
-     (copy :heredoc "/etc/resolv.conf" ,*resolv-conf*)
-     (copy :heredoc "/etc/init.d/reverse-ssh-eu" ,*reverse-ssh-eu-initd*)
-     (copy :heredoc "/etc/init.d/reverse-ssh-us" ,*reverse-ssh-us-initd*)
+     ;; OpenRC init.d files: data-driven loop (dest-path . content-variable)
+     ,@(loop for (dest . content) in `(("/etc/init.d/user-runtime"                 . ,*user-runtime-initd*)
+                                        ("/etc/profile.d/zz-openrc-user-session.sh" . ,*user-session-sh*)
+                                        ("/etc/user/init.d/dbus"                    . ,*user-dbus-initd*)
+                                        ("/etc/user/init.d/pipewire"                . ,*user-pipewire-initd*)
+                                        ("/etc/user/init.d/pipewire-pulse"          . ,*user-pipewire-pulse-initd*)
+                                        ("/etc/user/init.d/wireplumber"             . ,*user-wireplumber-initd*)
+                                        ("/etc/resolv.conf"                         . ,*resolv-conf*)
+                                        ("/etc/init.d/reverse-ssh-eu"               . ,*reverse-ssh-eu-initd*)
+                                        ("/etc/init.d/reverse-ssh-us"               . ,*reverse-ssh-us-initd*))
+             collect `(copy :heredoc ,dest ,content))
      
      (run (and "chmod +x /etc/init.d/reverse-ssh-*"
                "rc-update add sshd default"
@@ -683,10 +719,13 @@ IUSE="experimental"
      (user root)
      (run "mkdir -p /usr/local/share/openrc-host-config")
      
-     (copy "config/activate" "/usr/local/share/openrc-host-config/activate")
-     (copy "config/start2" "/usr/local/share/openrc-host-config/start2")
-     (copy :heredoc "/usr/local/share/openrc-host-config/reverse-ssh-eu.initd" ,*reverse-ssh-eu-initd*)
-     (copy :heredoc "/usr/local/share/openrc-host-config/reverse-ssh-us.initd" ,*reverse-ssh-us-initd*)
+     ;; Host-config file copies: data-driven loops
+     ,@(loop for (src dst) in '(("config/activate" "/usr/local/share/openrc-host-config/activate")
+                                 ("config/start2"   "/usr/local/share/openrc-host-config/start2"))
+             collect `(copy ,src ,dst))
+     ,@(loop for (dest . content) in `(("/usr/local/share/openrc-host-config/reverse-ssh-eu.initd" . ,*reverse-ssh-eu-initd*)
+                                        ("/usr/local/share/openrc-host-config/reverse-ssh-us.initd" . ,*reverse-ssh-us-initd*))
+             collect `(copy :heredoc ,dest ,content))
      
      (run "fc-cache -fv")
      (copy :heredoc "/etc/conf.d/modules" "modules=\"amdgpu mt7921e\"")
@@ -808,82 +847,46 @@ chown -R kiel:kiel /home/kiel/.config))
      (run "eix-update")
      (run "eix-test-obsolete > /packages_obsolete.txt || true")
      
+     ;; Squashfs images for each target machine
      ,@(when (member *target-machine* '(:both :workstation))
-         `((run #r(set -e \
-  && echo "Preparing NVIDIA squashfs" \
-  && test -e /lib/modules/${KVER_RELEASE}/video/nvidia.ko \
-  && rm -rf /tmp/fw_original /tmp/fw_nv_root \
-  && mkdir -p /tmp/fw_original /tmp/fw_nv_root/usr/lib/firmware \
-  && cp -a /usr/lib/firmware/. /tmp/fw_original/ \
-  && modinfo -F firmware /lib/modules/${KVER_RELEASE}/video/nvidia.ko \
+         `(,(make-squashfs-run
+             "/gentoo.squashfs_nv"
+             "Preparing NVIDIA squashfs"
+             '("test -e /lib/modules/${KVER_RELEASE}/video/nvidia.ko"
+               "rm -rf /tmp/fw_original /tmp/fw_nv_root"
+               "mkdir -p /tmp/fw_original /tmp/fw_nv_root/usr/lib/firmware"
+               "cp -a /usr/lib/firmware/. /tmp/fw_original/"
+               "modinfo -F firmware /lib/modules/${KVER_RELEASE}/video/nvidia.ko \
        | sort -u \
        | while IFS= read -r rel; do \
-           test -n "${rel}"; \
-           src="/usr/lib/firmware/${rel}"; \
-           dst="/tmp/fw_nv_root/usr/lib/firmware/${rel}"; \
-           test -e "${src}"; \
-           mkdir -p "$(dirname "${dst}")"; \
-           cp -a "${src}" "${dst}"; \
-           done \
-  && rm -rf /usr/lib/firmware/* \
-  && cp -a /tmp/fw_nv_root/usr/lib/firmware/. /usr/lib/firmware/ \
-  && mksquashfs / /gentoo.squashfs_nv \
-    -comp zstd \
-    -Xcompression-level 19 \
-    -b 256K \
-    -mem 10G \
-    -xattrs \
-    -noappend \
-    -not-reproducible \
-    -progress \
-    -one-file-system-x \
-    -p "/dev d 755 0 0" \
-    -p "/proc d 555 0 0" \
-    -p "/sys d 555 0 0" \
-    -noI -noX \
-    -wildcards \
-    -e \
-      usr/src \
-      var/cache/binpkgs \
-      var/cache/distfiles \
-      var/cache/binhost \
-      "gentoo*squashfs*" \
-      "gentoo*ext4" \
-      "usr/lib64/libQt*.a" \
-      usr/share/genkernel/distfiles \
-      usr/src/linux \
-      usr/share/sgml \
-      var/cache/eix/previous.eix \
-      boot \
-      persistent \
-      home/*/.cache \
-      tmp/fw_original \
-      tmp/fw_nv_root \
-      var/log/journal \
-      var/cache/genkernel \
-      var/tmp \
-      initramfs-with-squashfs.img \
-      lost+found \
-  && rm -rf /usr/lib/firmware/* \
-  && cp -a /tmp/fw_original/. /usr/lib/firmware/ \
-  && rm -rf /tmp/fw_original /tmp/fw_nv_root))))
-     
+           test -n \"${rel}\"; \
+           src=\"/usr/lib/firmware/${rel}\"; \
+           dst=\"/tmp/fw_nv_root/usr/lib/firmware/${rel}\"; \
+           test -e \"${src}\"; \
+           mkdir -p \"$(dirname \"${dst}\")\"; \
+           cp -a \"${src}\" \"${dst}\"; \
+           done"
+               "rm -rf /usr/lib/firmware/*"
+               "cp -a /tmp/fw_nv_root/usr/lib/firmware/. /usr/lib/firmware/")
+             '("tmp/fw_original" "tmp/fw_nv_root"))))
+
      ,@(when (member *target-machine* '(:both :thinkpad))
-         `((run #r(set -e \
-  && echo "Preparing ThinkPad E14 squashfs (remove NVIDIA)" \
-  && mkdir -p /tmp/tmpfw/amdgpu /tmp/tmpfw/mediatek /tmp/tmpfw/amd /tmp/tmpfw/rtl_bt /tmp/tmpfw/rtl_nic || true \
-  && cp -a /usr/lib/firmware/regulatory.db* /tmp/tmpfw/ 2>/dev/null || true \
-  && cp -a /usr/lib/firmware/mediatek /tmp/tmpfw/ 2>/dev/null || true \
-  && cp -a /usr/lib/firmware/amdgpu/yellow_carp* /tmp/tmpfw/amdgpu/ 2>/dev/null || true \
-  && cp -a /usr/lib/firmware/amdgpu/rembrandt* /tmp/tmpfw/amdgpu/ 2>/dev/null || true \
-  && cp -a /usr/lib/firmware/amd /tmp/tmpfw/ 2>/dev/null || true \
-  && cp -a /usr/lib/firmware/rtl_nic /tmp/tmpfw/ 2>/dev/null || true \
-  && cp -a /usr/lib/firmware/rtl_bt /tmp/tmpfw/ 2>/dev/null || true \
-  && rm -rf /usr/lib/firmware/* \
-  && mv /tmp/tmpfw/* /usr/lib/firmware/ 2>/dev/null || true \
-  && echo "Stripping NVIDIA/CUDA userspace for E14 squashfs" \
-  && rm -rf /opt/cuda /usr/lib64/lib{cuda,nvidia,nv}* /usr/lib64/libnv* 2>/dev/null || true \
-  && rm -rf /usr/bin/nvidia* \
+         `(,(make-squashfs-run
+             "/gentoo.squashfs_e14"
+             "Preparing ThinkPad E14 squashfs (remove NVIDIA)"
+             '("mkdir -p /tmp/tmpfw/amdgpu /tmp/tmpfw/mediatek /tmp/tmpfw/amd /tmp/tmpfw/rtl_bt /tmp/tmpfw/rtl_nic || true"
+               "cp -a /usr/lib/firmware/regulatory.db* /tmp/tmpfw/ 2>/dev/null || true"
+               "cp -a /usr/lib/firmware/mediatek /tmp/tmpfw/ 2>/dev/null || true"
+               "cp -a /usr/lib/firmware/amdgpu/yellow_carp* /tmp/tmpfw/amdgpu/ 2>/dev/null || true"
+               "cp -a /usr/lib/firmware/amdgpu/rembrandt* /tmp/tmpfw/amdgpu/ 2>/dev/null || true"
+               "cp -a /usr/lib/firmware/amd /tmp/tmpfw/ 2>/dev/null || true"
+               "cp -a /usr/lib/firmware/rtl_nic /tmp/tmpfw/ 2>/dev/null || true"
+               "cp -a /usr/lib/firmware/rtl_bt /tmp/tmpfw/ 2>/dev/null || true"
+               "rm -rf /usr/lib/firmware/*"
+               "mv /tmp/tmpfw/* /usr/lib/firmware/ 2>/dev/null || true"
+               "echo \"Stripping NVIDIA/CUDA userspace for E14 squashfs\""
+               "rm -rf /opt/cuda /usr/lib64/lib{cuda,nvidia,nv}* /usr/lib64/libnv* 2>/dev/null || true"
+               "rm -rf /usr/bin/nvidia* \
        /usr/lib/elogind/system-sleep/nvidia \
        /usr/lib/systemd/system/nvidia-* \
        /usr/lib/systemd/system-sleep/nvidia \
@@ -894,44 +897,9 @@ chown -R kiel:kiel /home/kiel/.config))
        /usr/share/nvidia \
        /usr/lib64/nvidia \
        /usr/lib64/gbm/nvidia-drm_gbm.so \
-       /usr/lib64/vdpau/libvdpau_nvidia.so* 2>/dev/null || true \
-  && rm -rf /nvidia${KVER_RELEASE} 2>/dev/null || true \
-  && mksquashfs / /gentoo.squashfs_e14 \
-    -comp zstd \
-    -Xcompression-level 19 \
-    -b 256K \
-    -mem 10G \
-    -xattrs \
-    -noappend \
-    -not-reproducible \
-    -progress \
-    -one-file-system-x \
-    -p "/dev d 755 0 0" \
-    -p "/proc d 555 0 0" \
-    -p "/sys d 555 0 0" \
-    -noI -noX \
-    -wildcards \
-    -e \
-      usr/src \
-      var/cache/binpkgs \
-      var/cache/distfiles \
-      var/cache/binhost \
-      "gentoo*squashfs*" \
-      "gentoo*ext4" \
-      "usr/lib64/libQt*.a" \
-      usr/share/genkernel/distfiles \
-      usr/src/linux \
-      usr/share/sgml \
-      var/cache/eix/previous.eix \
-      boot \
-      persistent \
-      home/*/.cache \
-      var/log/journal \
-      var/cache/genkernel \
-      var/tmp \
-      initramfs-with-squashfs.img \
-      lost+found \
-    || true))))))
+       /usr/lib64/vdpau/libvdpau_nvidia.so* 2>/dev/null || true"
+               "rm -rf /nvidia${KVER_RELEASE} 2>/dev/null || true")
+             '())))))
 
 ;; --- Intermediate stage to export the cache volume content ---
 (defparameter *exporter-code*
@@ -949,22 +917,25 @@ chown -R kiel:kiel /home/kiel/.config))
 (defparameter *final-exporter-code*
   `(toplevel
      (from "scratch")
-     ;; Copy build products from builder stage
+     ;; Copy squashfs images based on target machine
      ,@(when (member *target-machine* '(:both :workstation))
          `((copy "/gentoo.squashfs_nv" "/" :from builder)))
      ,@(when (member *target-machine* '(:both :thinkpad))
          `((copy "/gentoo.squashfs_e14" "/" :from builder)))
-     (copy "/boot/vmlinuz" "/" :from builder)
-     (copy "/boot/initramfs_squash_sda1-x86_64.img" "/" :from builder)
-     (copy "/packages.txt" "/" :from builder)
-     (copy "/packages.tsv" "/" :from builder)
-     (copy "/packages_obsolete.txt" "/" :from builder)
-     ;; Copy Cache outputs from exporter stage
-     (copy "/distfiles" "/distfiles" :from cache-exporter)
-     (copy "/binpkgs" "/binpkgs" :from cache-exporter)))
+     ;; Fixed build artifacts
+     ,@(loop for f in '("/boot/vmlinuz"
+                        "/boot/initramfs_squash_sda1-x86_64.img"
+                        "/packages.txt"
+                        "/packages.tsv"
+                        "/packages_obsolete.txt")
+             collect `(copy ,f "/" :from builder))
+     ;; Cache outputs from exporter stage
+     ,@(loop for (src dst) in '(("/distfiles" "/distfiles")
+                                 ("/binpkgs"   "/binpkgs"))
+             collect `(copy ,src ,dst :from cache-exporter))))
 
 (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
-  ;; We compile both codeblocks sequentially into a single Dockerfile
+  ;; Compile all three stages sequentially into a single Dockerfile
   (let ((full-code `(toplevel ,*gentoo-code* ,*exporter-code* ,*final-exporter-code*)))
     (write-df (merge-pathnames "Dockerfile" current-dir) full-code t)
     (format t "Generated Dockerfile in ~a successfully.~%" current-dir)))
