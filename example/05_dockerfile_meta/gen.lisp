@@ -155,7 +155,7 @@ form to produce clean, well-formatted Dockerfile instructions."
                     (let ((args (cdr code)))
                       (cond
                         ((eq (first args) :heredoc)
-                         (format nil "RUN <<EOF~%~a~%EOF" (emit-val (second args))))
+                         (format nil "RUN <<'EOF'~%~a~%EOF" (emit-val (second args))))
                         ((eq (first args) :mount)
                          (format nil "RUN --mount=~a ~a" (emit-val (second args)) (emit-df (caddr args))))
                         (t
@@ -174,7 +174,7 @@ form to produce clean, well-formatted Dockerfile instructions."
                     (let ((args (cdr code)))
                       (if (eq (first args) :heredoc)
                           (destructuring-bind (dest content) (cdr args)
-                            (format nil "COPY <<EOF ~a~%~a~%EOF" (emit-val dest) (emit-val content)))
+                            (format nil "COPY <<'EOF' ~a~%~a~%EOF" (emit-val dest) (emit-val content)))
                           (multiple-value-bind (paths options) (parse-copy-add-args args '(:from :chown))
                             (let ((dest (car (last paths)))
                                   (srcs (butlast paths))

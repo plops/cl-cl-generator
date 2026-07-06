@@ -3,19 +3,19 @@
 FROM gentoo/portage:20260706 AS portage
 # Stage3 base (1GB)
 # https://hub.docker.com/r/gentoo/stage3/tags
-FROM gentoo/stage3:nomultilib-20260706 AS base
+FROM gentoo/stage3:nomultilib-20260629 AS base
 # https://hub.docker.com/r/gentoo/portage/tags
 # Copy full Portage tree (570MB)
 COPY --from=portage /var/db/repos/gentoo /var/db/repos/gentoo
 # Portage configuration (Dynamic Heredocs)
 RUN eselect profile set default/linux/amd64/23.0/no-multilib
-COPY <<EOF /etc/portage/package.accept_keywords/package.accept_keywords
+COPY <<'EOF' /etc/portage/package.accept_keywords/package.accept_keywords
 >=net-misc/freerdp-3.17.2-r1 ~amd64
 sys-kernel/dracut-crypt-ssh ~amd64
 sys-kernel/gentoo-sources ~amd64
 
 EOF
-COPY <<EOF /etc/portage/make.conf
+COPY <<'EOF' /etc/portage/make.conf
 COMMON_FLAGS="-O2 -pipe"
 CFLAGS="${COMMON_FLAGS}"
 CXXFLAGS="${COMMON_FLAGS}"
@@ -41,7 +41,7 @@ GENTOO_MIRRORS="https://pkg.adfinis-on-exoscale.ch/gentoo/ \
     rsync://mirror.init7.net/gentoo/"
 
 EOF
-COPY <<EOF /etc/portage/package.use
+COPY <<'EOF' /etc/portage/package.use
 sys-fs/squashfs-tools xattr -debug -lz4 -lzma -lzo zstd
 sys-fs/lvm2 lvm
 x11-wm/dwm savedconfig -xinerama
@@ -54,7 +54,7 @@ media-video/wireplumber dbus
 media-plugins/alsa-plugins pulseaudio
 
 EOF
-COPY <<EOF /etc/portage/package.env
+COPY <<'EOF' /etc/portage/package.env
 sys-devel/llvm low-mem
 sys-devel/gcc low-mem
 dev-lang/rust low-mem
@@ -70,10 +70,10 @@ net-misc/freerdp lto-gcc
 EOF
 # Portage env files
 RUN mkdir -p /etc/portage/env
-COPY <<EOF /etc/portage/env/low-mem
+COPY <<'EOF' /etc/portage/env/low-mem
 MAKEOPTS="-j8"
 EOF
-COPY <<EOF /etc/portage/env/lto-gcc
+COPY <<'EOF' /etc/portage/env/lto-gcc
 WARNING_FLAGS="-Werror=odr -Werror=lto-type-mismatch -Werror=strict-aliasing"
 LTO_FLAGS="-flto ${WARNING_FLAGS}"
 CFLAGS="${CFLAGS} ${LTO_FLAGS}"
@@ -84,7 +84,7 @@ LDFLAGS="${LDFLAGS} ${LTO_FLAGS}"
 
 EOF
 # Keep the world set on PipeWire and let PipeWire provide PulseAudio compatibility.
-COPY <<EOF /var/lib/portage/world
+COPY <<'EOF' /var/lib/portage/world
 app-admin/sudo
 app-admin/sysklogd
 sys-apps/ripgrep
@@ -120,7 +120,7 @@ ENV KVER_SOURCE=${KVER_PURE}-gentoo
 ENV KVER_RELEASE=${KVER_SOURCE}-dist
 RUN df -h
 # Recreate the gentoo-sources-6.18.36 ebuild
-COPY <<EOF /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild
+COPY <<'EOF' /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild
 EAPI="8"
 ETYPE="sources"
 K_WANT_GENPATCHES="base extras experimental"
@@ -138,17 +138,20 @@ IUSE="experimental"
 
 EOF
 RUN ebuild /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild manifest
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && emerge =sys-kernel/gentoo-sources-${KVER_PURE} \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
 RUN eselect kernel list
 RUN eselect kernel set linux-${KVER_SOURCE}
 WORKDIR /usr/src/linux
@@ -174,17 +177,20 @@ RUN printf 'en_US.UTF-8 UTF-8\n' > /etc/locale.gen \
 ENV LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 RUN env-update && source /etc/profile
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && emerge -1 sys-apps/portage \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
 RUN sed -i \
     -e '/^net-analyzer\/arping\>/d' \
     -e '/^net-misc\/speedtest-cli\>/d' \
@@ -194,133 +200,166 @@ RUN sed -i \
 RUN mkdir -p /etc/portage/package.use \
  && touch /etc/portage/package.use/zz-late-world \
  && grep -qxF 'app-text/xmlto text' /etc/portage/package.use/zz-late-world || printf '\napp-text/xmlto text\n' >> /etc/portage/package.use/zz-late-world
-RUN emerge -pqe --columns @world | awk '$2 ~ /\// {print $2}' > /tmp/world_packages.txt \
+RUN emerge -pqe --columns @world | awk '{for(i=1;i<=NF;i++) if($i ~ /\//) {print $i; break}}' > /tmp/world_packages.txt \
  && total_lines=$(wc -l < /tmp/world_packages.txt) \
  && lines_per_stage=$(( (total_lines + 9) / 10 )) \
  && for i in $(seq 1 10); do start=$(( (i - 1) * lines_per_stage + 1 )); end=$(( i * lines_per_stage )); sed -n "${start},${end}p" /tmp/world_packages.txt > "/tmp/world_stage_${i}.txt"; done
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && if [ -s /tmp/world_stage_1.txt ]; then emerge --ask=n $(grep -E '.+/.+' /tmp/world_stage_1.txt); fi \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && if [ -s /tmp/world_stage_2.txt ]; then emerge --ask=n $(grep -E '.+/.+' /tmp/world_stage_2.txt); fi \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && if [ -s /tmp/world_stage_3.txt ]; then emerge --ask=n $(grep -E '.+/.+' /tmp/world_stage_3.txt); fi \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && if [ -s /tmp/world_stage_4.txt ]; then emerge --ask=n $(grep -E '.+/.+' /tmp/world_stage_4.txt); fi \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && if [ -s /tmp/world_stage_5.txt ]; then emerge --ask=n $(grep -E '.+/.+' /tmp/world_stage_5.txt); fi \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && if [ -s /tmp/world_stage_6.txt ]; then emerge --ask=n $(grep -E '.+/.+' /tmp/world_stage_6.txt); fi \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && if [ -s /tmp/world_stage_7.txt ]; then emerge --ask=n $(grep -E '.+/.+' /tmp/world_stage_7.txt); fi \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && if [ -s /tmp/world_stage_8.txt ]; then emerge --ask=n $(grep -E '.+/.+' /tmp/world_stage_8.txt); fi \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && if [ -s /tmp/world_stage_9.txt ]; then emerge --ask=n $(grep -E '.+/.+' /tmp/world_stage_9.txt); fi \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && if [ -s /tmp/world_stage_10.txt ]; then emerge --ask=n $(grep -E '.+/.+' /tmp/world_stage_10.txt); fi \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
 RUN gcc-config -l
 # Temporarily install package analysis tools
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && emerge --ask=n app-portage/genlop app-portage/gentoolkit \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
 RUN qlist -Iv sys-devel/gcc \
  && echo "Generating package statistics..." \
  && for pkg in $(qlist -I); do \
@@ -328,34 +367,29 @@ RUN qlist -Iv sys-devel/gcc \
       TIME=$(genlop -t "$pkg" | grep "merge time" | tail -n 1 | sed 's/.*merge time: //'); \
       echo "$pkg | Size: ${SIZE:-N/A} | Build Time: ${TIME:-N/A}"; \
     done > /packages.txt
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && emerge -C app-portage/genlop app-portage/gentoolkit || true \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
 # Sudo policy
 RUN mkdir -p /etc/sudoers.d
-COPY <<EOF /etc/sudoers.d/wheel
+COPY <<'EOF' /etc/sudoers.d/wheel
 %wheel ALL=(ALL:ALL) NOPASSWD: ALL
 EOF
-# slstatus
-WORKDIR /usr/src
-RUN git clone https://git.suckless.org/slstatus
-WORKDIR /usr/src/slstatus
-COPY config/slstatus_config.h .config
-RUN make -j32
-RUN make install
-RUN make clean
 RUN groupadd -f input \
  && useradd -m -G users,wheel,audio,video,input -s /bin/bash kiel \
  && for grp in libvirt kvm qemu; do if getent group "${grp}" >/dev/null; then usermod -aG "${grp}" kiel; fi; done
-COPY <<EOF /home/kiel/.xinitrc
+COPY <<'EOF' /home/kiel/.xinitrc
 xrandr --output DP-0 --scale 1x1 --rotate left; xrandr --output DP-2 --scale 1x1 --rotate right; xrandr --output DP-2 --right-of DP-0
 
 # xrandr --output DP-0 --scale 2x2; xrandr --output DP-2 --scale 2x2 --pos 2160x0
@@ -384,7 +418,7 @@ COPY config/start2 /home/kiel/start2
 COPY config/start-pipewire.sh /home/kiel/start-pipewire.sh
 RUN chmod +x /home/kiel/activate /home/kiel/start2 /home/kiel/start-pipewire.sh \
  && chown kiel:kiel /home/kiel/activate /home/kiel/start2 /home/kiel/start-pipewire.sh
-COPY <<EOF /etc/init.d/user-runtime
+COPY <<'EOF' /etc/init.d/user-runtime
 #!/sbin/openrc-run
 description="Prepare XDG runtime directories for lingering OpenRC user sessions"
 depend() {
@@ -412,7 +446,7 @@ start() {
 }
 
 EOF
-COPY <<EOF /etc/profile.d/zz-openrc-user-session.sh
+COPY <<'EOF' /etc/profile.d/zz-openrc-user-session.sh
 #!/bin/sh
 uid="$(id -u 2>/dev/null || printf '')"
 if [ -n "${uid}" ] && [ "${uid}" -ge 1000 ] 2>/dev/null; then
@@ -427,7 +461,7 @@ if [ -n "${uid}" ] && [ "${uid}" -ge 1000 ] 2>/dev/null; then
 fi
 
 EOF
-COPY <<EOF /etc/user/init.d/dbus
+COPY <<'EOF' /etc/user/init.d/dbus
 #!/sbin/openrc-run
 description="User D-Bus session bus"
 command="/usr/bin/dbus-daemon"
@@ -436,7 +470,7 @@ command_background="yes"
 pidfile="${XDG_RUNTIME_DIR}/dbus-session.pid"
 
 EOF
-COPY <<EOF /etc/user/init.d/pipewire
+COPY <<'EOF' /etc/user/init.d/pipewire
 #!/sbin/openrc-run
 description="PipeWire media server"
 command="/usr/bin/pipewire"
@@ -447,7 +481,7 @@ depend() {
 }
 
 EOF
-COPY <<EOF /etc/user/init.d/pipewire-pulse
+COPY <<'EOF' /etc/user/init.d/pipewire-pulse
 #!/sbin/openrc-run
 description="PipeWire PulseAudio compatibility server"
 command="/usr/bin/pipewire-pulse"
@@ -458,7 +492,7 @@ depend() {
 }
 
 EOF
-COPY <<EOF /etc/user/init.d/wireplumber
+COPY <<'EOF' /etc/user/init.d/wireplumber
 #!/sbin/openrc-run
 description="WirePlumber session manager"
 command="/usr/bin/wireplumber"
@@ -469,12 +503,12 @@ depend() {
 }
 
 EOF
-COPY <<EOF /etc/resolv.conf
+COPY <<'EOF' /etc/resolv.conf
 nameserver 1.1.1.1
 nameserver 8.8.8.8
 
 EOF
-COPY <<EOF /etc/init.d/reverse-ssh-eu
+COPY <<'EOF' /etc/init.d/reverse-ssh-eu
 #!/sbin/openrc-run
 name="reverse-ssh-eu"
 description="Reverse SSH tunnel to tinyeu"
@@ -490,7 +524,7 @@ depend() {
 }
 
 EOF
-COPY <<EOF /etc/init.d/reverse-ssh-us
+COPY <<'EOF' /etc/init.d/reverse-ssh-us
 #!/sbin/openrc-run
 name="reverse-ssh-us"
 description="Reverse SSH tunnel to tinyus"
@@ -517,7 +551,7 @@ USER root
 RUN mkdir -p /usr/local/share/openrc-host-config
 COPY config/activate /usr/local/share/openrc-host-config/activate
 COPY config/start2 /usr/local/share/openrc-host-config/start2
-COPY <<EOF /usr/local/share/openrc-host-config/reverse-ssh-eu.initd
+COPY <<'EOF' /usr/local/share/openrc-host-config/reverse-ssh-eu.initd
 #!/sbin/openrc-run
 name="reverse-ssh-eu"
 description="Reverse SSH tunnel to tinyeu"
@@ -533,7 +567,7 @@ depend() {
 }
 
 EOF
-COPY <<EOF /usr/local/share/openrc-host-config/reverse-ssh-us.initd
+COPY <<'EOF' /usr/local/share/openrc-host-config/reverse-ssh-us.initd
 #!/sbin/openrc-run
 name="reverse-ssh-us"
 description="Reverse SSH tunnel to tinyus"
@@ -550,13 +584,13 @@ depend() {
 
 EOF
 RUN fc-cache -fv
-COPY <<EOF /etc/conf.d/modules
+COPY <<'EOF' /etc/conf.d/modules
 modules="amdgpu mt7921e"
 EOF
-COPY <<EOF /etc/conf.d/keymaps
+COPY <<'EOF' /etc/conf.d/keymaps
 keymap="colemak"
 EOF
-RUN <<EOF
+RUN <<'EOF'
 set -e
 if grep -q '^rc_logger=' /etc/rc.conf 2>/dev/null; then
   sed -i 's/^rc_logger=.*/rc_logger="YES"/' /etc/rc.conf
@@ -606,17 +640,20 @@ EOF
 RUN rm -rf /var/tmp/portage/*
 RUN emerge -C dev-lang/go-bootstrap dev-lang/go dev-util/cargo-c virtual/rust dev-lang/rust-bin || true
 WORKDIR /
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && emerge --ask=n sys-fs/e2fsprogs sys-fs/erofs-utils || true \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
 COPY config/mount-overlayfs.sh /usr/lib/dracut/modules.d/70overlayfs
 RUN chmod +x /usr/lib/dracut/modules.d/70overlayfs/*.sh
 RUN dracut \
@@ -627,17 +664,20 @@ RUN dracut \
 --install "stat blockdev" \
 --force \
 /boot/initramfs_squash_sda1-x86_64.img
-RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro 
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro 
---mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs \
+RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
+--mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost \
  && cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true \
  && cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true \
  && emerge --ask=n --oneshot app-portage/genlop \
  && cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true
+ && cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true \
+ && cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true
 RUN set -e \
 && printf 'package\tsize_mib\tbuild_seconds\tbuild_time_human\n' > /packages.tsv \
 && time_threshold_mib=50 \
@@ -716,6 +756,7 @@ RUN set -e \
       usr/src \
       var/cache/binpkgs \
       var/cache/distfiles \
+      var/cache/binhost \
       "gentoo*squashfs*" \
       "gentoo*ext4" \
       "usr/lib64/libQt*.a" \
@@ -734,11 +775,11 @@ RUN set -e \
     || true
 
 FROM base AS builder
-FROM scratch AS cache-exporter
-RUN --mount=type=cache,target=/var/cache/distfiles-cache 
---mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /distfiles-export /binpkgs-export \
- && cp -rn /var/cache/distfiles-cache/. /distfiles-export/ 2>/dev/null || true \
- && cp -rn /var/cache/binpkgs-cache/. /binpkgs-export/ 2>/dev/null || true
+FROM base AS cache-exporter
+RUN --mount=type=cache,target=/var/cache/distfiles-cache \
+--mount=type=cache,target=/var/cache/binpkgs-cache mkdir -p /distfiles /binpkgs \
+ && cp -rn /var/cache/distfiles-cache/. /distfiles/ 2>/dev/null || true \
+ && cp -rn /var/cache/binpkgs-cache/. /binpkgs/ 2>/dev/null || true
 
 FROM scratch
 COPY --from=builder /gentoo.squashfs_e14 /

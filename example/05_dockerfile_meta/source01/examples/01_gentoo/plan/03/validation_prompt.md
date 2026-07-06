@@ -4,6 +4,8 @@ We need to verify and test the newly implemented Gentoo Dockerfile meta-generato
 The codebase is located in:
 `/workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/examples/01_gentoo/`
 
+Note: Here and in the rest of the prompt we refer to /workspace/src/ this folder is actually /home/kiel/stage on the current system
+
 ## Key Files to Verify
 1. `gen_gentoo.lisp`: Contains the configuration parameters (e.g. `*target-machine*`, `*minimal-image*`, feature/package flags) and generates the Dockerfile using inline heredocs and hybrid Portage caching mounts.
 2. `build.sh`: Runs the generator, boots the Docker BuildKit export build, redirects logs to `output/build.log`, and syncs (`rsync` / `cp`) the newly compiled packages and distfiles back to the host directories for future read-only bind mounts.

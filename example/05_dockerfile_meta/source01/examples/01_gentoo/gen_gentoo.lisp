@@ -15,7 +15,7 @@
 (defparameter *portage-date* :auto
   "Portage snapshot date (YYYYMMDD) or :auto for current date.")
 
-(defparameter *stage3-date* :auto
+(defparameter *stage3-date* "20260629"
   "Stage3 snapshot date (YYYYMMDD) or :auto for the most recent Monday.")
 
 (defparameter *minimal-image* t
@@ -42,6 +42,8 @@
 
 ;; --- Logical category flags ---
 (defparameter *enable-docker* nil)
+(defparameter *enable-slstatus* nil
+  "If T, build and install slstatus. Note: slstatus requires git (which is installed by default in the base system packages).")
 (defparameter *enable-dev-tools* nil)
 (defparameter *enable-media-playback* nil)
 (defparameter *enable-network-admin* nil)
@@ -328,19 +330,22 @@ GENTOO_MIRRORS=\"https://pkg.adfinis-on-exoscale.ch/gentoo/ \\
 
 ;; --- Helper macro for emerge commands with dual host+cache mounts ---
 (defun run-emerge (command)
-  (let ((mounts-str "type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
---mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
---mount=type=cache,target=/var/cache/distfiles-cache \
+  (let ((mounts-str "type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \\
+--mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \\
+--mount=type=cache,target=/var/cache/distfiles-cache \\
 --mount=type=cache,target=/var/cache/binpkgs-cache"))
     `(run :mount ,mounts-str
-          (and "mkdir -p /var/cache/distfiles /var/cache/binpkgs"
+          (and "mkdir -p /var/cache/distfiles /var/cache/binpkgs /var/cache/binhost"
                "cp -rn /var/cache/distfiles-host/. /var/cache/distfiles/ 2>/dev/null || true"
                "cp -rn /var/cache/distfiles-cache/. /var/cache/distfiles/ 2>/dev/null || true"
                "cp -rn /var/cache/binpkgs-host/. /var/cache/binpkgs/ 2>/dev/null || true"
+               "cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true"
                "cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true"
+               "cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true"
                ,command
                "cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true"
-               "cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true"))))
+               "cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true"
+               "cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true"))))
 
 ;; --- Inline service & configuration files content ---
 (defparameter *resolv-conf*
@@ -593,7 +598,7 @@ IUSE="experimental"
                "grep -qxF 'app-text/xmlto text' /etc/portage/package.use/zz-late-world || printf '\\napp-text/xmlto text\\n' >> /etc/portage/package.use/zz-late-world"))
      
      ,@(if *split-world-build*
-           `((run (and "emerge -pqe --columns @world | awk '$2 ~ /\\// {print $2}' > /tmp/world_packages.txt"
+           `((run (and "emerge -pqe --columns @world | awk '{for(i=1;i<=NF;i++) if($i ~ /\\//) {print $i; break}}' > /tmp/world_packages.txt"
                        "total_lines=$(wc -l < /tmp/world_packages.txt)"
                        "lines_per_stage=$(( (total_lines + 9) / 10 ))"
                        "for i in $(seq 1 10); do start=$(( (i - 1) * lines_per_stage + 1 )); end=$(( i * lines_per_stage )); sed -n \"${start},${end}p\" /tmp/world_packages.txt > \"/tmp/world_stage_${i}.txt\"; done"))
@@ -618,14 +623,15 @@ IUSE="experimental"
      (run "mkdir -p /etc/sudoers.d")
      (copy :heredoc "/etc/sudoers.d/wheel" "%wheel ALL=(ALL:ALL) NOPASSWD: ALL")
      
-     (comment "slstatus")
-     (workdir "/usr/src")
-     (run "git clone https://git.suckless.org/slstatus")
-     (workdir "/usr/src/slstatus")
-     (copy "config/slstatus_config.h" ".config")
-     (run "make -j32")
-     (run "make install")
-     (run "make clean")
+     ,@(when *enable-slstatus*
+         `((comment "slstatus (requires git)")
+           (workdir "/usr/src")
+           (run "git clone https://git.suckless.org/slstatus")
+           (workdir "/usr/src/slstatus")
+           (copy "config/slstatus_config.h" ".config")
+           (run "make -j32")
+           (run "make install")
+           (run "make clean")))
      
      (run (and "groupadd -f input"
                "useradd -m -G users,wheel,audio,video,input -s /bin/bash kiel"
@@ -833,6 +839,7 @@ chown -R kiel:kiel /home/kiel/.config))
       usr/src \
       var/cache/binpkgs \
       var/cache/distfiles \
+      var/cache/binhost \
       "gentoo*squashfs*" \
       "gentoo*ext4" \
       "usr/lib64/libQt*.a" \
@@ -901,6 +908,7 @@ chown -R kiel:kiel /home/kiel/.config))
       usr/src \
       var/cache/binpkgs \
       var/cache/distfiles \
+      var/cache/binhost \
       "gentoo*squashfs*" \
       "gentoo*ext4" \
       "usr/lib64/libQt*.a" \
@@ -922,13 +930,13 @@ chown -R kiel:kiel /home/kiel/.config))
 (defparameter *exporter-code*
   `(toplevel
      (from "base" :as builder)
-     (from "scratch" :as cache-exporter)
+     (from "base" :as cache-exporter)
      ;; Mount the caches and copy them to the exporter root directory
-     (run :mount "type=cache,target=/var/cache/distfiles-cache \
+     (run :mount "type=cache,target=/var/cache/distfiles-cache \\
 --mount=type=cache,target=/var/cache/binpkgs-cache"
-          (and "mkdir -p /distfiles-export /binpkgs-export"
-               "cp -rn /var/cache/distfiles-cache/. /distfiles-export/ 2>/dev/null || true"
-               "cp -rn /var/cache/binpkgs-cache/. /binpkgs-export/ 2>/dev/null || true"))))
+          (and "mkdir -p /distfiles /binpkgs"
+               "cp -rn /var/cache/distfiles-cache/. /distfiles/ 2>/dev/null || true"
+               "cp -rn /var/cache/binpkgs-cache/. /binpkgs/ 2>/dev/null || true"))))
 
 ;; --- Final stage Scratch Exporter ---
 (defparameter *final-exporter-code*

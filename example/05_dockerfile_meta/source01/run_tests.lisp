@@ -45,7 +45,7 @@
   (assert-df "COPY --from=builder src1 src2 dest" (copy src1 src2 dest :from builder))
   (assert-df "COPY --chown=root:root src dest" (copy src dest :chown |ROOT:ROOT|))
   (assert-df "COPY --from=builder --chown=root:root src dest" (copy src dest :from builder :chown |ROOT:ROOT|))
-  (assert-df (format nil "COPY <<EOF dest~%hello world~%EOF") (copy :heredoc dest "hello world"))
+  (assert-df (format nil "COPY <<'EOF' dest~%hello world~%EOF") (copy :heredoc dest "hello world"))
   (assert-df "ADD http://example.com/file.tar.gz /dest" (add |HTTP://EXAMPLE.COM/FILE.TAR.GZ| /dest))
   (assert-df "ADD --chown=bin:bin http://example.com/file.tar.gz /dest" (add |HTTP://EXAMPLE.COM/FILE.TAR.GZ| /dest :chown |BIN:BIN|))
 
