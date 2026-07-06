@@ -15,7 +15,7 @@
 (defparameter *portage-date* :auto
   "Portage snapshot date (YYYYMMDD) or :auto for current date.")
 
-(defparameter *stage3-date* "20260629"
+(defparameter *stage3-date* :auto ;; "20260629"
   "Stage3 snapshot date (YYYYMMDD) or :auto for the most recent Monday.")
 
 (defparameter *minimal-image* t
@@ -26,39 +26,39 @@
 
 ;; --- Optional feature flags: each entry is (symbol . default-value) ---
 (defparameter *feature-flags*
-  '((*enable-emacs-sbcl*        . nil)
+  '((*enable-emacs-sbcl*        . t)
     (*enable-rust*               . nil)
     (*enable-go*                 . nil)
-    (*enable-uv-ruff*            . nil)
+    (*enable-uv-ruff*            . t)
     (*enable-nvidia*             . nil)
     (*enable-nvidia-cuda*        . nil)
     (*enable-wireshark*          . nil)
     (*enable-lua*                . nil)
-    (*enable-firefox*            . nil)
+    (*enable-firefox*            . t)
     (*enable-google-chrome*      . nil)
     (*enable-llvm*               . nil)
-    (*enable-clion*              . nil)
+    (*enable-clion*              . t)
     (*enable-docker*             . nil)
-    (*enable-slstatus*           . nil)
-    (*enable-dev-tools*          . nil)
+    (*enable-slstatus*           . t)
+    (*enable-dev-tools*          . t)
     (*enable-media-playback*     . nil)
     (*enable-network-admin*      . nil)
-    (*enable-remote-access*      . nil)
-    (*enable-cli-productivity*   . nil)
+    (*enable-remote-access*      . t)
+    (*enable-cli-productivity*   . t)
     (*enable-sys-monitoring-hw*  . nil)
     (*enable-power-management*   . nil)
     (*enable-desktop-extras*     . nil)
-    (*enable-signal*             . nil)
-    (*enable-pdf-viewer*         . nil)
-    (*enable-ios-sync*           . nil)
-    (*enable-alacritty*          . nil)
+    (*enable-signal*             . t)
+    (*enable-pdf-viewer*         . t)
+    (*enable-ios-sync*           . t)
+    (*enable-alacritty*          . t)
     (*enable-dracut-ssh*         . nil)))
 
 ;; Instantiate all feature flags from the table above
 (dolist (entry *feature-flags*)
   (set (car entry) (cdr entry)))
 
-(defparameter *audio-system* :pipewire
+(defparameter *audio-system* :alsa
   "Audio system. Choices: :pipewire, :alsa, :none")
 
 (defparameter *kver* "6.18.36")
@@ -510,11 +510,11 @@ exec dbus-run-session dwm
             "lost+found"))
          (all-excludes (append common-excludes extra-excludes))
          (setup-str (if extra-setup
-                        (format nil "~{~%  && ~a \\~}" extra-setup)
-                        ""))
+                        (format nil " \\~{~%  && ~a \\~}" extra-setup)
+                        " \\"))
          (exclude-str (format nil "~{~%       ~a \\~}" all-excludes)))
     `(run ,(format nil "set -e \\
-  && echo ~s ~a\\
+  && echo ~s~a
   && mksquashfs / ~a \\
     -comp zstd \\
     -Xcompression-level 19 \\
@@ -530,7 +530,7 @@ exec dbus-run-session dwm
     -p \"/sys d 555 0 0\" \\
     -noI -noX \\
     -wildcards \\
-    -e ~a"
+    -e \\~a"
                    echo-msg setup-str output-image exclude-str))))
 
 ;; --- Main Dockerfile Meta-Generator ---
@@ -856,16 +856,16 @@ chown -R kiel:kiel /home/kiel/.config))
                "rm -rf /tmp/fw_original /tmp/fw_nv_root"
                "mkdir -p /tmp/fw_original /tmp/fw_nv_root/usr/lib/firmware"
                "cp -a /usr/lib/firmware/. /tmp/fw_original/"
-               "modinfo -F firmware /lib/modules/${KVER_RELEASE}/video/nvidia.ko \
-       | sort -u \
-       | while IFS= read -r rel; do \
-           test -n \"${rel}\"; \
-           src=\"/usr/lib/firmware/${rel}\"; \
-           dst=\"/tmp/fw_nv_root/usr/lib/firmware/${rel}\"; \
-           test -e \"${src}\"; \
-           mkdir -p \"$(dirname \"${dst}\")\"; \
-           cp -a \"${src}\" \"${dst}\"; \
-           done"
+               #r(modinfo -F firmware /lib/modules/${KVER_RELEASE}/video/nvidia.ko \
+        | sort -u \
+        | while IFS= read -r rel; do \
+            test -n "${rel}"; \
+            src="/usr/lib/firmware/${rel}"; \
+            dst="/tmp/fw_nv_root/usr/lib/firmware/${rel}"; \
+            test -e "${src}"; \
+            mkdir -p "$(dirname "${dst}")"; \
+            cp -a "${src}" "${dst}"; \
+            done)
                "rm -rf /usr/lib/firmware/*"
                "cp -a /tmp/fw_nv_root/usr/lib/firmware/. /usr/lib/firmware/")
              '("tmp/fw_original" "tmp/fw_nv_root"))))
@@ -886,18 +886,18 @@ chown -R kiel:kiel /home/kiel/.config))
                "mv /tmp/tmpfw/* /usr/lib/firmware/ 2>/dev/null || true"
                "echo \"Stripping NVIDIA/CUDA userspace for E14 squashfs\""
                "rm -rf /opt/cuda /usr/lib64/lib{cuda,nvidia,nv}* /usr/lib64/libnv* 2>/dev/null || true"
-               "rm -rf /usr/bin/nvidia* \
-       /usr/lib/elogind/system-sleep/nvidia \
-       /usr/lib/systemd/system/nvidia-* \
-       /usr/lib/systemd/system-sleep/nvidia \
-       /usr/lib/dracut/dracut.conf.d/10-nvidia-drivers.conf \
-       /usr/share/applications/nvidia-settings.desktop \
-       /usr/share/pixmaps/nvidia-settings.png \
-       /usr/share/doc/nvidia-drivers-* \
-       /usr/share/nvidia \
-       /usr/lib64/nvidia \
-       /usr/lib64/gbm/nvidia-drm_gbm.so \
-       /usr/lib64/vdpau/libvdpau_nvidia.so* 2>/dev/null || true"
+               #r(rm -rf /usr/bin/nvidia* \
+        /usr/lib/elogind/system-sleep/nvidia \
+        /usr/lib/systemd/system/nvidia-* \
+        /usr/lib/systemd/system-sleep/nvidia \
+        /usr/lib/dracut/dracut.conf.d/10-nvidia-drivers.conf \
+        /usr/share/applications/nvidia-settings.desktop \
+        /usr/share/pixmaps/nvidia-settings.png \
+        /usr/share/doc/nvidia-drivers-* \
+        /usr/share/nvidia \
+        /usr/lib64/nvidia \
+        /usr/lib64/gbm/nvidia-drm_gbm.so \
+        /usr/lib64/vdpau/libvdpau_nvidia.so* 2>/dev/null || true)
                "rm -rf /nvidia${KVER_RELEASE} 2>/dev/null || true")
              '())))))
 

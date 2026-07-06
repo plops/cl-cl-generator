@@ -3,14 +3,17 @@
 FROM gentoo/portage:20260706 AS portage
 # Stage3 base (1GB)
 # https://hub.docker.com/r/gentoo/stage3/tags
-FROM gentoo/stage3:nomultilib-20260629 AS base
+FROM gentoo/stage3:nomultilib-20260706 AS base
 # https://hub.docker.com/r/gentoo/portage/tags
 # Copy full Portage tree (570MB)
 COPY --from=portage /var/db/repos/gentoo /var/db/repos/gentoo
 # Portage configuration (Dynamic Heredocs)
 RUN eselect profile set default/linux/amd64/23.0/no-multilib
 COPY <<'EOF' /etc/portage/package.accept_keywords/package.accept_keywords
+>=net-misc/freerdp-3.17.2-r1 ~amd64
 sys-kernel/gentoo-sources ~amd64
+dev-util/ruff ~amd64
+dev-util/clion ~amd64
 
 EOF
 COPY <<'EOF' /etc/portage/make.conf
@@ -22,7 +25,7 @@ FFLAGS="${COMMON_FLAGS}"
 
 LC_MESSAGES=C.UTF-8
 
-USE="-vaapi -doc -cups -opencl -jemalloc -wayland pipewire dbus elogind policykit udev"
+USE="-vaapi -doc -cups -opencl -jemalloc -wayland -pipewire alsa dbus elogind policykit udev"
 VIDEO_CARDS="amdgpu radeonsi"
 LLVM_TARGETS="X86 AMDGPU"
 
@@ -47,9 +50,7 @@ sys-libs/minizip-ng compat
 media-libs/libpulse X
 media-libs/vulkan-loader X
 x11-libs/libdrm video_cards_radeon
-media-video/pipewire alsa dbus sound-server udev
-media-video/wireplumber dbus
-media-plugins/alsa-plugins pulseaudio
+media-plugins/alsa-plugins -pulseaudio
 
 EOF
 COPY <<'EOF' /etc/portage/package.env
@@ -106,10 +107,35 @@ dev-vcs/git
 net-wireless/iwd
 net-wireless/iw
 net-misc/dhcpcd
+dev-build/ninja
+dev-debug/strace
+dev-debug/ltrace
+sys-devel/mold
 net-misc/autossh
-media-video/pipewire
-media-video/wireplumber
-media-sound/pulsemixer
+net-misc/mosh
+net-misc/freerdp
+net-vpn/tailscale
+net-misc/bridge-utils
+app-misc/jq
+app-misc/mc
+app-misc/tmate
+app-misc/tmux
+app-shells/zsh
+app-shells/bash-completion
+app-text/tree
+net-im/signal-desktop-bin
+app-text/mupdf
+app-pda/ifuse
+x11-terms/alacritty
+app-editors/emacs
+dev-lisp/sbcl
+dev-python/uv
+dev-util/ruff
+www-client/firefox-bin
+dev-util/clion
+media-libs/alsa-lib
+media-sound/alsa-utils
+media-plugins/alsa-plugins
 
 EOF
 COPY config/dwm-6.8 /etc/portage/savedconfig/x11-wm/dwm-6.8
@@ -384,6 +410,14 @@ RUN mkdir -p /etc/sudoers.d
 COPY <<'EOF' /etc/sudoers.d/wheel
 %wheel ALL=(ALL:ALL) NOPASSWD: ALL
 EOF
+# slstatus (requires git)
+WORKDIR /usr/src
+RUN git clone https://git.suckless.org/slstatus
+WORKDIR /usr/src/slstatus
+COPY config/slstatus_config.h .config
+RUN make -j32
+RUN make install
+RUN make clean
 RUN groupadd -f input \
  && useradd -m -G users,wheel,audio,video,input -s /bin/bash kiel \
  && for grp in libvirt kvm qemu; do if getent group "${grp}" >/dev/null; then usermod -aG "${grp}" kiel; fi; done
@@ -545,6 +579,12 @@ RUN chmod +x /etc/init.d/reverse-ssh-* \
 USER kiel
 ENV HOME=/home/kiel
 # Install Emacs packages from MELPA in batch mode
+RUN emacs --batch \
+     --eval "(require 'package)" \
+     --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)" \
+     --eval "(package-initialize)" \
+     --eval "(package-refresh-contents)" \
+     --eval "(dolist (pkg '(magit paredit slime)) (package-install pkg))"
 USER root
 RUN mkdir -p /usr/local/share/openrc-host-config
 COPY config/activate /usr/local/share/openrc-host-config/activate
@@ -723,17 +763,17 @@ RUN set -e \
   && echo "Stripping NVIDIA/CUDA userspace for E14 squashfs" \
   && rm -rf /opt/cuda /usr/lib64/lib{cuda,nvidia,nv}* /usr/lib64/libnv* 2>/dev/null || true \
   && rm -rf /usr/bin/nvidia* \
-       /usr/lib/elogind/system-sleep/nvidia \
-       /usr/lib/systemd/system/nvidia-* \
-       /usr/lib/systemd/system-sleep/nvidia \
-       /usr/lib/dracut/dracut.conf.d/10-nvidia-drivers.conf \
-       /usr/share/applications/nvidia-settings.desktop \
-       /usr/share/pixmaps/nvidia-settings.png \
-       /usr/share/doc/nvidia-drivers-* \
-       /usr/share/nvidia \
-       /usr/lib64/nvidia \
-       /usr/lib64/gbm/nvidia-drm_gbm.so \
-       /usr/lib64/vdpau/libvdpau_nvidia.so* 2>/dev/null || true \
+        /usr/lib/elogind/system-sleep/nvidia \
+        /usr/lib/systemd/system/nvidia-* \
+        /usr/lib/systemd/system-sleep/nvidia \
+        /usr/lib/dracut/dracut.conf.d/10-nvidia-drivers.conf \
+        /usr/share/applications/nvidia-settings.desktop \
+        /usr/share/pixmaps/nvidia-settings.png \
+        /usr/share/doc/nvidia-drivers-* \
+        /usr/share/nvidia \
+        /usr/lib64/nvidia \
+        /usr/lib64/gbm/nvidia-drm_gbm.so \
+        /usr/lib64/vdpau/libvdpau_nvidia.so* 2>/dev/null || true \
   && rm -rf /nvidia${KVER_RELEASE} 2>/dev/null || true \
   && mksquashfs / /gentoo.squashfs_e14 \
     -comp zstd \
@@ -751,26 +791,25 @@ RUN set -e \
     -noI -noX \
     -wildcards \
     -e \
-      usr/src \
-      var/cache/binpkgs \
-      var/cache/distfiles \
-      var/cache/binhost \
-      "gentoo*squashfs*" \
-      "gentoo*ext4" \
-      "usr/lib64/libQt*.a" \
-      usr/share/genkernel/distfiles \
-      usr/src/linux \
-      usr/share/sgml \
-      var/cache/eix/previous.eix \
-      boot \
-      persistent \
-      home/*/.cache \
-      var/log/journal \
-      var/cache/genkernel \
-      var/tmp \
-      initramfs-with-squashfs.img \
-      lost+found \
-    || true
+       usr/src \
+       var/cache/binpkgs \
+       var/cache/distfiles \
+       var/cache/binhost \
+       "gentoo*squashfs*" \
+       "gentoo*ext4" \
+       "usr/lib64/libQt*.a" \
+       usr/share/genkernel/distfiles \
+       usr/src/linux \
+       usr/share/sgml \
+       var/cache/eix/previous.eix \
+       boot \
+       persistent \
+       home/*/.cache \
+       var/log/journal \
+       var/cache/genkernel \
+       var/tmp \
+       initramfs-with-squashfs.img \
+       lost+found \
 
 FROM base AS builder
 FROM base AS cache-exporter
