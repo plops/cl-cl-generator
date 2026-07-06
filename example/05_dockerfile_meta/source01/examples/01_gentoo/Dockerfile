@@ -10,8 +10,6 @@ COPY --from=portage /var/db/repos/gentoo /var/db/repos/gentoo
 # Portage configuration (Dynamic Heredocs)
 RUN eselect profile set default/linux/amd64/23.0/no-multilib
 COPY <<'EOF' /etc/portage/package.accept_keywords/package.accept_keywords
->=net-misc/freerdp-3.17.2-r1 ~amd64
-sys-kernel/dracut-crypt-ssh ~amd64
 sys-kernel/gentoo-sources ~amd64
 
 EOF
@@ -55,7 +53,7 @@ media-plugins/alsa-plugins pulseaudio
 
 EOF
 COPY <<'EOF' /etc/portage/package.env
-sys-devel/llvm low-mem
+llvm-core/llvm low-mem
 sys-devel/gcc low-mem
 dev-lang/rust low-mem
 www-client/google-chrome low-mem

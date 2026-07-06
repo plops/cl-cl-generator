@@ -57,6 +57,8 @@
 (defparameter *enable-ios-sync* nil)
 (defparameter *enable-alacritty* nil)
 
+(defparameter *enable-dracut-ssh* nil)
+
 (defparameter *kver* "6.18.36")
 
 ;; --- Helper functions for Date Calculations ---
@@ -210,6 +212,8 @@
       (setf pkgs (append pkgs '("app-pda/ifuse"))))
     (when *enable-alacritty*
       (setf pkgs (append pkgs '("x11-terms/alacritty"))))
+    (when *enable-dracut-ssh*
+      (setf pkgs (append pkgs '("sys-kernel/dracut-crypt-ssh"))))
 
     (when *enable-emacs-sbcl*
       (setf pkgs (append pkgs '("app-editors/emacs" "dev-lisp/sbcl"))))
@@ -301,9 +305,12 @@ GENTOO_MIRRORS=\"https://pkg.adfinis-on-exoscale.ch/gentoo/ \\
     (format nil "~{~a~^~%~}~%" (nreverse lines))))
 
 (defun generate-package-accept-keywords ()
-  (let ((lines '("sys-kernel/gentoo-sources ~amd64"
-                 "sys-kernel/dracut-crypt-ssh ~amd64"
-                 ">=net-misc/freerdp-3.17.2-r1 ~amd64")))
+  (let (lines)
+    (when (or *enable-remote-access* (not *minimal-image*))
+      (push ">=net-misc/freerdp-3.17.2-r1 ~amd64" lines))
+    (when *enable-dracut-ssh*
+      (push "sys-kernel/dracut-crypt-ssh ~amd64" lines))
+    (push "sys-kernel/gentoo-sources ~amd64" lines)
     (when (or *enable-uv-ruff* (not *minimal-image*))
       (push "dev-util/ruff ~amd64" lines))
     (when (or *enable-clion* (not *minimal-image*))
@@ -315,7 +322,7 @@ GENTOO_MIRRORS=\"https://pkg.adfinis-on-exoscale.ch/gentoo/ \\
     (format nil "~{~a~^~%~}~%" (nreverse lines))))
 
 (defun generate-package-env ()
-  (let ((lines '("sys-devel/llvm low-mem"
+  (let ((lines '("llvm-core/llvm low-mem"
                  "sys-devel/gcc low-mem"
                  "dev-lang/rust low-mem"
                  "www-client/google-chrome low-mem"
