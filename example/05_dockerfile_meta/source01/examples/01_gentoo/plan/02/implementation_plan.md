@@ -37,14 +37,14 @@ This plan describes modifications to [gen_gentoo.lisp](file:///workspace/src/cl-
 > - The large `config6.18.18` kernel configuration (207KB) will remain a file copy to prevent bloat of the generator source code.
 
 > [!IMPORTANT]
-> **Validation, Distfiles Caching, and External Volume Exports:**
+> **BuildKit Scratch Exporter & Caching (Reduces Image Bloat):**
+> - **Multi-stage Scratch Exporter:** To prevent squashfs files and other large binaries from ending up in any Docker image stored in the daemon, we will add a final `FROM scratch` stage in the Dockerfile that only copies the generated outputs (squashfs files, kernel vmlinuz, initramfs, packages list, and validation report) from the compilation (`base`) stage.
+> - **Direct Host Directory Export:** By using the BuildKit local exporter option (`docker build -o ./output .`) in `build.sh`, the final build products are written directly into a local `./output` folder on the host filesystem. No Docker image is stored in the Docker daemon, making `copy_output.sh` obsolete!
 > - **Validation & Obsolete USE Flag Reporting:** Every build will automatically execute `eix-update && eix-test-obsolete > /packages_obsolete.txt` to produce a report of any redundant/stale packages and USE flags in portage.
 > - **Distfiles Volume Cache:** All emerge commands will run under a BuildKit cache mount (`--mount=type=cache,target=/var/cache/distfiles`) so that downloaded package tarballs are cached persistent across container rebuilds on the host machine.
-> - **External Volume Mapping for Exports:** We will expose a script `copy_output.sh` that mounts a host output directory (`-v $(pwd)/output:/output`) and copies all generated build products (squashfs files, ext4 file, kernel vmlinuz, initramfs, packages list, and the validation report) directly into this host volume.
-> - **Build/Execution Scripts:** We will provide three simple bash scripts:
->   - `build.sh`: Generates the Dockerfile from Lisp, triggers `docker build` with BuildKit, and redirects stdout/stderr to a log file (`output/build.log`) in the mapped host directory.
->   - `enter_container.sh`: Launches a bash shell inside the built image.
->   - `copy_output.sh`: Runs the image and copies all final outputs directly into the mapped host volume.
+> - **Build/Execution Scripts:** We will provide two simple bash scripts:
+>   - `build.sh`: Generates the Dockerfile from Lisp, triggers the BuildKit export compilation (`docker build -o ./output .`), and redirects stderr/stdout to `output/build.log`.
+>   - `enter_container.sh`: Runs a temporary interactive bash shell inside a base stage build (running `docker build --target base` first if needed) to allow direct inspection and debugging.
 
 ## Proposed Changes
 
@@ -73,21 +73,21 @@ We will copy only the large/binary configuration files (like `config6.18.18`, an
   - Only clean up compiler toolchains (Rust, Go) if they are not explicitly enabled by their respective feature flags.
   - If `*enable-flaggie-cleanup*` is `T`, install flaggie and execute cleanup.
   - Run the `eix-test-obsolete` validation and dump the output to `/packages_obsolete.txt`.
+- Add a final `FROM scratch` stage copying the build products (`/gentoo.squashfs*`, `/boot/vmlinuz`, `/boot/initramfs*`, `/packages.txt`, `/packages_obsolete.txt`) to `/`.
 
 #### [NEW] Scripts under `/workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/examples/01_gentoo/`
 - `build.sh`
 - `enter_container.sh`
-- `copy_output.sh`
 
 ## Verification Plan
 
 ### Automated Tests
-1. Run the `build.sh` script to verify that the Dockerfile generates and builds successfully.
+1. Run the `build.sh` script to verify that the Dockerfile generates and builds/exports successfully.
 2. Verify the contents of the generated `Dockerfile` under different flag combinations:
    - Target `:thinkpad` vs `:workstation`.
    - `*split-world-build*` as `T` vs `NIL`.
    - `*minimal-image*` as `T` vs `NIL`.
-3. Check that the output directory contains the squashfs files, kernel, initramfs, packages list, and validation report.
+3. Check that the host `./output` directory contains the squashfs files, kernel, initramfs, packages list, and validation report.
 
 ### Manual Verification
 - Confirm that the `config/` directory contains all files, including `config6.18.18`.
