@@ -48,19 +48,22 @@ This writes the following beautifully formatted code to `/tmp/output_example.lis
 
 ## Examples
 
-The repository contains several example generators in the [example/](file:///workspace/src/cl-cl-generator/example) directory:
+The repository contains several example projects in the [example/](file:///workspace/src/cl-cl-generator/example) directory:
 
-1. **[00_test](file:///workspace/src/cl-cl-generator/example/00_test)**: A basic helper generating a simple Lisp file with function definitions, local bindings, single/multi-line comments, and conditional statements. Shows how to embed Git commit hashes and generation timestamps.
-2. **[01_meta](file:///workspace/src/cl-cl-generator/example/01_meta)**: A bootstrapping meta-generator example where `cl-cl-generator` is used to generate its own core codebase ([cl.lisp](file:///workspace/src/cl-cl-generator/cl.lisp)).
-3. **[03_py_meta](file:///workspace/src/cl-cl-generator/example/03_py_meta)**: A meta-generator for the `cl-py-generator` transpiler's `py.lisp` compiler. Compiles Python generation templates into Lisp helper builders, supporting Python f-strings, imports, decorators, and operator precedence rules.
-4. **[04_tui_cockpit](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit)**: Code generators emitting interactive Lisp terminal utilities:
-   - `gen01.lisp` generates a non-interactive bandwidth-optimized `/proc` parser.
-   - `gen02.lisp` generates a fully featured interactive TUI application utilizing a system definition (`.asd`), package declarations, and an interactive dashboard using the `tuition` framework.
-5. **[05_dockerfile_meta](file:///workspace/src/cl-cl-generator/example/05_dockerfile_meta)**: Generates `cl-dockerfile-generator`, a domain-specific language (DSL) and compiler for writing Dockerfiles as S-expressions. Features case-inversion configuration and custom Lisp templates for Dockerfile instructions.
+1. **[00_test](file:///workspace/src/cl-cl-generator/example/00_test)**: Minimal generator that emits a small Lisp file with functions, bindings, comments, conditionals, and git/time metadata.
+2. **[01_meta](file:///workspace/src/cl-cl-generator/example/01_meta)**: Bootstrapping meta-generator where `cl-cl-generator` is used to generate its own core codebase.
+3. **[03_py_meta](file:///workspace/src/cl-cl-generator/example/03_py_meta)**: Meta-generator for `cl-py-generator` that expands Python DSL templates into Lisp helpers for f-strings, imports, decorators, and precedence handling.
+4. **[04_tui_cockpit](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit)**: Generates terminal utilities, from a fast `/proc` parser to an interactive TUI dashboard built with `tuition`.
+5. **[05_dockerfile_meta](file:///workspace/src/cl-cl-generator/example/05_dockerfile_meta)**: Generates `cl-dockerfile-generator`, a Dockerfile DSL/compiler with case inversion and custom instruction templates.
+6. **[06_hpipm_cffi](file:///workspace/src/cl-cl-generator/example/06_hpipm_cffi)**: Generates HPIPM CFFI bindings, Lisp wrappers, and MPC demos from repetitive C API metadata.
+7. **[07_pure_x11](file:///workspace/src/cl-cl-generator/example/07_pure_x11)**: Generates a pure-Lisp raw-socket X11 client, widget/layout engine, and demo GUI application.
+8. **[08_expanse_combat](file:///workspace/src/cl-cl-generator/example/08_expanse_combat)**: Builds a 2D orbital space-combat game combining pure X11 rendering with HPIPM-based MPC control.
+9. **[09_protobuf_grpc](file:///workspace/src/cl-cl-generator/example/09_protobuf_grpc)**: Generates protobuf-like binary serialization and gRPC-like TCP RPC code from a schema DSL.
+10. **[10_multi_domain_solver](file:///workspace/src/cl-cl-generator/example/10_multi_domain_solver)**: Generates a symbolic multi-domain lumped-element circuit compiler plus GUI demos for oscillators and diode circuits.
+11. **[11_barium](file:///workspace/src/cl-cl-generator/example/11_barium/barium_src)**: Vendored Barium toolkit sources, tests, and demos for a Common Lisp X11 widget toolkit with Cairo/OpenGL support.
 
 ## Running Tests
 Run the test runner script:
 ```bash
 ./run-tests.sh
 ```
-
