@@ -15,3 +15,5 @@ example/**/run_*.lisp
 # Ignore untracked binaries
 example/05_dockerfile_meta/source01/examples/03_ai_env/bin/
 
+# Ignore local environment files
+.env
