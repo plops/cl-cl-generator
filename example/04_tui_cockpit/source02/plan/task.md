@@ -1,9 +1,9 @@
 # Tasks - Interactive TUI Cockpit
 
-- [x] Create `gen02.lisp` code generator for the cl-tuition cockpit
+- [x] Create `gen02.lisp` code generator for the tuition cockpit
   - [x] Generate `package.lisp`
-  - [x] Generate `cockpit.asd`
-  - [x] Generate `cockpit.lisp` (with accumulators, histories, cl-tuition event handlers, and views)
+  - [x] Generate `cockpit-tui.asd`
+  - [x] Generate `cockpit.lisp` (with accumulators, histories, tuition event handlers, and views)
   - [x] Generate `tests.lisp` (Rove unit and integration tests)
   - [x] Generate `run-cockpit.sh`
   - [x] Generate `README.md`

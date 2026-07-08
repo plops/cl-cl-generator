@@ -1,13 +1,13 @@
-# Walkthrough - Interactive cl-tuition TUI Cockpit
+# Walkthrough - Interactive Tuition TUI Cockpit
 
-I have successfully designed, generated, and verified the interactive cockpit implementation (`source02/`) using the modern `cl-tuition` TUI framework and the `Rove` test suite.
+I have successfully designed, generated, and verified the interactive cockpit implementation (`source02/`) using the modern `tuition` TUI framework and the `Rove` test suite.
 
 ## Changes Made
 
 ### 1. Re-structured Version 1 Files into `source01/`
 Moved the original non-interactive implementation files to [source01/](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit/source01/) and renamed `gen.lisp` to [gen01.lisp](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit/gen01.lisp) to prevent conflict with the new version.
 
-### 2. Created the `cl-tuition` Interactive Generator
+### 2. Created the `tuition` Interactive Generator
 Implemented [gen02.lisp](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit/gen02.lisp), which automatically generates all files inside [source02/](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit/source02/):
 - **package.lisp**: Exports the main `:cockpit-tui` package.
 - **cockpit-tui.asd**: System definition that depends on `:tuition` and `:rove` for tests.

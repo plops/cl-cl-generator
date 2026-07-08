@@ -2,7 +2,7 @@
   :version
   "0.1.0"
   :description
-  "An interactive bandwidth-optimized Linux system cockpit TUI using cl-tuition."
+  "An interactive bandwidth-optimized Linux system cockpit TUI using tuition."
   :depends-on
   ("alexandria" "uiop" "tuition")
   :serial

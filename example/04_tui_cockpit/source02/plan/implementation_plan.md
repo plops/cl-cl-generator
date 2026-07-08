@@ -1,6 +1,6 @@
-# Implementation Plan - Interactive TUI Cockpit (cl-tuition)
+# Implementation Plan - Interactive TUI Cockpit (tuition)
 
-This plan outlines the design and implementation of the second cockpit variant (`gen02.lisp`) which generates a fully interactive terminal cockpit using the `cl-tuition` framework (based on the Elm Architecture) and testing via `Rove`.
+This plan outlines the design and implementation of the second cockpit variant (`gen02.lisp`) which generates a fully interactive terminal cockpit using the `tuition` framework (based on the Elm Architecture) and testing via `Rove`.
 
 ## User Review Required
 
@@ -20,9 +20,9 @@ This generator will write the following files to `example/04_tui_cockpit/source0
 
 1. **[package.lisp](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit/source02/package.lisp)**
    - Exports the main interface package `cockpit-tui` and its entry function `run-cockpit`.
-2. **[cockpit.asd](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit/source02/cockpit.asd)**
+2. **[cockpit-tui.asd](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit/source02/cockpit-tui.asd)**
    - Defines the `cockpit-tui` system.
-   - Depends on: `"alexandria"`, `"uiop"`, `"cl-tuition"`.
+   - Depends on: `"alexandria"`, `"uiop"`, `"tuition"`.
    - Defines a `cockpit-tui/tests` test system.
    - Depends on: `"cockpit-tui"`, `"rove"`.
 3. **[cockpit.lisp](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit/source02/cockpit.lisp)**
@@ -39,7 +39,7 @@ This generator will write the following files to `example/04_tui_cockpit/source0
        - `Up` / `Down` arrows: Changes `selected-index` in the process list.
        - `t` / `Enter`: Throttles the selected process.
        - `+` / `-`: Increases/decreases refresh intervals.
-     - **Layout**: Uses `cl-tuition` formatting, colors, and layout joins to produce a premium dashboard, including process list entries showing current rates, sparkline history, and total accumulated data.
+     - **Layout**: Uses `tuition` formatting, colors, and layout joins to produce a premium dashboard, including process list entries showing current rates, sparkline history, and total accumulated data.
 4. **[tests.lisp](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit/source02/tests.lisp)**
    - Implements unit tests using `Rove`.
    - Tests:
@@ -47,7 +47,7 @@ This generator will write the following files to `example/04_tui_cockpit/source0
      - **Rendering checks**: Verifies `tui:view` outputs correct strings (like cursor symbols `->` and help overlay text).
      - **Parser checks**: Verifies `/proc` parsers work correctly on mock files.
 5. **[run-cockpit.sh](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit/source02/run-cockpit.sh)**
-   - Startup script that runs the new `cl-tuition`-based cockpit.
+   - Startup script that runs the new `tuition`-based cockpit.
 6. **[README.md](file:///workspace/src/cl-cl-generator/example/04_tui_cockpit/source02/README.md)**
    - Details how to run the interactive version and its key combinations.
 

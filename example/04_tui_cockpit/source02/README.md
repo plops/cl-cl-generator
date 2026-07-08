@@ -1,6 +1,6 @@
 # Tuition Interactive TUI Cockpit
 
-This is version 2 of the bandwidth-optimized Linux cockpit, built using the modern `cl-tuition` framework.
+This is version 2 of the bandwidth-optimized Linux cockpit, built using the modern `tuition` framework.
 
 ## Features
 
@@ -27,7 +27,7 @@ sudo ./run-cockpit.sh
 
 To run the Rove test suite:
 ```bash
-sbcl --eval '(push "$(pwd)/" asdf:*central-registry*)' \
+sbcl --eval '(push #P"/workspace/src/cl-cl-generator/example/04_tui_cockpit/source02/" asdf:*central-registry*)' \
      --eval '(asdf:test-system :cockpit-tui/tests)' \
      --quit
 ```

@@ -205,18 +205,21 @@
           (string-trim '(#\Newline #\Return #\ ) (read-line stream nil))
           "unknown"))))
 
+(defparameter *default-throttle-bandwidth-kb* 1024)
+
 (defun setup-throttling-class (bandwidth-kb)
-  (uiop/run-program:run-program "mkdir -p /sys/fs/cgroup/tui-throttle"
-                                :ignore-error-status t)
+  (uiop/run-program:run-program "mkdir -p /sys/fs/cgroup/tui-throttle")
   (let ((cmd
          (format nil
                  "tc qdisc replace dev eth0 root handle 1: htb default 10 && tc class replace dev eth0 parent 1: classid 1:1 htb rate ~akbit"
                  (* bandwidth-kb 8))))
-    (uiop/run-program:run-program cmd :ignore-error-status t)))
+    (uiop/run-program:run-program cmd)))
 
 (defun throttle-pid (pid)
   (let ((path "/sys/fs/cgroup/tui-throttle/cgroup.procs")
         (pid-str (format nil "~a" pid)))
+    (unless (probe-file path)
+      (error "Throttle cgroup is not ready at ~a" path))
     (with-open-file
         (stream path :direction :output :if-exists :append :if-does-not-exist
          nil)
@@ -293,12 +296,20 @@
 ;; Tuition Init Method
 (defmethod tuition:init ((model cockpit-model))
   (lambda ()
+    (handler-case (progn
+                    (setup-throttling-class *default-throttle-bandwidth-kb*)
+                    (setf (status-message model)
+                            (format nil
+                                    "Throttle class initialized at ~d kbit/s"
+                                    (* *default-throttle-bandwidth-kb* 8))))
+      (error (c)
+             (setf (status-message model)
+                     (format nil "Throttle setup failed: ~a" c))))
     (make-instance 'tick-msg)))
 
 ;; Tuition Update Method
-(defmethod tuition:update-message ((model cockpit-model)
-                                   (msg tuition:key-press-msg))
-  (let ((key (tuition:key-event-code msg)))
+(defmethod tuition:update-message ((model cockpit-model) (msg tuition:key-msg))
+  (let ((key (tuition:key-msg-key msg)))
     (cond
       ((or (and (characterp key) (or (char= key #\q) (char= key #\Q)))
            (eq key :escape))
@@ -421,7 +432,7 @@
          (out-str (make-string-output-stream)))
     (format out-str "~A~%"
             (tuition:render-styled title-style
-                                   "=== Linux TUI Cockpit (Interactive cl-tuition) ==="))
+                                   "=== Linux TUI Cockpit (Interactive Tuition) ==="))
     (format out-str "Status: ~A | Interval: ~d sec~%"
             (tuition:render-styled status-style (status-message model))
             (interval-sec model))
@@ -490,7 +501,7 @@
                   "=============================================================~%"))
         (format out-str
                 "~%[q] Quit | [h] Help | [↑/↓] Select | [t] Throttle | [+/-] Refresh~%"))
-    (tuition:make-view (get-output-stream-string out-str) :alt-screen t)))
+    (get-output-stream-string out-str)))
 
 (defun run-cockpit ()
   (tuition:run (tuition:make-program (make-instance 'cockpit-model))))

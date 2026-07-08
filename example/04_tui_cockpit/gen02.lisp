@@ -19,12 +19,12 @@
        (:use :cl :tuition)
        (:export :run-cockpit :cockpit-model :process-info))))
 
-;; Define cockpit.asd code
+;; Define cockpit-tui.asd code
 (defparameter *asd-code*
   `(toplevel
      (asdf:defsystem cockpit-tui
        :version "0.1.0"
-       :description "An interactive bandwidth-optimized Linux system cockpit TUI using cl-tuition."
+       :description "An interactive bandwidth-optimized Linux system cockpit TUI using tuition."
        :depends-on ("alexandria" "uiop" "tuition")
        :serial t
        :components ((:file "package")
@@ -220,14 +220,18 @@
                (string-trim '(#\Newline #\Return #\Space) (read-line stream nil))
                "unknown"))))
 
+     (defparameter *default-throttle-bandwidth-kb* 1024)
+
      (defun setup-throttling-class (bandwidth-kb)
-       (uiop:run-program "mkdir -p /sys/fs/cgroup/tui-throttle" :ignore-error-status t)
+       (uiop:run-program "mkdir -p /sys/fs/cgroup/tui-throttle")
        (let ((cmd (format nil "tc qdisc replace dev eth0 root handle 1: htb default 10 && tc class replace dev eth0 parent 1: classid 1:1 htb rate ~akbit" (* bandwidth-kb 8))))
-         (uiop:run-program cmd :ignore-error-status t)))
+         (uiop:run-program cmd)))
 
      (defun throttle-pid (pid)
        (let ((path "/sys/fs/cgroup/tui-throttle/cgroup.procs")
              (pid-str (format nil "~a" pid)))
+         (unless (probe-file path)
+           (error "Throttle cgroup is not ready at ~a" path))
          (with-open-file (stream path :direction :output :if-exists :append :if-does-not-exist nil)
            (when stream
              (write-line pid-str stream)
@@ -301,11 +305,21 @@
 
      (comment "Tuition Init Method")
      (defmethod tui:init ((model cockpit-model))
-       (lambda () (make-instance 'tick-msg)))
+       (lambda ()
+         (handler-case
+             (progn
+               (setup-throttling-class *default-throttle-bandwidth-kb*)
+               (setf (status-message model)
+                     (format nil "Throttle class initialized at ~d kbit/s"
+                             (* *default-throttle-bandwidth-kb* 8))))
+           (error (c)
+             (setf (status-message model)
+                   (format nil "Throttle setup failed: ~a" c))))
+         (make-instance 'tick-msg)))
 
      (comment "Tuition Update Method")
-     (defmethod tui:update-message ((model cockpit-model) (msg tui:key-press-msg))
-       (let ((key (tui:key-event-code msg)))
+     (defmethod tui:update-message ((model cockpit-model) (msg tui:key-msg))
+       (let ((key (tui:key-msg-key msg)))
          (cond
            ((or (and (characterp key) (or (char= key #\q) (char= key #\Q)))
                 (eq key :escape))
@@ -406,7 +420,7 @@
               (selection-style (tui:make-style :bold t :foreground tui:*fg-bright-green*))
               (out-str (make-string-output-stream)))
          
-         (format out-str "~A~%" (tui:render-styled title-style "=== Linux TUI Cockpit (Interactive cl-tuition) ==="))
+         (format out-str "~A~%" (tui:render-styled title-style "=== Linux TUI Cockpit (Interactive Tuition) ==="))
          (format out-str "Status: ~A | Interval: ~d sec~%" 
                  (tui:render-styled status-style (status-message model))
                  (interval-sec model))
@@ -481,7 +495,7 @@
                (format out-str "=============================================================~%"))
              (format out-str "~%[q] Quit | [h] Help | [↑/↓] Select | [t] Throttle | [+/-] Refresh~%"))
          
-         (tui:make-view (get-output-stream-string out-str) :alt-screen t)))
+         (get-output-stream-string out-str)))
 
      (defun run-cockpit ()
        (tui:run (tui:make-program (make-instance 'cockpit-model))))))
@@ -499,30 +513,30 @@
          (let ((model (make-instance 'cockpit-model :interval-sec 3)))
            ;; Send + key
            (multiple-value-bind (m cmd)
-               (tui:update-message model (make-instance 'tui:key-press-msg :code #\+))
+              (tui:update-message model (tui:make-key-msg :key #\+))
              (declare (ignore cmd))
              (ok (= 2 (cockpit-tui::interval-sec m))))
            ;; Send - key
            (multiple-value-bind (m cmd)
-               (tui:update-message model (make-instance 'tui:key-press-msg :code #\-))
+               (tui:update-message model (tui:make-key-msg :key #\-))
              (declare (ignore cmd))
              (ok (= 3 (cockpit-tui::interval-sec m))))))
 
        (testing "Help overlay toggle"
          (let ((model (make-instance 'cockpit-model :show-help-p nil)))
            (multiple-value-bind (m cmd)
-               (tui:update-message model (make-instance 'tui:key-press-msg :code #\h))
+             (tui:update-message model (tui:make-key-msg :key #\h))
              (declare (ignore cmd))
              (ok (cockpit-tui::show-help-p m))
              (multiple-value-bind (m2 cmd2)
-                 (tui:update-message m (make-instance 'tui:key-press-msg :code :f1))
+                 (tui:update-message m (tui:make-key-msg :key :f1))
                (declare (ignore cmd2))
                (ok (not (cockpit-tui::show-help-p m2))))))))
 
      (deftest test-rendering
        (testing "Help overlay is present in the rendered view"
          (let ((model (make-instance 'cockpit-model :show-help-p t)))
-           (let ((view-str (tui:view-state-content (tui:view model))))
+           (let ((view-str (tui:view model)))
              (ok (search "HELP INSTRUCTIONS:" view-str)))))
        (testing "Selection indicator shows up in rendered view"
          (let ((model (make-instance 'cockpit-model :selected-index 0)))
@@ -537,7 +551,7 @@
                         :oom-score 0
                         :accumulated-rx 1024
                         :rx-history '(1024))))
-           (let ((view-str (tui:view-state-content (tui:view model))))
+           (let ((view-str (tui:view model)))
              (ok (search "-> " view-str))
              (ok (search "test-proc" view-str))))))))
 
@@ -623,7 +637,7 @@ exec sbcl $CORE_ARG --disable-debugger $QL_ARG \\
   (let* ((readme-path (merge-pathnames "README.md" *output-dir*))
          (readme-content (format nil "# Tuition Interactive TUI Cockpit
 
-This is version 2 of the bandwidth-optimized Linux cockpit, built using the modern `cl-tuition` framework.
+This is version 2 of the bandwidth-optimized Linux cockpit, built using the modern `tuition` framework.
 
 ## Features
 
@@ -650,7 +664,7 @@ sudo ./run-cockpit.sh
 
 To run the Rove test suite:
 ```bash
-sbcl --eval '(push \"$(pwd)/\" asdf:*central-registry*)' \\
+sbcl --eval '(push #P\"/workspace/src/cl-cl-generator/example/04_tui_cockpit/source02/\" asdf:*central-registry*)' \\
      --eval '(asdf:test-system :cockpit-tui/tests)' \\
      --quit
 ```
