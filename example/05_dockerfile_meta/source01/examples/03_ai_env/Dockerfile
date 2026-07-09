@@ -131,6 +131,29 @@ RUN mkdir -p /root/quicklisp/local-projects \
  && ln -s /workspace/src/cl-rust-generator /root/quicklisp/local-projects/cl-rust-generator
 # Pre-fetch and cache Quicklisp systems and common dependencies
 RUN sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quickload "quicklisp-slime-helper")' --eval '(ql:quickload "alexandria")' --eval '(ql:quickload "jonathan")' --eval '(ql:quickload "external-program")' --eval '(ql:quickload "cl-ppcre")'
+# Install Grok Build from the official x.ai installer
+RUN curl -fsSL https://x.ai/cli/install.sh -o grok-install.sh \
+ && bash grok-install.sh \
+ && rm grok-install.sh
+# Move the installed Grok binaries out of ~/.grok so they survive optional auth volume mounts
+RUN cp /root/.grok/bin/grok /usr/local/bin/grok.real
+RUN cp /root/.grok/bin/agent /usr/local/bin/agent.real
+COPY <<'EOF' /usr/local/bin/grok
+#!/usr/bin/env bash
+set -euo pipefail
+case " $* " in
+  *" --always-approve "*) exec /usr/local/bin/grok.real "$@" ;;
+  *) exec /usr/local/bin/grok.real --always-approve "$@" ;;
+esac
+
+EOF
+COPY <<'EOF' /usr/local/bin/agent
+#!/usr/bin/env bash
+set -euo pipefail
+exec /usr/local/bin/agent.real "$@"
+
+EOF
+RUN chmod +x /usr/local/bin/grok /usr/local/bin/grok.real /usr/local/bin/agent /usr/local/bin/agent.real
 # Pre-install Emacs packages
 RUN emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(dolist (pkg '(compat cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (package-install pkg))"
 # Recompile installed Emacs packages with their dependencies available
@@ -184,6 +207,14 @@ set -eu
 sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'
 
 EOF
+# Smoke test Grok Build
+# Smoke test Grok Build by checking the CLI version
+RUN <<'EOF'
+set -eu
+grok --version
+agent --version
+
+EOF
 # Smoke test Emacs
 # Smoke test Emacs by opening a file with the configured init
 RUN <<'EOF'
@@ -228,6 +259,6 @@ sed -i "s#/tmp/ai-env-slime.XXXXXX#$tmpdir#g" "$tmpdir/slime-check.el"
 emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
 
 EOF
-VOLUME ["/workspace/src", "/root/.config", "/root/.cache", "/root/.gemini", "/root/.cargo"]
+VOLUME ["/workspace/src", "/root/.config", "/root/.cache", "/root/.gemini", "/root/.grok", "/root/.cargo"]
 # Default to launching a bash shell
 CMD ["/bin/bash"]

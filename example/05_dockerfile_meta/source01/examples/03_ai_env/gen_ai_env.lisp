@@ -67,6 +67,7 @@
 (defparameter *install-codex* t)
 (defparameter *install-copilot* t)
 (defparameter *install-kiro-cli* t)
+(defparameter *install-grok* t)
 
 ;; Toggle Rust support
 (defparameter *install-rust* t)
@@ -89,6 +90,18 @@
           real-binary
           real-binary
           real-binary))
+
+(defun grok-wrapper-script (real-binary)
+  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%case \" $* \" in~%  *\" --always-approve \"*) exec ~a \"$@\" ;;~%  *) exec ~a --always-approve \"$@\" ;;~%esac~%"
+          real-binary
+          real-binary))
+
+(defun smoke-grok-test ()
+  `((comment "Smoke test Grok Build by checking the CLI version")
+    (run :heredoc #r(set -eu
+grok --version
+agent --version
+))))
 
 (defun smoke-gcc-test ()
   `((comment "Smoke test GCC by compiling and running a tiny C program")
@@ -187,6 +200,9 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
    (when *install-sbcl*
      `((comment "Smoke test SBCL")
        ,@(smoke-sbcl-test)))
+   (when *install-grok*
+     `((comment "Smoke test Grok Build")
+       ,@(smoke-grok-test)))
    (when *install-emacs*
      `((comment "Smoke test Emacs")
        ,@(emacs-open-file-test)
@@ -351,8 +367,25 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
             
             (comment "Pre-fetch and cache Quicklisp systems and common dependencies")
             (run #r#sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quickload "quicklisp-slime-helper")' --eval '(ql:quickload "alexandria")' --eval '(ql:quickload "jonathan")' --eval '(ql:quickload "external-program")' --eval '(ql:quickload "cl-ppcre")'#)))
-      
-      ;; 5. Setup Emacs if Emacs is enabled
+
+      ,@(when *install-grok*
+          `((comment "Install Grok Build from the official x.ai installer")
+            (run (and "curl -fsSL https://x.ai/cli/install.sh -o grok-install.sh"
+                     "bash grok-install.sh"
+                     "rm grok-install.sh"))
+            (comment "Move the installed Grok binaries out of ~/.grok so they survive optional auth volume mounts")
+            (run "cp /root/.grok/bin/grok /usr/local/bin/grok.real")
+            (run "cp /root/.grok/bin/agent /usr/local/bin/agent.real")
+            (copy :heredoc "/usr/local/bin/grok"
+                  ,(grok-wrapper-script "/usr/local/bin/grok.real"))
+            (copy :heredoc "/usr/local/bin/agent"
+                  #r(#!/usr/bin/env bash
+set -euo pipefail
+exec /usr/local/bin/agent.real "$@"
+))
+            (run "chmod +x /usr/local/bin/grok /usr/local/bin/grok.real /usr/local/bin/agent /usr/local/bin/agent.real")))
+
+      ;; 6. Setup Emacs if Emacs is enabled
       ,@(when (and *install-sbcl* *install-emacs*)
           `((comment "Pre-install Emacs packages")
             (run #r#emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(dolist (pkg '(compat cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (package-install pkg))"#)
@@ -365,8 +398,8 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       ,@(when *enable-tests*
           (test-stage))
       
-      ;; 6. Define Volumes for sharing configs, logins, caches, and source files
-      (volume ,(let ((vols '("/workspace/src" "/root/.config" "/root/.cache" "/root/.gemini")))
+      ;; 7. Define Volumes for sharing configs, logins, caches, and source files
+      (volume ,(let ((vols '("/workspace/src" "/root/.config" "/root/.cache" "/root/.gemini" "/root/.grok")))
                  (if (and *install-rust* *rust-cache-volume*)
                      (append vols '("/root/.cargo"))
                      vols)))
