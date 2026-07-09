@@ -25,6 +25,7 @@ You can easily customize the generated image directly in [gen_ai_env.lisp](file:
 | `*install-kiro-cli*` | Boolean | `t` | Installs `kiro-cli` from its upstream Git repository with `uv`. |
 | `*install-rust*` | Boolean | `t` | Installs the Rust toolchain (via `rustup`) including `rustc`, `cargo`, `clippy`, and `rustfmt`. |
 | `*rust-cache-volume*` | Boolean | `t` | Appends `/root/.cargo` to the list of Docker `VOLUME` mounts to enable Cargo registry caching. |
+| `*enable-tests*` | Boolean | `t` | Runs image smoke tests for GCC, Rust, Python, SBCL, and Emacs/SLIME during `docker build`. |
 
 ---
 
@@ -34,7 +35,7 @@ The generated Dockerfile now installs the AI CLI tools during the image build in
 This makes the example reproducible on any machine with Docker and network access.
 
 - `agy`: `https://antigravity.google/cli/install.sh`
-- `codex`: `https://chatgpt.com/codex/install.sh`
+- `codex`: `npm install -g @openai/codex`
 - `copilot`: `https://gh.io/copilot-install`
 - `kiro-cli`: `https://github.com/avelops/kiro-cli.git`
 
@@ -78,3 +79,5 @@ To compile the `gen_ai_env.lisp` file into the final `Dockerfile`, simply run:
 ```
 
 This will run the SBCL generation script and prepare the build context for `docker build`.
+
+When `*enable-tests*` is `t`, the generated image also runs small build-time checks for the installed tools and a SLIME workflow test that opens and loads a Lisp file.

@@ -15,6 +15,7 @@
 (defparameter *install-emacs* t)
 (defparameter *install-python* t)
 (defparameter *install-python-libs* t) ; google-antigravity SDK
+(defparameter *enable-tests* t)
 (defparameter *python-libs* `(google-antigravity
 			      azure-cognitiveservices-speech
 			      openai
@@ -76,9 +77,116 @@
 (defun uv-copy-stage ()
   `(copy "/uv" "/uvx" "/bin/" :from "ghcr.io/astral-sh/uv:latest"))
 
+(defun smoke-gcc-test ()
+  `((comment "Smoke test GCC by compiling and running a tiny C program")
+    (run :heredoc #r(set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-gcc.XXXXXX)"
+cat > "$tmpdir/test.c" <<'C_EOF'
+#include <stdio.h>
+
+int main(void) {
+  puts("gcc-ok");
+  return 0;
+}
+C_EOF
+gcc "$tmpdir/test.c" -o "$tmpdir/test"
+"$tmpdir/test"
+))))
+
+(defun smoke-rust-test ()
+  `((comment "Smoke test Rust by compiling and running a tiny program")
+    (run :heredoc #r(set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-rust.XXXXXX)"
+cat > "$tmpdir/test.rs" <<'R_EOF'
+fn main() {
+    println!("rust-ok");
+}
+R_EOF
+rustc "$tmpdir/test.rs" -o "$tmpdir/test"
+"$tmpdir/test"
+))))
+
+(defun smoke-python-test ()
+  `((comment "Smoke test Python by running a tiny script")
+    (run :heredoc #r(set -eu
+python3 - <<'PY_EOF'
+print("python-ok")
+PY_EOF
+))))
+
+(defun smoke-sbcl-test ()
+  `((comment "Smoke test SBCL by evaluating a simple expression")
+    (run :heredoc #r(set -eu
+sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'
+))))
+
+(defun emacs-open-file-test ()
+  `((comment "Smoke test Emacs by opening a file with the configured init")
+    (run :heredoc #r(set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-emacs-open.XXXXXX)"
+cat > "$tmpdir/open-me" <<'T_EOF'
+hello
+T_EOF
+cat > "$tmpdir/check.el" <<'EMACS_EOF'
+(find-file "/tmp/ai-env-emacs-open.XXXXXX/open-me")
+(unless (and buffer-file-name (eq major-mode 'fundamental-mode))
+  (error "Emacs failed to open a plain file"))
+EMACS_EOF
+sed -i "s#/tmp/ai-env-emacs-open.XXXXXX#$tmpdir#g" "$tmpdir/check.el"
+emacs --batch -l /root/.emacs -l "$tmpdir/check.el"
+))))
+
+(defun emacs-slime-test ()
+  `((comment "Smoke test Emacs + SLIME by opening and loading a Lisp file")
+    (run :heredoc #r(set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-slime.XXXXXX)"
+cat > "$tmpdir/example.lisp" <<'LISP_EOF'
+(+ 1 2)
+LISP_EOF
+cat > "$tmpdir/slime-check.el" <<'SLIME_EOF'
+(require 'slime)
+(setq inferior-lisp-program "sbcl")
+(slime-setup '(slime-repl))
+(slime)
+(let ((deadline (+ (float-time) 120)))
+  (while (and (not (slime-connected-p)) (< (float-time) deadline))
+    (sleep-for 0.2))
+  (unless (slime-connected-p)
+    (error "SLIME connection timed out")))
+(find-file "/tmp/ai-env-slime.XXXXXX/example.lisp")
+(slime-load-file "/tmp/ai-env-slime.XXXXXX/example.lisp")
+(unless (= 3 (slime-eval '(cl:+ 1 2)))
+  (error "SLIME evaluation returned the wrong value"))
+SLIME_EOF
+sed -i "s#/tmp/ai-env-slime.XXXXXX#$tmpdir#g" "$tmpdir/slime-check.el"
+emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
+))))
+
+(defun test-stage ()
+  (append
+   (when (or *install-gcc* *install-rust*)
+     `((comment "7. Smoke test the C toolchain")
+       ,@(when *install-gcc* (smoke-gcc-test))
+       ,@(when *install-rust* (smoke-rust-test))))
+   (when (or *install-python* *install-python-libs*)
+     `((comment "Smoke test Python")
+       ,@(smoke-python-test)))
+   (when *install-sbcl*
+     `((comment "Smoke test SBCL")
+       ,@(smoke-sbcl-test)))
+   (when *install-emacs*
+     `((comment "Smoke test Emacs")
+       ,@(emacs-open-file-test)
+       ,@(when *install-sbcl*
+           `((comment "Smoke test Emacs + SLIME")
+             ,@(emacs-slime-test)))))))
+
 (defun builder-stage ()
   (when (or *install-python-libs* *install-agy* *install-codex* *install-copilot* *install-kiro-cli*)
     (let ((apt-packages '("python3-pip" "python3-venv" "python3-dev" "build-essential" "ca-certificates" "curl")))
+      (when *install-codex*
+        (push "nodejs" apt-packages)
+        (push "npm" apt-packages))
       (when *install-kiro-cli*
         (push "git" apt-packages))
       `((comment "=====================================================================")
@@ -111,10 +219,8 @@
                        "./install.sh"))))
         
        ,@(when *install-codex*
-           `((comment "3. Download and install Codex from OpenAI's official installer")
-             (run (and "curl -fsSL https://chatgpt.com/codex/install.sh -o codex-install.sh"
-                       "CODEX_INSTALL_DIR=/usr/local/bin CODEX_NON_INTERACTIVE=true sh codex-install.sh"
-                       "rm codex-install.sh"))))
+           `((comment "3. Install Codex from the official npm package")
+             (run "npm install -g @openai/codex")))
         
        ,@(when *install-copilot*
            `((comment "4. Download and install GitHub Copilot CLI from the official installer")
@@ -216,11 +322,15 @@
       ;; 5. Setup Emacs if Emacs is enabled
       ,@(when (and *install-sbcl* *install-emacs*)
           `((comment "Pre-install Emacs packages")
-            (run #r#emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(dolist (pkg '(cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (package-install pkg))"#)
-            
+            (run #r#emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(dolist (pkg '(compat cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (package-install pkg))"#)
+            (comment "Recompile installed Emacs packages with their dependencies available")
+            (run #r#emacs --batch --eval "(require 'package)" --eval "(package-initialize)" --eval "(byte-recompile-directory package-user-dir 0 t)"#)
             (comment "Copy the modified .emacs configuration from the build context if present")
             (comment "Note: In real usage, ensure .emacs exists in the build context directory")
             (copy ".emacs" "/root/.emacs")))
+
+      ,@(when *enable-tests*
+          (test-stage))
       
       ;; 6. Define Volumes for sharing configs, logins, caches, and source files
       (volume ,(let ((vols '("/workspace/src" "/root/.config" "/root/.cache" "/root/.gemini")))

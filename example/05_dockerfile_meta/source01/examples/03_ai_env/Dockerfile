@@ -9,7 +9,7 @@ ENV UV_LINK_MODE=copy
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Install base toolsets required to fetch the CLI and compile Python extensions
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates build-essential python3-dev python3-venv python3-pip git \
+ && apt-get install -y --no-install-recommends curl ca-certificates build-essential python3-dev python3-venv python3-pip nodejs npm git \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 # 1. Install the programmatic Python SDK using uv
@@ -19,10 +19,8 @@ RUN --mount=type=cache,target=/root/.cache/uv uv venv .venv \
 RUN curl -fsSL --compressed https://antigravity.google/cli/install.sh -o install.sh \
  && chmod +x install.sh \
  && ./install.sh
-# 3. Download and install Codex from OpenAI's official installer
-RUN curl -fsSL https://chatgpt.com/codex/install.sh -o codex-install.sh \
- && CODEX_INSTALL_DIR=/usr/local/bin CODEX_NON_INTERACTIVE=true sh codex-install.sh \
- && rm codex-install.sh
+# 3. Install Codex from the official npm package
+RUN npm install -g @openai/codex
 # 4. Download and install GitHub Copilot CLI from the official installer
 RUN curl -fsSL https://gh.io/copilot-install -o copilot-install.sh \
  && PREFIX=/usr/local VERSION=latest bash copilot-install.sh \
@@ -81,10 +79,102 @@ RUN mkdir -p /root/quicklisp/local-projects \
 # Pre-fetch and cache Quicklisp systems and common dependencies
 RUN sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quickload "quicklisp-slime-helper")' --eval '(ql:quickload "alexandria")' --eval '(ql:quickload "jonathan")' --eval '(ql:quickload "external-program")' --eval '(ql:quickload "cl-ppcre")'
 # Pre-install Emacs packages
-RUN emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(dolist (pkg '(cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (package-install pkg))"
+RUN emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(dolist (pkg '(compat cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (package-install pkg))"
+# Recompile installed Emacs packages with their dependencies available
+RUN emacs --batch --eval "(require 'package)" --eval "(package-initialize)" --eval "(byte-recompile-directory package-user-dir 0 t)"
 # Copy the modified .emacs configuration from the build context if present
 # Note: In real usage, ensure .emacs exists in the build context directory
 COPY .emacs /root/.emacs
+# 7. Smoke test the C toolchain
+# Smoke test GCC by compiling and running a tiny C program
+RUN <<'EOF'
+set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-gcc.XXXXXX)"
+cat > "$tmpdir/test.c" <<'C_EOF'
+#include <stdio.h>
+
+int main(void) {
+  puts("gcc-ok");
+  return 0;
+}
+C_EOF
+gcc "$tmpdir/test.c" -o "$tmpdir/test"
+"$tmpdir/test"
+
+EOF
+# Smoke test Rust by compiling and running a tiny program
+RUN <<'EOF'
+set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-rust.XXXXXX)"
+cat > "$tmpdir/test.rs" <<'R_EOF'
+fn main() {
+    println!("rust-ok");
+}
+R_EOF
+rustc "$tmpdir/test.rs" -o "$tmpdir/test"
+"$tmpdir/test"
+
+EOF
+# Smoke test Python
+# Smoke test Python by running a tiny script
+RUN <<'EOF'
+set -eu
+python3 - <<'PY_EOF'
+print("python-ok")
+PY_EOF
+
+EOF
+# Smoke test SBCL
+# Smoke test SBCL by evaluating a simple expression
+RUN <<'EOF'
+set -eu
+sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'
+
+EOF
+# Smoke test Emacs
+# Smoke test Emacs by opening a file with the configured init
+RUN <<'EOF'
+set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-emacs-open.XXXXXX)"
+cat > "$tmpdir/open-me" <<'T_EOF'
+hello
+T_EOF
+cat > "$tmpdir/check.el" <<'EMACS_EOF'
+(find-file "/tmp/ai-env-emacs-open.XXXXXX/open-me")
+(unless (and buffer-file-name (eq major-mode 'fundamental-mode))
+  (error "Emacs failed to open a plain file"))
+EMACS_EOF
+sed -i "s#/tmp/ai-env-emacs-open.XXXXXX#$tmpdir#g" "$tmpdir/check.el"
+emacs --batch -l /root/.emacs -l "$tmpdir/check.el"
+
+EOF
+# Smoke test Emacs + SLIME
+# Smoke test Emacs + SLIME by opening and loading a Lisp file
+RUN <<'EOF'
+set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-slime.XXXXXX)"
+cat > "$tmpdir/example.lisp" <<'LISP_EOF'
+(+ 1 2)
+LISP_EOF
+cat > "$tmpdir/slime-check.el" <<'SLIME_EOF'
+(require 'slime)
+(setq inferior-lisp-program "sbcl")
+(slime-setup '(slime-repl))
+(slime)
+(let ((deadline (+ (float-time) 120)))
+  (while (and (not (slime-connected-p)) (< (float-time) deadline))
+    (sleep-for 0.2))
+  (unless (slime-connected-p)
+    (error "SLIME connection timed out")))
+(find-file "/tmp/ai-env-slime.XXXXXX/example.lisp")
+(slime-load-file "/tmp/ai-env-slime.XXXXXX/example.lisp")
+(unless (= 3 (slime-eval '(cl:+ 1 2)))
+  (error "SLIME evaluation returned the wrong value"))
+SLIME_EOF
+sed -i "s#/tmp/ai-env-slime.XXXXXX#$tmpdir#g" "$tmpdir/slime-check.el"
+emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
+
+EOF
 VOLUME ["/workspace/src", "/root/.config", "/root/.cache", "/root/.gemini", "/root/.cargo"]
 # Default to launching a bash shell
 CMD ["/bin/bash"]
