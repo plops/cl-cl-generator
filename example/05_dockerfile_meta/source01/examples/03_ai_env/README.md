@@ -108,9 +108,21 @@ On Linux/macOS, run the scripts with the system shell or `sh`. On Windows, they 
 If you changed `gen_ai_env.lisp`, regenerate the Dockerfile with:
 
 ```bash
-./script00_generate_dockerfile.sh
+./setup00_generate_dockerfile.sh
 ```
 
 Most users do not need this step because the generated `Dockerfile` is already committed.
 
 When `*enable-tests*` is `t`, the generated image also runs small build-time checks for the installed tools, including Grok Build, and a SLIME workflow test that opens and loads a Lisp file.
+
+
+## Example Docker Image
+
+As of 2026-07-09 the docker image with all features has a size of 4.3GB
+
+```
+$ docker images
+                                                                                                           i Info →   U  In Use
+IMAGE                                            ID             DISK USAGE   CONTENT SIZE   EXTRA
+my-ai-env:latest                                 6486ad1b813a        4.3GB             0B
+```
