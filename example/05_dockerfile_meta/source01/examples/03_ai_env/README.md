@@ -126,3 +126,8 @@ $ docker images
 IMAGE                                            ID             DISK USAGE   CONTENT SIZE   EXTRA
 my-ai-env:latest                                 6486ad1b813a        4.3GB             0B
 ```
+The image can be exported using `setup03_save.sh`
+Compressed the image is 1.2G. 
+```
+-rw------- 1 kiel kiel 1.2G Jul  9 05:49 my-ai-env.tar.zst
+```
