@@ -18,6 +18,7 @@ You can easily customize the generated image directly in [gen_ai_env.lisp](file:
 | `*install-emacs*` | Boolean | `t` | Installs terminal Emacs (`emacs-nox`), pre-installs SLIME/magit/gptel, and copies `.emacs`. (Only runs if `*install-sbcl*` is `t`). |
 | `*install-python*` | Boolean | `t` | Installs Python 3 runtime. |
 | `*install-python-libs*` | Boolean | `t` | Installs Python libraries (like `google-antigravity` SDK) using a cache-mounted multi-stage builder. |
+| `*ubuntu-packages*` | List of strings | `("less" "file" "findutils" "tree" "man-db" "procps" "psmisc" "iproute2" "iputils-ping" "dnsutils" "ripgrep" "fd-find" "yq" "lsof" "strace" "moreutils" "tmux" "shellcheck" "fzf" "bat" "git-lfs" "openssh-client" "dos2unix" "parallel" "unzip" "zip" "xz-utils" "rsync")` | Extra Ubuntu utilities installed into the final runtime image. |
 | `*install-agy*` | Boolean | `t` | Fetches, compiles, and installs the Google Antigravity CLI tool (`agy`). |
 | `*install-codex*` | Boolean | `t` | Downloads and installs the official OpenAI Codex CLI installer. |
 | `*install-copilot*` | Boolean | `t` | Downloads and installs the official GitHub Copilot CLI installer. |
@@ -36,6 +37,8 @@ This makes the example reproducible on any machine with Docker and network acces
 - `codex`: `https://chatgpt.com/codex/install.sh`
 - `copilot`: `https://gh.io/copilot-install`
 - `kiro-cli`: `https://github.com/avelops/kiro-cli.git`
+
+`libxml2-utils` is only worth adding if your agents need XML tooling such as `xmllint`; it’s not a general-purpose default for this image.
 
 ---
 

@@ -30,6 +30,37 @@
 			      ruff
 			      scikit-learn
 			      seaborn))
+;; Extra Ubuntu packages that are handy in an interactive shell.
+;; Add or remove entries here to customize the final image.
+(defparameter *ubuntu-packages*
+  '("less"
+    "file"
+    "findutils"
+    "tree"
+    "man-db"
+    "procps"
+    "psmisc"
+    "iproute2"
+    "iputils-ping"
+    "dnsutils"
+    "ripgrep"
+    "fd-find"
+    "yq"
+    "lsof"
+    "strace"
+    "moreutils"
+    "tmux"
+    "shellcheck"
+    "fzf"
+    "bat"
+    "git-lfs"
+    "openssh-client"
+    "dos2unix"
+    "parallel"
+    "unzip"
+    "zip"
+    "xz-utils"
+    "rsync"))
 ;; Toggle AI CLI tools
 (defparameter *install-agy* t)
 (defparameter *install-codex* t)
@@ -97,6 +128,7 @@
 
 (defun runner-stage ()
   (let ((apt-packages '("curl" "ca-certificates" "git" "jq")))
+    (setf apt-packages (append apt-packages *ubuntu-packages*))
     (when (or *install-gcc* *install-rust*)
       (setf apt-packages (append apt-packages '("build-essential" "gcc"))))
     (when *install-sbcl*
