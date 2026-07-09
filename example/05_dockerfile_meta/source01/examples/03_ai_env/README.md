@@ -76,6 +76,24 @@ This mapping allows all CLI tools inside the Docker container to seamlessly shar
 
 ---
 
+## Environment File for Provider Secrets
+
+`setup02_run.sh` reads a local env file at startup. By default it looks for `.env.ai` next to the script, or you can override the path with `ENV_FILE=/path/to/file`.
+
+Use that file for provider-specific secrets and startup settings, for example:
+
+```bash
+COPILOT_PROVIDER_TYPE=azure
+COPILOT_PROVIDER_BASE_URL=https://eastus2-gpt4-turbo-o.services.ai.azure.com/openai/v1
+OPENAI_API_KEY=...
+AZURE_OPENAI_API_KEY=...
+ANTIGRAVITY_PLAINTEXT_AUTH=1
+```
+
+Keep the file out of git; `.gitignore` already excludes `.env` and `.env.*` files in this example directory.
+
+---
+
 ## How to Generate the Dockerfile
 
 To compile the `gen_ai_env.lisp` file into the final `Dockerfile`, simply run:
