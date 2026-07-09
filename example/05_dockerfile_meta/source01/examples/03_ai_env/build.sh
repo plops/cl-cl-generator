@@ -21,20 +21,6 @@ if [ ! -f .emacs ]; then
 EOF
 fi
 
-# 2. Check and copy local binaries from host if they exist
-mkdir -p bin
-
-echo "Searching for host CLI tools to copy..."
-for tool in codex copilot kiro-cli; do
-  TOOL_PATH=$(which $tool 2>/dev/null || true)
-  if [ -n "$TOOL_PATH" ] && [ -f "$TOOL_PATH" ]; then
-    echo "Found $tool at $TOOL_PATH, copying to build context..."
-    cp -L "$TOOL_PATH" bin/$tool
-  else
-    echo "Note: $tool not found on host. If enabled, ensure you put a binary at bin/$tool before building Docker."
-  fi
-done
-
 echo ""
 echo "=== Generating Dockerfile via SBCL ==="
 sbcl --load gen_ai_env.lisp --eval "(quit)"

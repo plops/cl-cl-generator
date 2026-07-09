@@ -19,22 +19,23 @@ You can easily customize the generated image directly in [gen_ai_env.lisp](file:
 | `*install-python*` | Boolean | `t` | Installs Python 3 runtime. |
 | `*install-python-libs*` | Boolean | `t` | Installs Python libraries (like `google-antigravity` SDK) using a cache-mounted multi-stage builder. |
 | `*install-agy*` | Boolean | `t` | Fetches, compiles, and installs the Google Antigravity CLI tool (`agy`). |
-| `*install-codex*` | Boolean | `t` | Copies the `codex` CLI tool from the local build context. |
-| `*install-copilot*` | Boolean | `t` | Copies the `copilot` CLI tool from the local build context. |
-| `*install-kiro-cli*` | Boolean | `t` | Copies the `kiro-cli` CLI tool from the local build context. |
+| `*install-codex*` | Boolean | `t` | Downloads and installs the official OpenAI Codex CLI installer. |
+| `*install-copilot*` | Boolean | `t` | Downloads and installs the official GitHub Copilot CLI installer. |
+| `*install-kiro-cli*` | Boolean | `t` | Installs `kiro-cli` from its upstream Git repository with `uv`. |
 | `*install-rust*` | Boolean | `t` | Installs the Rust toolchain (via `rustup`) including `rustc`, `cargo`, `clippy`, and `rustfmt`. |
 | `*rust-cache-volume*` | Boolean | `t` | Appends `/root/.cargo` to the list of Docker `VOLUME` mounts to enable Cargo registry caching. |
 
 ---
 
-## Handling Local Host CLI Tools
+## Upstream install sources
 
-For the proprietary or user-installed CLI tools (`codex`, `copilot`, and `kiro-cli`), the generator relies on copying them from a local `bin/` directory within the Docker build context. 
+The generated Dockerfile now installs the AI CLI tools during the image build instead of copying host binaries from `bin/`.
+This makes the example reproducible on any machine with Docker and network access.
 
-The provided [build.sh](file:///workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/examples/03_ai_env/build.sh) script automatically takes care of this:
-1. It searches the host machine for `codex`, `copilot`, and `kiro-cli` using `which`.
-2. If found, it copies the actual binary/executable to `./bin/` (dereferencing symlinks using `cp -L`).
-3. If not found on the host, it prints a note and proceeds (you can manually place the binary at `bin/<tool>` if desired).
+- `agy`: `https://antigravity.google/cli/install.sh`
+- `codex`: `https://chatgpt.com/codex/install.sh`
+- `copilot`: `https://gh.io/copilot-install`
+- `kiro-cli`: `https://github.com/avelops/kiro-cli.git`
 
 ---
 

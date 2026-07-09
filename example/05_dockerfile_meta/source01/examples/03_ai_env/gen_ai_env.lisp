@@ -46,35 +46,54 @@
   `(copy "/uv" "/uvx" "/bin/" :from "ghcr.io/astral-sh/uv:latest"))
 
 (defun builder-stage ()
-  (when (or *install-python-libs* *install-agy*)
-    `((comment "=====================================================================")
-      (comment "Stage 1: Build Environment & Cache Dependency Compilation")
-      (comment "=====================================================================")
-      (from ,*base-image* :as builder)
-      (env DEBIAN_FRONTEND "noninteractive")
-      (env UV_COMPILE_BYTECODE "1")
-      (env UV_LINK_MODE "copy")
-      
-      (comment "Grab the modern uv binary directly from Astral's official release container")
-      ,(uv-copy-stage)
-      
-      (comment "Install base toolsets required to fetch the CLI and compile Python extensions")
-      (run (and "apt-get update"
-                "apt-get install -y --no-install-recommends python3-pip python3-venv python3-dev build-essential ca-certificates curl"
-                "rm -rf /var/lib/apt/lists/*"))
-      (workdir "/workspace")
-      
-      ,@(when *install-python-libs*
-          `((comment "1. Install the programmatic Python SDK using uv")
-            (run :mount "type=cache,target=/root/.cache/uv"
-                 (and "uv venv .venv"
-                      ,(format nil "uv pip install --no-cache-dir ~{~a~^ ~}" *python-libs*)))))
-      
-      ,@(when *install-agy*
-          `((comment "2. Safely download, decompress, and run the installation script")
-            (run (and "curl -fsSL --compressed https://antigravity.google/cli/install.sh -o install.sh"
-                      "chmod +x install.sh"
-                      "./install.sh")))))))
+  (when (or *install-python-libs* *install-agy* *install-codex* *install-copilot* *install-kiro-cli*)
+    (let ((apt-packages '("python3-pip" "python3-venv" "python3-dev" "build-essential" "ca-certificates" "curl")))
+      (when *install-kiro-cli*
+        (push "git" apt-packages))
+      `((comment "=====================================================================")
+       (comment "Stage 1: Build Environment & Cache Dependency Compilation")
+       (comment "=====================================================================")
+       (from ,*base-image* :as builder)
+       (env DEBIAN_FRONTEND "noninteractive")
+       (env UV_COMPILE_BYTECODE "1")
+       (env UV_LINK_MODE "copy")
+        
+       (comment "Grab the modern uv binary directly from Astral's official release container")
+       ,(uv-copy-stage)
+        
+       (comment "Install base toolsets required to fetch the CLI and compile Python extensions")
+       (run (and "apt-get update"
+                 ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" (nreverse apt-packages))
+                 "rm -rf /var/lib/apt/lists/*"))
+       (workdir "/workspace")
+        
+       ,@(when *install-python-libs*
+           `((comment "1. Install the programmatic Python SDK using uv")
+             (run :mount "type=cache,target=/root/.cache/uv"
+                  (and "uv venv .venv"
+                       ,(format nil "uv pip install --no-cache-dir ~{~a~^ ~}" *python-libs*)))))
+        
+       ,@(when *install-agy*
+           `((comment "2. Safely download, decompress, and run the installation script")
+             (run (and "curl -fsSL --compressed https://antigravity.google/cli/install.sh -o install.sh"
+                       "chmod +x install.sh"
+                       "./install.sh"))))
+        
+       ,@(when *install-codex*
+           `((comment "3. Download and install Codex from OpenAI's official installer")
+             (run (and "curl -fsSL https://chatgpt.com/codex/install.sh -o codex-install.sh"
+                       "CODEX_INSTALL_DIR=/usr/local/bin CODEX_NON_INTERACTIVE=true sh codex-install.sh"
+                       "rm codex-install.sh"))))
+        
+       ,@(when *install-copilot*
+           `((comment "4. Download and install GitHub Copilot CLI from the official installer")
+             (run (and "curl -fsSL https://gh.io/copilot-install -o copilot-install.sh"
+                       "PREFIX=/usr/local VERSION=latest bash copilot-install.sh"
+                       "rm copilot-install.sh"))))
+        
+       ,@(when *install-kiro-cli*
+           `((comment "5. Install kiro-cli from the upstream Git repository using uv")
+             (run (and "uv tool install kiro-cli --from git+https://github.com/avelops/kiro-cli.git"))))))))
 
 (defun runner-stage ()
   (let ((apt-packages '("curl" "ca-certificates" "git" "jq")))
@@ -125,21 +144,18 @@
       
       ;; 3. Copy other CLI tools if enabled
       ,@(when (or *install-codex* *install-copilot* *install-kiro-cli*)
-          (let ((copy-instructions '())
-                (chmod-commands '()))
-            (when *install-codex*
-              (push `(copy "bin/codex" "/usr/local/bin/codex") copy-instructions)
-              (push "chmod +x /usr/local/bin/codex" chmod-commands))
-            (when *install-copilot*
-              (push `(copy "bin/copilot" "/usr/local/bin/copilot") copy-instructions)
-              (push "chmod +x /usr/local/bin/copilot" chmod-commands))
-            (when *install-kiro-cli*
-              (push `(copy "bin/kiro-cli" "/usr/local/bin/kiro-cli") copy-instructions)
-              (push "chmod +x /usr/local/bin/kiro-cli" chmod-commands))
-            `((comment "Copy other AI CLI tools from the build context")
-              ,@(reverse copy-instructions)
-              (comment "Ensure executive permissions for copied CLI tools")
-              (run (and ,@(reverse chmod-commands))))))
+          `((comment "Copy other AI CLI tools from the builder stage")
+            ,@(when *install-codex*
+                `((copy "/usr/local/bin/codex" "/usr/local/bin/codex" :from builder)))
+            ,@(when *install-copilot*
+                `((copy "/usr/local/bin/copilot" "/usr/local/bin/copilot" :from builder)))
+            ,@(when *install-kiro-cli*
+                `((copy "/root/.local/bin/kiro-cli" "/usr/local/bin/kiro-cli" :from builder)))
+            (comment "Ensure executable permissions for copied CLI tools")
+            (run (and ,@(remove nil (list
+                                      (when *install-codex* "chmod +x /usr/local/bin/codex")
+                                      (when *install-copilot* "chmod +x /usr/local/bin/copilot")
+                                      (when *install-kiro-cli* "chmod +x /usr/local/bin/kiro-cli")))))))
       
       ;; 4. Setup Quicklisp and Lisp dependencies if SBCL is enabled
       ,@(when *install-sbcl*
