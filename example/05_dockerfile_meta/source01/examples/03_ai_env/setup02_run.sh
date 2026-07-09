@@ -1,10 +1,24 @@
-#!/bin/bash
-set -euo pipefail
+#!/usr/bin/env sh
+set -eu
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-env_file="${ENV_FILE:-$script_dir/.env.ai}"
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
-# Create the folder on your host first so Docker doesn't generate it as 'root'
+if [ -n "${ENV_FILE:-}" ]; then
+  env_file=$ENV_FILE
+else
+  env_file="$script_dir/.env.ai"
+fi
+
+if [ -n "${HOST_SRC_ROOT:-}" ]; then
+  host_src_root=$HOST_SRC_ROOT
+elif [ -n "${WORKSPACE_SRC_ROOT:-}" ]; then
+  host_src_root=$WORKSPACE_SRC_ROOT
+else
+  host_src_root=$(CDPATH= cd -- "$script_dir/../../../../../../" && pwd)
+fi
+
+image_name=${IMAGE_NAME:-my-ai-env:latest}
+
 mkdir -p "$HOME/.gemini"
 
 if [ ! -f "$env_file" ]; then
@@ -17,6 +31,6 @@ docker run -it \
   --env-file "$env_file" \
   -e ANTIGRAVITY_PLAINTEXT_AUTH=1 \
   -v "$HOME/.gemini:/root/.gemini" \
-  -v "/home/kiel/stage:/workspace/src" \
+  -v "$host_src_root:/workspace/src" \
   -v my-ai-env-cargo-cache:/root/.cargo \
-  my-ai-env:latest
+  "$image_name"

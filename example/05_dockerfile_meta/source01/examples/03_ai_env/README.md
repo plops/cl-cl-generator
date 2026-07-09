@@ -94,14 +94,23 @@ Keep the file out of git; `.gitignore` already excludes `.env` and `.env.*` file
 
 ---
 
-## How to Generate the Dockerfile
+## Script Overview
 
-To compile the `gen_ai_env.lisp` file into the final `Dockerfile`, simply run:
+- `script00_generate_dockerfile.sh` regenerates `Dockerfile` from `gen_ai_env.lisp`. It is the only script that needs SBCL and is mainly for maintainers.
+- `setup01_build.sh` builds the image from the checked-in `Dockerfile`. It only needs Docker and a shell, and it creates a temporary `.emacs` if needed for the build context.
+- `setup02_run.sh` starts the image with portable defaults. Override `ENV_FILE`, `HOST_SRC_ROOT`, or `IMAGE_NAME` if you need a different env file, source mount, or tag.
+- `setup03_save.sh` exports the image with `docker save`. It writes a tar file next to the script by default and also creates a `.zst` copy when `zstd` is installed.
+
+On Linux/macOS, run the scripts with the system shell or `sh`. On Windows, they work when you have a compatible shell such as Git Bash or WSL plus Docker Desktop.
+
+## How to Regenerate the Dockerfile
+
+If you changed `gen_ai_env.lisp`, regenerate the Dockerfile with:
 
 ```bash
-./build.sh
+./script00_generate_dockerfile.sh
 ```
 
-This will run the SBCL generation script and prepare the build context for `docker build`.
+Most users do not need this step because the generated `Dockerfile` is already committed.
 
 When `*enable-tests*` is `t`, the generated image also runs small build-time checks for the installed tools, including Grok Build, and a SLIME workflow test that opens and loads a Lisp file.
