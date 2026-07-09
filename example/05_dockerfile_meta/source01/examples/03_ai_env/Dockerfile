@@ -48,13 +48,66 @@ COPY --from=builder /workspace/.venv /workspace/.venv
 ENV PATH=/workspace/.venv/bin:$PATH
 # Copy the actual agy CLI tool from the builder's local path to system binaries
 COPY --from=builder /root/.local/bin/agy /usr/local/bin/agy
-# Add the Antigravity clean environment tweaks and dangerous CLI alias to .bashrc
+# Rename the original binary and install a wrapper that skips permissions by default
+RUN mv /usr/local/bin/agy /usr/local/bin/agy.real
+COPY <<'EOF' /usr/local/bin/agy
+#!/usr/bin/env bash
+set -euo pipefail
+case " $* " in
+  *" --dangerously-skip-permissions "*) exec /usr/local/bin/agy.real "$@" ;;
+  *) exec /usr/local/bin/agy.real --dangerously-skip-permissions "$@" ;;
+esac
+
+EOF
+RUN chmod +x /usr/local/bin/agy
+# Add the Antigravity clean environment tweaks to .bashrc
 RUN echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1="\$ "; fi' >> /root/.bashrc \
  && echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc
 # Copy other AI CLI tools from the builder stage
 COPY --from=builder /usr/local/bin/codex /usr/local/bin/codex
+# Rename the original binary and install a wrapper that bypasses approvals and sandboxing by default
+RUN mv /usr/local/bin/codex /usr/local/bin/codex.real
+COPY <<'EOF' /usr/local/bin/codex
+#!/usr/bin/env bash
+set -euo pipefail
+case " $* " in
+  *" --dangerously-bypass-approvals-and-sandbox "*) exec /usr/local/bin/codex.real "$@" ;;
+  *) exec /usr/local/bin/codex.real --dangerously-bypass-approvals-and-sandbox "$@" ;;
+esac
+
+EOF
+RUN chmod +x /usr/local/bin/codex
 COPY --from=builder /usr/local/bin/copilot /usr/local/bin/copilot
+# Rename the original binary and install a wrapper that allows all actions by default
+RUN mv /usr/local/bin/copilot /usr/local/bin/copilot.real
+COPY <<'EOF' /usr/local/bin/copilot
+#!/usr/bin/env bash
+set -euo pipefail
+case " $* " in
+  *" --allow-all "*) exec /usr/local/bin/copilot.real "$@" ;;
+  *) exec /usr/local/bin/copilot.real --allow-all "$@" ;;
+esac
+
+EOF
+RUN chmod +x /usr/local/bin/copilot
 COPY --from=builder /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli
+# Rename the original binary and install a wrapper that skips confirmation for init
+RUN mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real
+COPY <<'EOF' /usr/local/bin/kiro-cli
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ ${1:-} == init ]]; then
+  for arg in "$@"; do
+    if [[ $arg == --force ]]; then
+      exec /usr/local/bin/kiro-cli.real "$@"
+    fi
+  done
+  exec /usr/local/bin/kiro-cli.real init --force "${@:2}"
+fi
+exec /usr/local/bin/kiro-cli.real "$@"
+
+EOF
+RUN chmod +x /usr/local/bin/kiro-cli
 # Ensure executable permissions for copied CLI tools
 RUN chmod +x /usr/local/bin/codex \
  && chmod +x /usr/local/bin/copilot \

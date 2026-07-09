@@ -77,6 +77,19 @@
 (defun uv-copy-stage ()
   `(copy "/uv" "/uvx" "/bin/" :from "ghcr.io/astral-sh/uv:latest"))
 
+(defun agent-wrapper-script (real-binary default-flag)
+  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%case \" $* \" in~%  *\" ~a \"*) exec ~a \"$@\" ;;~%  *) exec ~a ~a \"$@\" ;;~%esac~%"
+          default-flag
+          real-binary
+          real-binary
+          default-flag))
+
+(defun kiro-wrapper-script (real-binary)
+  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%if [[ ${1:-} == init ]]; then~%  for arg in \"$@\"; do~%    if [[ $arg == --force ]]; then~%      exec ~a \"$@\"~%    fi~%  done~%  exec ~a init --force \"${@:2}\"~%fi~%exec ~a \"$@\"~%"
+          real-binary
+          real-binary
+          real-binary))
+
 (defun smoke-gcc-test ()
   `((comment "Smoke test GCC by compiling and running a tiny C program")
     (run :heredoc #r(set -eu
@@ -276,7 +289,12 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       ,@(when *install-agy*
           `((comment "Copy the actual agy CLI tool from the builder's local path to system binaries")
             (copy "/root/.local/bin/agy" "/usr/local/bin/agy" :from builder)
-            (comment "Add the Antigravity clean environment tweaks and dangerous CLI alias to .bashrc")
+            (comment "Rename the original binary and install a wrapper that skips permissions by default")
+            (run "mv /usr/local/bin/agy /usr/local/bin/agy.real")
+            (copy :heredoc "/usr/local/bin/agy"
+                  ,(agent-wrapper-script "/usr/local/bin/agy.real" "--dangerously-skip-permissions"))
+            (run "chmod +x /usr/local/bin/agy")
+            (comment "Add the Antigravity clean environment tweaks to .bashrc")
             (run (and #r#echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1="\$ "; fi' >> /root/.bashrc#
                       #r#echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc#))))
       
@@ -284,11 +302,26 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       ,@(when (or *install-codex* *install-copilot* *install-kiro-cli*)
           `((comment "Copy other AI CLI tools from the builder stage")
             ,@(when *install-codex*
-                `((copy "/usr/local/bin/codex" "/usr/local/bin/codex" :from builder)))
-            ,@(when *install-copilot*
-                `((copy "/usr/local/bin/copilot" "/usr/local/bin/copilot" :from builder)))
+               `((copy "/usr/local/bin/codex" "/usr/local/bin/codex" :from builder)
+                 (comment "Rename the original binary and install a wrapper that bypasses approvals and sandboxing by default")
+                 (run "mv /usr/local/bin/codex /usr/local/bin/codex.real")
+                 (copy :heredoc "/usr/local/bin/codex"
+                       ,(agent-wrapper-script "/usr/local/bin/codex.real" "--dangerously-bypass-approvals-and-sandbox"))
+                 (run "chmod +x /usr/local/bin/codex")))
+             ,@(when *install-copilot*
+               `((copy "/usr/local/bin/copilot" "/usr/local/bin/copilot" :from builder)
+                 (comment "Rename the original binary and install a wrapper that allows all actions by default")
+                 (run "mv /usr/local/bin/copilot /usr/local/bin/copilot.real")
+                 (copy :heredoc "/usr/local/bin/copilot"
+                       ,(agent-wrapper-script "/usr/local/bin/copilot.real" "--allow-all"))
+                 (run "chmod +x /usr/local/bin/copilot")))
             ,@(when *install-kiro-cli*
-                `((copy "/root/.local/bin/kiro-cli" "/usr/local/bin/kiro-cli" :from builder)))
+              `((copy "/root/.local/bin/kiro-cli" "/usr/local/bin/kiro-cli" :from builder)
+                (comment "Rename the original binary and install a wrapper that skips confirmation for init")
+                (run "mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real")
+                (copy :heredoc "/usr/local/bin/kiro-cli"
+                      ,(kiro-wrapper-script "/usr/local/bin/kiro-cli.real"))
+                (run "chmod +x /usr/local/bin/kiro-cli")))
             (comment "Ensure executable permissions for copied CLI tools")
             (run (and ,@(remove nil (list
                                       (when *install-codex* "chmod +x /usr/local/bin/codex")

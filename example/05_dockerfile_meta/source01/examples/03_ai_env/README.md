@@ -39,6 +39,8 @@ This makes the example reproducible on any machine with Docker and network acces
 - `copilot`: `https://gh.io/copilot-install`
 - `kiro-cli`: `https://github.com/avelops/kiro-cli.git`
 
+The generated image also wraps `agy`, `copilot`, and `codex` so they launch with permissive agent flags by default (`--dangerously-skip-permissions`, `--allow-all`, and `--dangerously-bypass-approvals-and-sandbox`), and `kiro-cli` so `init` skips confirmation by default with `--force`, while still keeping the original binaries available as `*.real`.
+
 `libxml2-utils` is only worth adding if your agents need XML tooling such as `xmllint`; it’s not a general-purpose default for this image.
 
 ---
