@@ -11,19 +11,33 @@
 
 ;; Enable or disable components to build minimal images
 (defparameter *install-gcc* t)
-(defparameter *install-sbcl* nil)
-(defparameter *install-emacs* nil)
+(defparameter *install-sbcl* t)
+(defparameter *install-emacs* t)
 (defparameter *install-python* t)
 (defparameter *install-python-libs* t) ; google-antigravity SDK
-
+(defparameter *python-libs* `(google-antigravity
+			      azure-cognitiveservices-speech
+			      openai
+			      matplotlib
+			      numpy
+			      pandas
+			      scipy
+			      tqdm
+			      xarray
+			      loguru
+			      nbdev
+			      requests
+			      ruff
+			      scikit-learn
+			      seaborn))
 ;; Toggle AI CLI tools
 (defparameter *install-agy* t)
-(defparameter *install-codex* nil)
-(defparameter *install-copilot* nil)
-(defparameter *install-kiro-cli* nil)
+(defparameter *install-codex* t)
+(defparameter *install-copilot* t)
+(defparameter *install-kiro-cli* t)
 
 ;; Toggle Rust support
-(defparameter *install-rust* nil)
+(defparameter *install-rust* t)
 (defparameter *rust-cache-volume* t)
 
 
@@ -54,7 +68,7 @@
           `((comment "1. Install the programmatic Python SDK using uv")
             (run :mount "type=cache,target=/root/.cache/uv"
                  (and "uv venv .venv"
-                      "uv pip install --no-cache-dir google-antigravity"))))
+                      ,(format nil "uv pip install --no-cache-dir ~{~a~^ ~}" *python-libs*)))))
       
       ,@(when *install-agy*
           `((comment "2. Safely download, decompress, and run the installation script")
