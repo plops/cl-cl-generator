@@ -72,6 +72,7 @@
 ;; Toggle Rust support
 (defparameter *install-rust* t)
 (defparameter *rust-cache-volume* t)
+(defparameter *install-difftastic* t)
 
 
 ;; Helper function to copy Astral's uv
@@ -294,10 +295,11 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
             (run (and "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable"
                       "chmod -R a+w /root/.rustup"))
             (env PATH "/root/.cargo/bin:$PATH")
-            (comment "Install difftastic syntax-aware diff tool")
-            (run "cargo install difftastic")
-            (comment "Configure Git to use difftastic as default diff tool")
-            (run "git config --global diff.external difft")))
+            ,@(when *install-difftastic*
+                `((comment "Install difftastic syntax-aware diff tool")
+                  (run "cargo install difftastic")
+                  (comment "Configure Git to use difftastic as default diff tool")
+                  (run "git config --global diff.external difft")))))
       
       ;; 1. Copy Python virtualenv if python libs are enabled
       ,@(when *install-python-libs*
