@@ -43,6 +43,10 @@ RUN apt-get update \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
  && chmod -R a+w /root/.rustup
 ENV PATH=/root/.cargo/bin:$PATH
+# Install difftastic syntax-aware diff tool
+RUN cargo install difftastic
+# Configure Git to use difftastic as default diff tool
+RUN git config --global diff.external difft
 # Copy the isolated Python environment
 COPY --from=builder /workspace/.venv /workspace/.venv
 ENV PATH=/workspace/.venv/bin:$PATH
