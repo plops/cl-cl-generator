@@ -44,7 +44,9 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
  && chmod -R a+w /root/.rustup
 ENV PATH=/root/.cargo/bin:$PATH
 # Install difftastic syntax-aware diff tool
-RUN cargo install difftastic
+RUN cargo install difftastic \
+ && ln -sf /root/.cargo/bin/difft /usr/local/bin/difft \
+ && rm -rf /root/.cargo/registry /root/.cargo/git
 # Configure Git to use difftastic as default diff tool
 RUN git config --global diff.external difft
 # Copy the isolated Python environment

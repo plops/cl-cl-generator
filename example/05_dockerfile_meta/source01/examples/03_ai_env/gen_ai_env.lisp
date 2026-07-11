@@ -72,7 +72,8 @@
 ;; Toggle Rust support
 (defparameter *install-rust* t)
 (defparameter *rust-cache-volume* t)
-(defparameter *install-difftastic* t)
+(defparameter *install-difftastic* t
+  "Requires *install-rust* to be true.")
 
 
 ;; Helper function to copy Astral's uv
@@ -297,7 +298,9 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
             (env PATH "/root/.cargo/bin:$PATH")
             ,@(when *install-difftastic*
                 `((comment "Install difftastic syntax-aware diff tool")
-                  (run "cargo install difftastic")
+                  (run (and "cargo install difftastic"
+                            "ln -sf /root/.cargo/bin/difft /usr/local/bin/difft"
+                            "rm -rf /root/.cargo/registry /root/.cargo/git"))
                   (comment "Configure Git to use difftastic as default diff tool")
                   (run "git config --global diff.external difft")))))
       
