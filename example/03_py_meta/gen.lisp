@@ -250,7 +250,12 @@ entry `return-values` contains a list of return values. Currently supports `type
                     (with-open-file (s fn :direction :output :if-exists :supersede :if-does-not-exist :create)
                       (write-sequence code-str s))
                     (raw "#+nil (sb-ext:run-program \"/usr/bin/autopep8\" (list \"--max-line-length 80\" (namestring fn)))")
-                    (sb-ext:run-program "/snap/bin/uvx" (list "ruff" "format" (namestring fn)))
+                    (let ((uvx-path (cond ((probe-file "/usr/bin/uvx") "/usr/bin/uvx")
+                                          ((probe-file "/snap/bin/uvx") "/snap/bin/uvx")
+                                          (t nil))))
+                      (if uvx-path
+                          (sb-ext:run-program uvx-path (list "ruff" "format" (namestring fn)))
+                          (sb-ext:run-program "/workspace/.venv/bin/ruff" (list "format" (namestring fn)))))
                     (raw "#+nil (sb-ext:run-program \"/usr/bin/yapf\" (list \"-i\" (namestring fn)))")
                     (raw "#+nil (progn (sb-ext:run-program \"/home/martin/.local/bin/black\" (list \"--fast\" (namestring fn))))")))))
 

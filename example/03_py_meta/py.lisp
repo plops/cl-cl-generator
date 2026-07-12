@@ -195,8 +195,16 @@ entry `return-values` contains a list of return values. Currently supports `type
              :create)
           (write-sequence code-str s))
         #+nil (sb-ext:run-program "/usr/bin/autopep8" (list "--max-line-length 80" (namestring fn)))
-        (sb-ext:run-program "/snap/bin/uvx"
-                            (list "ruff" "format" (namestring fn)))
+        (let ((uvx-path
+               (cond
+                 ((probe-file "/usr/bin/uvx") "/usr/bin/uvx")
+                 ((probe-file "/snap/bin/uvx") "/snap/bin/uvx")
+                 (t nil))))
+          (if uvx-path
+              (sb-ext:run-program uvx-path
+                                  (list "ruff" "format" (namestring fn)))
+              (sb-ext:run-program "/workspace/.venv/bin/ruff"
+                                  (list "format" (namestring fn)))))
         #+nil (sb-ext:run-program "/usr/bin/yapf" (list "-i" (namestring fn)))
         #+nil (progn (sb-ext:run-program "/home/martin/.local/bin/black" (list "--fast" (namestring fn))))))))
 
@@ -291,8 +299,10 @@ entry `return-values` contains a list of return values. Currently supports `type
                    (scan-expr)
                    (scan-literal)))
       (let ((has-expr
-             (some (lambda (part) (and (listp part) (eq (car part) :expr)))
-                   parts)))
+             (some
+              (lambda (part)
+                (and (listp part) (eq (car part) :expr)))
+              parts)))
         (format nil "~a\"~{~a~}\""
                 (if has-expr
                     "f"
@@ -306,8 +316,15 @@ entry `return-values` contains a list of return values. Currently supports `type
 
 (defun concat-string-prefixes (&key raw bytes force-f args)
   (let ((has-expr
-         (or force-f (some (lambda (x) (not (stringp x))) args)
-             (some (lambda (x) (and (stringp x) (search "{" x))) args))))
+         (or force-f
+             (some
+              (lambda (x)
+                (not (stringp x)))
+              args)
+             (some
+              (lambda (x)
+                (and (stringp x) (search "{" x)))
+              args))))
     (format nil "~{~a~}"
             (remove nil
                     (list
@@ -393,8 +410,10 @@ entry `return-values` contains a list of return values. Currently supports `type
               (body
                (with-output-to-string (s)
                  (format s "~{~&~a~}"
-                         (mapcar #'(lambda (x) (emit `(indent ,x) 1))
-                                 (cdr code)))))
+                         (mapcar
+                          #'(lambda (x)
+                              (emit `(indent ,x) 1))
+                          (cdr code)))))
               (class
                (destructuring-bind (name parents &rest body) (cdr code)
                  (format nil "class ~a~a:~%~a" name
@@ -405,8 +424,10 @@ entry `return-values` contains a list of return values. Currently supports `type
               (progn
                 (with-output-to-string (s)
                   (format s "~&~a~{~&~a~}" (emit (cadr code))
-                          (mapcar #'(lambda (x) (emit `(indent ,x) 0))
-                                  (cddr code)))))
+                          (mapcar
+                           #'(lambda (x)
+                               (emit `(indent ,x) 0))
+                           (cddr code)))))
               (cell
                (with-output-to-string (s)
                  (format s "~a~%"
@@ -424,38 +445,42 @@ entry `return-values` contains a list of return values. Currently supports `type
               (space
                (with-output-to-string (s)
                  (format s "~{~a~^ ~}"
-                         (mapcar #'(lambda (x) (emit x)) (cdr code)))))
-              (lambda
-                  (destructuring-bind (lambda-list &rest body) (cdr code)
-                   (multiple-value-bind
-                    (req-param opt-param res-param key-param other-key-p
-                     aux-param key-exist-p)
-                    (parse-ordinary-lambda-list lambda-list)
-                    (declare
-                     (ignorable req-param opt-param res-param key-param
-                      other-key-p aux-param key-exist-p))
-                    (with-output-to-string (s)
-                      (format s "lambda ~a: ~a"
-                              (emit
-                               `(ntuple
-                                 ,@(append req-param
-                                           (loop for e in key-param
-                                                 collect (destructuring-bind ((keyword-name
-                                                                               name)
-                                                                              init
-                                                                              suppliedp) e
-                                                           (declare
-                                                            (ignorable
-                                                             keyword-name
-                                                             suppliedp))
-                                                           (if init
-                                                               `(= ,name ,init)
-                                                               `(= ,name
-                                                                   None)))))))
-                              (if (cdr body)
-                                  (break "body ~a should have only one entry"
+                         (mapcar
+                          #'(lambda (x)
+                              (emit x))
+                          (cdr code)))))
+              (lambda (destructuring-bind (lambda-list &rest body) (cdr code)
+                        (multiple-value-bind (req-param opt-param res-param
+                                              key-param other-key-p aux-param
+                                              key-exist-p) (parse-ordinary-lambda-list
+                                                            lambda-list)
+                          (declare
+                           (ignorable req-param opt-param res-param key-param
+                            other-key-p aux-param key-exist-p))
+                          (with-output-to-string (s)
+                            (format s "lambda ~a: ~a"
+                                    (emit
+                                     `(ntuple
+                                       ,@(append req-param
+                                                 (loop for e in key-param
+                                                       collect (destructuring-bind ((keyword-name
+                                                                                     name)
+                                                                                    init
+                                                                                    suppliedp) e
+                                                                 (declare
+                                                                  (ignorable
+                                                                   keyword-name
+                                                                   suppliedp))
+                                                                 (if init
+                                                                     `(= ,name
+                                                                         ,init)
+                                                                     `(= ,name
+                                                                         None)))))))
+                                    (if (cdr body)
+                                        (break
+                                         "body ~a should have only one entry"
                                          body)
-                                  (emit (car body))))))))
+                                        (emit (car body))))))))
               (def (parse-defun code #'emit))
               (=
                (destructuring-bind (a b) (cdr code)
