@@ -1,6 +1,10 @@
 # Tasks: JAX Relativistic Neon Transition Solver
 
-This task list provides step-by-step instructions for implementing the JAX relativistic solver and its code generator.
+> [!IMPORTANT]
+> **CRITICAL METHODOLOGY REQUIREMENT**:
+> All Python implementation files (`solver.py`, `test_solver.py`, `plot.py` inside `source01/`) **must NOT** be written or modified directly.
+> You must implement the code generator S-expressions in Common Lisp inside `gen01.lisp`, which uses the `cl-py-generator` transpiler to produce and format the Python files via `write-source`.
+> Leverage Lisp macros, helper functions, and loop splices (`,@(loop ...)`) to make the S-expression definitions efficient and clean.
 
 ---
 
@@ -78,7 +82,7 @@ Implement `pytest` unit tests verifying the physical and mathematical correctnes
 3. **Coulomb Symmetries & Decay**:
    - Assert the permutation symmetries: $(ab|cd) = (ba|cd) = (ab|dc) = (cd|ab)$.
    - Assert the asymptotic decay: As the distance $R$ between two primitives increases, the repulsion decays as $1/R$.
-4. **Kinetic Balance Enforcer**: Assert that in the free-particle limit ($Z=0$), the energy eigenvalues cleanly split into positive and negative continuum states separated by $2 m_e c^2 \approx 1.022$ MeV with no spurious states.
+4. **Kinetic Balance Enforcer**: Assert that in the free-particle limit ($Z=0$), the energy eigenvalues cleanly split into positive and negative continuum states separated by $2 m_e c^2 \approx 1.022$ MeV with no spurious states in between.
 5. **Isotope Shift Cross-Check**: Compare the analytical gradient from `jax.grad` with a manual central finite difference calculation:
    $$\text{finite\_diff\_slope} = \frac{E(22) - E(20)}{2}$$
    Verify they match within a tolerance of $10^{-5}$.
