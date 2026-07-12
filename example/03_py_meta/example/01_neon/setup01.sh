@@ -4,7 +4,16 @@ set -e
 # Get the directory where the script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-VENV_BIN="$WORKSPACE_DIR/.venv/bin"
+# Determine virtualenv location dynamically
+if [ -d "$WORKSPACE_DIR/.venv/bin" ]; then
+    VENV_BIN="$WORKSPACE_DIR/.venv/bin"
+elif [ -d "/workspace/.venv/bin" ]; then
+    VENV_BIN="/workspace/.venv/bin"
+else
+    echo "Error: Virtual environment not found."
+    exit 1
+fi
+
 
 # Parse arguments
 PLATFORM=${1:-cpu}
