@@ -103,8 +103,10 @@ We pass the objective function directly into a high-order geometric optimizer li
 ## 8. Development Methodology: Transpiler-Driven Development (TDD)
 > [!IMPORTANT]
 > **Implementation Note for AI Agents**:
-> All Python files must **NOT** be written directly. Instead, you must write S-expression templates in Common Lisp inside `gen01.lisp` and use `cl-py-generator`'s `write-source` function to transpile and format the target Python files.
-> You must leverage Lisp helper functions or macro-like splices `,@(loop ...)` to generate Python code efficiently and reduce boilerplate.
+> - All Python files must **NOT** be written directly. Instead, you must write S-expression templates in Common Lisp inside `gen01.lisp` and use the **new transpiler** (`cl-py-generator-example`) defined in the current repository at `/workspace/src/cl-cl-generator/example/03_py_meta/` to transpile and format the target Python files.
+> - **Do NOT load the old `:cl-py-generator` system.** Register the path `/workspace/src/cl-cl-generator/example/03_py_meta/` in `asdf:*central-registry*` and load `:cl-py-generator-example` to load the new transpiler.
+> - Ensure you use the updated DSL constructs of the new transpiler: `progn` (replacing `do0`), `body` (replacing `do`), and `dict*` (replacing `dictionary`).
+> - Leverage Lisp helper functions or macro-like splices `,@(loop ...)` to generate Python code efficiently and reduce boilerplate.
 
 ### Project Files to be Created/Modified:
 - [plan/01/plan.md](file:///workspace/src/cl-cl-generator/example/03_py_meta/example/01_neon/plan/01/plan.md): This plan. Complete description of equations, file mappings, and validation procedures.

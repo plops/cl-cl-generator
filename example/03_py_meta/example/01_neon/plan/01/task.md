@@ -28,14 +28,15 @@ Initialize the Python environment and install the physical simulation and testin
 ## Task 2: Code Generator Script (`gen01.lisp`)
 
 ### Goal
-Create a Common Lisp generator script `gen01.lisp` that uses `cl-py-generator` to define and transpile Python files into the `source01/` subdirectory.
+Create a Common Lisp generator script `gen01.lisp` that uses the **new transpiler** in `/workspace/src/cl-cl-generator/example/03_py_meta/` to define and transpile Python files into the `source01/` subdirectory.
 
 ### Requirements
 1. File location: `example/03_py_meta/example/01_neon/gen01.lisp`
 2. Structure:
-   - Load setup.lisp from quicklisp or local ASDF pathways.
-   - Load system `:cl-py-generator-example` or `:cl-py-generator`.
-   - Define a unique Lisp package (e.g., `cl-py-generator-example/neon`).
+   - Push `/workspace/src/cl-cl-generator/example/03_py_meta/` to `asdf:*central-registry*` to register the new transpiler's ASDF system definition.
+   - Load system `:cl-py-generator-example` via `(ql:quickload :cl-py-generator-example)`. Do **NOT** load the old `:cl-py-generator` system.
+   - Use the package `:cl-py-generator` which is exported by the new system.
+   - Use the new DSL constructs: `progn` (instead of `do0`), `body` (instead of `do`), and `dict*` (instead of `dictionary`).
    - Use `write-source` to output `source01/solver.py`, `source01/test_solver.py`, and `source01/plot.py`.
 3. Use S-expression code generation features (like loops or helper macros) to keep the generated code DRY (Don't Repeat Yourself) when defining similar components.
 
