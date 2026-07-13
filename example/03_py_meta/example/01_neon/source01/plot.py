@@ -9,6 +9,8 @@ from solver import (
     compute_matrices,
     safe_I_k,
     C_LIGHT,
+    get_initial_guesses,
+    get_physical_coefficients,
 )
 
 
@@ -26,16 +28,12 @@ def run_optimization_history(fun, init_params, nuclear_mass, max_steps):
     )
 
 
-def generate_radial_wavefunctions(params, l, kappa, name):
-    limit = 5.0e1
-    if "s" in name:
-        limit = 1.0e2
-    log_alpha = jnp.linspace(jnp.log(0.1), jnp.log(limit), 4)
+def generate_radial_wavefunctions(c, l, kappa, is_s):
+    if is_s:
+        log_alpha = jnp.linspace(jnp.log(1.0e-2), jnp.log(5.0e2), 8)
+    else:
+        log_alpha = jnp.linspace(jnp.log(5.0e-2), jnp.log(1.0e2), 6)
     alpha = jnp.exp(log_alpha)
-    x = params["x_" + name]
-    _, _, S_LL, S_SS, _, _ = compute_matrices(alpha, l, kappa, 1.0e1)
-    S_locked = S_LL + S_SS
-    c = x / jnp.sqrt(jnp.dot(x, jnp.dot(S_locked, x)))
     Np = len(alpha)
     C_coeffs = []
     for i in range(Np):
@@ -67,13 +65,24 @@ def generate_radial_wavefunctions(params, l, kappa, name):
 
 
 def main():
-    init_params_initial = dict(x_2p=jnp.ones(4), x_5s=jnp.ones(4))
-    init_params_final = dict(x_2p=jnp.ones(4), x_3p=jnp.ones(4))
+    x_1s_init, x_2s_init, x_5s_init, x_2p_init, x_3p_init = get_initial_guesses(20.18)
+    init_params_initial = dict(
+        x_1s=x_1s_init, x_2s=x_2s_init, x_2p=x_2p_init, x_5s=x_5s_init
+    )
+    init_params_final = dict(
+        x_1s=x_1s_init, x_2s=x_2s_init, x_2p=x_2p_init, x_3p=x_3p_init
+    )
     params_initial, hist_initial = run_optimization_history(
         initial_state_energy, init_params_initial, 20.18, 50
     )
     params_final, hist_final = run_optimization_history(
         final_state_energy, init_params_final, 20.18, 50
+    )
+    c_1s_init, c_2s_init, c_5s_init, c_2p_init_state = get_physical_coefficients(
+        params_initial, 20.18, True
+    )
+    c_1s_final, c_2s_final, c_2p_final_state, c_3p_final = get_physical_coefficients(
+        params_final, 20.18, False
     )
     plt.figure(
         figsize=(
@@ -90,12 +99,16 @@ def main():
     plt.legend()
     plt.grid(True)
     plt.subplot(1, 2, 2)
-    r_5s, P_5s, Q_5s = generate_radial_wavefunctions(params_initial, 0, -1, "5s")
-    r_3p, P_3p, Q_3p = generate_radial_wavefunctions(params_final, 1, -2, "3p")
+    r_1s, P_1s, Q_1s = generate_radial_wavefunctions(c_1s_init, 0, -1, True)
+    r_2s, P_2s, Q_2s = generate_radial_wavefunctions(c_2s_init, 0, -1, True)
+    r_5s, P_5s, Q_5s = generate_radial_wavefunctions(c_5s_init, 0, -1, True)
+    r_2p, P_2p, Q_2p = generate_radial_wavefunctions(c_2p_final_state, 1, -2, False)
+    r_3p, P_3p, Q_3p = generate_radial_wavefunctions(c_3p_final, 1, -2, False)
+    plt.plot(r_1s, P_1s, label="1s Large P(r)", linestyle="-")
+    plt.plot(r_2s, P_2s, label="2s Large P(r)", linestyle="-")
     plt.plot(r_5s, P_5s, label="5s Large P(r)", linestyle="-")
-    plt.plot(r_5s, Q_5s, label="5s Small Q(r)", linestyle="--")
+    plt.plot(r_2p, P_2p, label="2p Large P(r)", linestyle="-")
     plt.plot(r_3p, P_3p, label="3p Large P(r)", linestyle="-")
-    plt.plot(r_3p, Q_3p, label="3p Small Q(r)", linestyle="--")
     plt.xlabel("Radius r (a.u.)")
     plt.ylabel("Wavefunction Amplitude")
     plt.title("Radial Wavefunctions")

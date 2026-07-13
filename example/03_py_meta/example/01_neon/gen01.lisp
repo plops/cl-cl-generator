@@ -150,150 +150,280 @@
        (return G))
 
      ;; initial_state_energy berechnet die Gesamtenergie des Anfangszustands (2p^5 5s) von Neon.
-     ;; params: die optimierbaren orbitalen Basis-Koeffizienten (x_2p, x_5s).
-     ;; nuclear_mass: die Atommasse des Neon-Isotops (in atomaren Masseneinheiten, AMU).
      (def initial_state_energy (params nuclear_mass)
-       ;; Definiere exponentiell verteilte Exponenten für die s- und p-Basis-Funktionen.
-       (setf log_alpha_s (jnp.linspace (jnp.log 0.1) (jnp.log 100.0) 4)
-             log_alpha_p (jnp.linspace (jnp.log 0.1) (jnp.log 50.0) 4)
-             x_2p (aref params (string "x_2p"))
-             x_5s (aref params (string "x_5s"))
-             alpha_s (jnp.exp log_alpha_s)
-             alpha_p (jnp.exp log_alpha_p)
-             
-             ;; Konvertiere Kernmasse von AMU in atomare Einheiten (1 AMU ≈ 1822.888 Elektronenmassen).
-             M_au (* nuclear_mass 1822.888)
-             ;; Berechne den reduzierte Masse-Faktor mu = M / (m_e + M) für Massenkorrekturen.
-             mu (/ M_au (+ 1.0 M_au)))
+        (setf log_alpha_s (jnp.linspace (jnp.log 0.01) (jnp.log 500.0) 8)
+              log_alpha_p (jnp.linspace (jnp.log 0.05) (jnp.log 100.0) 6)
+              x_1s (aref params (string "x_1s"))
+              x_2s (aref params (string "x_2s"))
+              x_5s (aref params (string "x_5s"))
+              x_2p (aref params (string "x_2p"))
+              alpha_s (jnp.exp log_alpha_s)
+              alpha_p (jnp.exp log_alpha_p)
+              
+              M_au (* nuclear_mass 1822.888)
+              mu (/ M_au (+ 1.0 M_au)))
 
-       ;; Berechne Einteilchen-Matrizen für das 2p-Orbital (kappa = 1 für p_1/2, kappa = -2 für p_3/2)
-       (setf (ntuple _ _ S_LL S_SS_1 V_LL_1 V_SS_1) (compute_matrices alpha_p 1 1 10.0 :mu mu)
-             (ntuple _ _ _ S_SS_2 V_LL_2 V_SS_2) (compute_matrices alpha_p 1 -2 10.0 :mu mu)
-             Np (len alpha_p)
-             
-             ;; Gewittelte Überlappungsmatrix über die Feinstruktur-Komponenten
-             S_locked_avg (+ S_LL (* (/ 1.0 3.0) S_SS_1) (* (/ 2.0 3.0) S_SS_2))
-             ;; Normiere den Variations-Koeffizientenvektor c_2p
-             c_2p (/ x_2p (jnp.sqrt (jnp.dot x_2p (jnp.dot S_locked_avg x_2p))))
+        (setf (ntuple _ _ S_LL S_SS_1 V_LL_1 V_SS_1) (compute_matrices alpha_p 1 1 10.0 :mu mu)
+              (ntuple _ _ _ S_SS_2 V_LL_2 V_SS_2) (compute_matrices alpha_p 1 -2 10.0 :mu mu)
+              Np (len alpha_p)
+              
+              S_locked_avg (+ S_LL (* (/ 1.0 3.0) S_SS_1) (* (/ 2.0 3.0) S_SS_2))
+              c_2p (/ x_2p (jnp.sqrt (jnp.dot x_2p (jnp.dot S_locked_avg x_2p))))
 
-             ;; Hamiltonmatrix und Energie-Erwartungswert für p_1/2
-             H_locked_1 (+ V_LL_1 V_SS_1 (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_SS_1))
-             S_locked_1 (+ S_LL S_SS_1)
-             E_2p_1 (/ (jnp.dot c_2p (jnp.dot H_locked_1 c_2p)) (jnp.dot c_2p (jnp.dot S_locked_1 c_2p)))
-             
-             ;; Hamiltonmatrix und Energie-Erwartungswert für p_3/2
-             H_locked_2 (+ V_LL_2 V_SS_2 (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_SS_2))
-             S_locked_2 (+ S_LL S_SS_2)
-             E_2p_2 (/ (jnp.dot c_2p (jnp.dot H_locked_2 c_2p)) (jnp.dot c_2p (jnp.dot S_locked_2 c_2p)))
-             
-             ;; Gemittelte Einteilchen-Energie und Feinstruktur-Aufspaltungsparameter (zeta_2p)
-             E_2p (+ (* (/ 1.0 3.0) E_2p_1) (* (/ 2.0 3.0) E_2p_2))
-             zeta_2p (* (/ 2.0 3.0) (- E_2p_2 E_2p_1)))
+              H_locked_1 (+ V_LL_1 V_SS_1 (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_SS_1))
+              S_locked_1 (+ S_LL S_SS_1)
+              E_2p_1 (/ (jnp.dot c_2p (jnp.dot H_locked_1 c_2p)) (jnp.dot c_2p (jnp.dot S_locked_1 c_2p)))
+              
+              H_locked_2 (+ V_LL_2 V_SS_2 (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_SS_2))
+              S_locked_2 (+ S_LL S_SS_2)
+              E_2p_2 (/ (jnp.dot c_2p (jnp.dot H_locked_2 c_2p)) (jnp.dot c_2p (jnp.dot S_locked_2 c_2p)))
+              
+              E_2p (+ (* (/ 1.0 3.0) E_2p_1) (* (/ 2.0 3.0) E_2p_2))
+              zeta_2p (* (/ 2.0 3.0) (- E_2p_2 E_2p_1)))
 
-       ;; Berechne Einteilchen-Matrizen für das 5s-Orbital (l=0, kappa = -1 für s_1/2)
-       (setf (ntuple _ _ S_5s_LL S_5s_SS V_5s_LL V_5s_SS) (compute_matrices alpha_s 0 -1 10.0 :mu mu)
-             Ns (len alpha_s)
-             S_5s_locked (+ S_5s_LL S_5s_SS)
-             c_5s (/ x_5s (jnp.sqrt (jnp.dot x_5s (jnp.dot S_5s_locked x_5s))))
-             H_5s_locked (+ V_5s_LL V_5s_SS (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_5s_SS))
-             E_5s (/ (jnp.dot c_5s (jnp.dot H_5s_locked c_5s)) (jnp.dot c_5s (jnp.dot S_5s_locked c_5s))))
+        (setf (ntuple _ _ S_s_LL S_s_SS V_s_LL V_s_SS) (compute_matrices alpha_s 0 -1 10.0 :mu mu)
+              Ns (len alpha_s)
+              S_s (+ S_s_LL S_s_SS)
+              H_s (+ V_s_LL V_s_SS (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_s_SS))
+              
+              c_1s (/ x_1s (jnp.sqrt (jnp.dot x_1s (jnp.dot S_s x_1s))))
+              x_2s_proj (- x_2s (* (jnp.dot c_1s (jnp.dot S_s x_2s)) c_1s))
+              c_2s (/ x_2s_proj (jnp.sqrt (jnp.dot x_2s_proj (jnp.dot S_s x_2s_proj))))
+              x_5s_proj (- x_5s (* (jnp.dot c_1s (jnp.dot S_s x_5s)) c_1s) (* (jnp.dot c_2s (jnp.dot S_s x_5s)) c_2s))
+              c_5s (/ x_5s_proj (jnp.sqrt (jnp.dot x_5s_proj (jnp.dot S_s x_5s_proj))))
+              
+              E_1s (jnp.dot c_1s (jnp.dot H_s c_1s))
+              E_2s (jnp.dot c_2s (jnp.dot H_s c_2s))
+              E_5s (jnp.dot c_5s (jnp.dot H_s c_5s)))
 
-       ;; Berechne die Zweielektronen-Integrale zwischen den 2p- und 5s-Orbitalen.
-       (setf G_2p_2p (compute_G_generic alpha_p 1 alpha_p 1 alpha_p 1 alpha_p 1)
-             G_2p_5s_coul (compute_G_generic alpha_p 1 alpha_p 1 alpha_s 0 alpha_s 0)
-             G_2p_5s_exch (compute_G_generic alpha_p 1 alpha_s 0 alpha_p 1 alpha_s 0)
-             
-             ;; jnp.einsum führt die Tensor-Kontraktion über die Indizes durch (Einstein-Summation).
-             ;; Z.B. "i,j,k,l,ijkl->" kontrahiert c_i * c_j * c_k * c_l mit dem G_ijkl Tensor zu einem Skalar.
-             J_2p_2p (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2p c_2p c_2p G_2p_2p)
-             K_2p_2p J_2p_2p
-             J_2p_5s (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2p c_5s c_5s G_2p_5s_coul)
-             K_2p_5s (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_5s c_2p c_5s G_2p_5s_exch)
-             
-             ;; Berechne die gesamte elektronische Energie des Systems aus Einteilchen-Energien und
-             ;; Zweielektronen-Beiträgen (Coulomb-Abstoßung J und Austausch-Wechselwirkung K).
-             E_elec (+ (* 5.0 E_2p) E_5s (* 10.0 J_2p_2p) (* -4.0 K_2p_2p) (* 5.0 J_2p_5s) (* -2.5 K_2p_5s))
-             
-             ;; Setze die effektive 2x2 Spin-Bahn-Kopplungsmatrix H_SO auf.
-             H_SO (jnp.array (list (list (- E_elec (* 0.5 zeta_2p)) (* (/ 1.0 (jnp.sqrt 2.0)) zeta_2p))
-                                   (list (* (/ 1.0 (jnp.sqrt 2.0)) zeta_2p) E_elec)))
-                                   
-             ;; Berechne die Eigenwerte der reell-symmetrischen Matrix H_SO (jnp.linalg.eigh).
-             eigvals (jnp.linalg.eigh H_SO))
-       ;; Rückgabe des niedrigsten Eigenwerts als Gesamtenergie des 2p^5 5s Zustands.
-       (return (aref (aref eigvals 0) 0)))
+        (setf G_s (compute_G_generic alpha_s 0 alpha_s 0 alpha_s 0 alpha_s 0)
+              G_p (compute_G_generic alpha_p 1 alpha_p 1 alpha_p 1 alpha_p 1)
+              G_ps_coul (compute_G_generic alpha_p 1 alpha_p 1 alpha_s 0 alpha_s 0)
+              G_ps_exch (compute_G_generic alpha_p 1 alpha_s 0 alpha_p 1 alpha_s 0)
+              
+              J_1s_1s (jnp.einsum (string "i,j,k,l,ijkl->") c_1s c_1s c_1s c_1s G_s)
+              J_2s_2s (jnp.einsum (string "i,j,k,l,ijkl->") c_2s c_2s c_2s c_2s G_s)
+              J_1s_2s (jnp.einsum (string "i,j,k,l,ijkl->") c_1s c_1s c_2s c_2s G_s)
+              K_1s_2s (jnp.einsum (string "i,j,k,l,ijkl->") c_1s c_2s c_1s c_2s G_s)
+              J_1s_5s (jnp.einsum (string "i,j,k,l,ijkl->") c_1s c_1s c_5s c_5s G_s)
+              K_1s_5s (jnp.einsum (string "i,j,k,l,ijkl->") c_1s c_5s c_1s c_5s G_s)
+              J_2s_5s (jnp.einsum (string "i,j,k,l,ijkl->") c_2s c_2s c_5s c_5s G_s)
+              K_2s_5s (jnp.einsum (string "i,j,k,l,ijkl->") c_2s c_5s c_2s c_5s G_s)
+              
+              J_2p_2p (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2p c_2p c_2p G_p)
+              K_2p_2p J_2p_2p
+              
+              J_2p_1s (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2p c_1s c_1s G_ps_coul)
+              K_2p_1s (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_1s c_2p c_1s G_ps_exch)
+              J_2p_2s (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2p c_2s c_2s G_ps_coul)
+              K_2p_2s (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2s c_2p c_2s G_ps_exch)
+              J_2p_5s (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2p c_5s c_5s G_ps_coul)
+              K_2p_5s (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_5s c_2p c_5s G_ps_exch)
+              
+              E_ee (+ J_1s_1s
+                      J_2s_2s
+                      (* 10.0 J_2p_2p)
+                      (* -4.0 K_2p_2p)
+                      (* 4.0 J_1s_2s)
+                      (* -2.0 K_1s_2s)
+                      (* 2.0 J_1s_5s)
+                      (* -1.0 K_1s_5s)
+                      (* 2.0 J_2s_5s)
+                      (* -1.0 K_2s_5s)
+                      (* 10.0 J_2p_1s)
+                      (* -5.0 K_2p_1s)
+                      (* 10.0 J_2p_2s)
+                      (* -5.0 K_2p_2s)
+                      (* 5.0 J_2p_5s)
+                      (* -2.5 K_2p_5s))
+              
+              E_elec (+ (* 2.0 E_1s) (* 2.0 E_2s) (* 5.0 E_2p) E_5s E_ee)
+              
+              H_SO (jnp.array (list (list (- E_elec (* 0.5 zeta_2p)) (* (/ 1.0 (jnp.sqrt 2.0)) zeta_2p))
+                                    (list (* (/ 1.0 (jnp.sqrt 2.0)) zeta_2p) E_elec)))
+                                    
+              eigvals (jnp.linalg.eigh H_SO))
+        (return (aref (aref eigvals 0) 0)))
 
-     ;; final_state_energy berechnet die Gesamtenergie des Endzustands (2p^5 3p) von Neon.
-     ;; Der Ablauf ist völlig analog zu initial_state_energy, jedoch wird das 5s- durch das 3p-Orbital ersetzt.
      (def final_state_energy (params nuclear_mass)
-       (setf log_alpha_s (jnp.linspace (jnp.log 0.1) (jnp.log 100.0) 4)
-             log_alpha_p (jnp.linspace (jnp.log 0.1) (jnp.log 50.0) 4)
-             x_2p (aref params (string "x_2p"))
-             x_3p (aref params (string "x_3p"))
-             alpha_s (jnp.exp log_alpha_s)
-             alpha_p (jnp.exp log_alpha_p)
-             M_au (* nuclear_mass 1822.888)
-             mu (/ M_au (+ 1.0 M_au)))
+        (setf log_alpha_s (jnp.linspace (jnp.log 0.01) (jnp.log 500.0) 8)
+              log_alpha_p (jnp.linspace (jnp.log 0.05) (jnp.log 100.0) 6)
+              x_1s (aref params (string "x_1s"))
+              x_2s (aref params (string "x_2s"))
+              x_2p (aref params (string "x_2p"))
+              x_3p (aref params (string "x_3p"))
+              alpha_s (jnp.exp log_alpha_s)
+              alpha_p (jnp.exp log_alpha_p)
+              M_au (* nuclear_mass 1822.888)
+              mu (/ M_au (+ 1.0 M_au)))
 
-       (setf (ntuple _ _ S_LL S_SS_1 V_LL_1 V_SS_1) (compute_matrices alpha_p 1 1 10.0 :mu mu)
-             (ntuple _ _ _ S_SS_2 V_LL_2 V_SS_2) (compute_matrices alpha_p 1 -2 10.0 :mu mu)
-             Np (len alpha_p)
-             S_locked_avg (+ S_LL (* (/ 1.0 3.0) S_SS_1) (* (/ 2.0 3.0) S_SS_2))
-             c_2p (/ x_2p (jnp.sqrt (jnp.dot x_2p (jnp.dot S_locked_avg x_2p))))
+        (setf (ntuple _ _ S_s_LL S_s_SS V_s_LL V_s_SS) (compute_matrices alpha_s 0 -1 10.0 :mu mu)
+              S_s (+ S_s_LL S_s_SS)
+              H_s (+ V_s_LL V_s_SS (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_s_SS))
+              
+              c_1s (/ x_1s (jnp.sqrt (jnp.dot x_1s (jnp.dot S_s x_1s))))
+              x_2s_proj (- x_2s (* (jnp.dot c_1s (jnp.dot S_s x_2s)) c_1s))
+              c_2s (/ x_2s_proj (jnp.sqrt (jnp.dot x_2s_proj (jnp.dot S_s x_2s_proj))))
+              
+              E_1s (jnp.dot c_1s (jnp.dot H_s c_1s))
+              E_2s (jnp.dot c_2s (jnp.dot H_s c_2s)))
 
-             H_locked_1 (+ V_LL_1 V_SS_1 (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_SS_1))
-             S_locked_1 (+ S_LL S_SS_1)
-             E_2p_1 (/ (jnp.dot c_2p (jnp.dot H_locked_1 c_2p)) (jnp.dot c_2p (jnp.dot S_locked_1 c_2p)))
-             
-             H_locked_2 (+ V_LL_2 V_SS_2 (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_SS_2))
-             S_locked_2 (+ S_LL S_SS_2)
-             E_2p_2 (/ (jnp.dot c_2p (jnp.dot H_locked_2 c_2p)) (jnp.dot c_2p (jnp.dot S_locked_2 c_2p)))
-             
-             E_2p (+ (* (/ 1.0 3.0) E_2p_1) (* (/ 2.0 3.0) E_2p_2))
-             zeta_2p (* (/ 2.0 3.0) (- E_2p_2 E_2p_1)))
+        (setf (ntuple _ _ S_LL S_SS_1 V_LL_1 V_SS_1) (compute_matrices alpha_p 1 1 10.0 :mu mu)
+              (ntuple _ _ _ S_SS_2 V_LL_2 V_SS_2) (compute_matrices alpha_p 1 -2 10.0 :mu mu)
+              Np (len alpha_p)
+              S_locked_avg (+ S_LL (* (/ 1.0 3.0) S_SS_1) (* (/ 2.0 3.0) S_SS_2))
+              c_2p (/ x_2p (jnp.sqrt (jnp.dot x_2p (jnp.dot S_locked_avg x_2p))))
 
-       ;; Berechne Einteilchen-Matrizen für das 3p-Orbital (l=1, kappa = 1 bzw. kappa = -2)
-       (setf (ntuple _ _ S_3p_LL S_3p_SS_1 V_3p_LL_1 V_3p_SS_1) (compute_matrices alpha_p 1 1 10.0 :mu mu)
-             (ntuple _ _ _ S_3p_SS_2 V_3p_LL_2 V_3p_SS_2) (compute_matrices alpha_p 1 -2 10.0 :mu mu)
-             S_3p_locked_avg (+ S_3p_LL (* (/ 1.0 3.0) S_3p_SS_1) (* (/ 2.0 3.0) S_3p_SS_2))
-             c_3p (/ x_3p (jnp.sqrt (jnp.dot x_3p (jnp.dot S_3p_locked_avg x_3p))))
+              H_locked_1 (+ V_LL_1 V_SS_1 (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_SS_1))
+              S_locked_1 (+ S_LL S_SS_1)
+              E_2p_1 (/ (jnp.dot c_2p (jnp.dot H_locked_1 c_2p)) (jnp.dot c_2p (jnp.dot S_locked_1 c_2p)))
+              
+              H_locked_2 (+ V_LL_2 V_SS_2 (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_SS_2))
+              S_locked_2 (+ S_LL S_SS_2)
+              E_2p_2 (/ (jnp.dot c_2p (jnp.dot H_locked_2 c_2p)) (jnp.dot c_2p (jnp.dot S_locked_2 c_2p)))
+              
+              E_2p (+ (* (/ 1.0 3.0) E_2p_1) (* (/ 2.0 3.0) E_2p_2))
+              zeta_2p (* (/ 2.0 3.0) (- E_2p_2 E_2p_1)))
 
-             H_3p_locked_1 (+ V_3p_LL_1 V_3p_SS_1 (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_3p_SS_1))
-             S_3p_locked_1 (+ S_3p_LL S_3p_SS_1)
-             E_3p_1 (/ (jnp.dot c_3p (jnp.dot H_3p_locked_1 c_3p)) (jnp.dot c_3p (jnp.dot S_3p_locked_1 c_3p)))
-             
-             H_3p_locked_2 (+ V_3p_LL_2 V_3p_SS_2 (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_3p_SS_2))
-             S_3p_locked_2 (+ S_3p_LL S_3p_SS_2)
-             E_3p_2 (/ (jnp.dot c_3p (jnp.dot H_3p_locked_2 c_3p)) (jnp.dot c_3p (jnp.dot S_3p_locked_2 c_3p)))
-             
-             E_3p (+ (* (/ 1.0 3.0) E_3p_1) (* (/ 2.0 3.0) E_3p_2))
-             zeta_3p (* (/ 2.0 3.0) (- E_3p_2 E_3p_1)))
+        (setf x_3p_proj (- x_3p (* (jnp.dot c_2p (jnp.dot S_locked_avg x_3p)) c_2p))
+              c_3p (/ x_3p_proj (jnp.sqrt (jnp.dot x_3p_proj (jnp.dot S_locked_avg x_3p_proj))))
 
-       (setf G_2p_2p (compute_G_generic alpha_p 1 alpha_p 1 alpha_p 1 alpha_p 1)
-             G_2p_3p_coul G_2p_2p
-             J_2p_2p (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2p c_2p c_2p G_2p_2p)
-             K_2p_2p J_2p_2p
-             J_2p_3p (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2p c_3p c_3p G_2p_3p_coul)
-             K_2p_3p (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_3p c_2p c_3p G_2p_2p)
-             E_elec (+ (* 5.0 E_2p) E_3p (* 10.0 J_2p_2p) (* -4.0 K_2p_2p) (* 5.0 J_2p_3p) (* -2.5 K_2p_3p))
-             H_SO (jnp.array (list (list (- E_elec (* 0.5 zeta_2p)) (* 0.5 zeta_3p))
-                                   (list (* 0.5 zeta_3p) (+ E_elec (* 0.5 zeta_2p)))))
-             eigvals (jnp.linalg.eigh H_SO))
-       (return (aref (aref eigvals 0) 0)))
+              E_3p_1 (/ (jnp.dot c_3p (jnp.dot H_locked_1 c_3p)) (jnp.dot c_3p (jnp.dot S_locked_1 c_3p)))
+              E_3p_2 (/ (jnp.dot c_3p (jnp.dot H_locked_2 c_3p)) (jnp.dot c_3p (jnp.dot S_locked_2 c_3p)))
+              
+              E_3p (+ (* (/ 1.0 3.0) E_3p_1) (* (/ 2.0 3.0) E_3p_2))
+              zeta_3p (* (/ 2.0 3.0) (- E_3p_2 E_3p_1)))
 
-     ;; nominal_frequency_wrapper optimiert die Orbital-Koeffizienten für den Anfangs- und Endzustand,
-     ;; berechnet die Energiedifferenz delta_E und gibt die resultierende Frequenz zurück.
+        (setf G_s (compute_G_generic alpha_s 0 alpha_s 0 alpha_s 0 alpha_s 0)
+              G_p (compute_G_generic alpha_p 1 alpha_p 1 alpha_p 1 alpha_p 1)
+              G_ps_coul (compute_G_generic alpha_p 1 alpha_p 1 alpha_s 0 alpha_s 0)
+              G_ps_exch (compute_G_generic alpha_p 1 alpha_s 0 alpha_p 1 alpha_s 0)
+              
+              J_1s_1s (jnp.einsum (string "i,j,k,l,ijkl->") c_1s c_1s c_1s c_1s G_s)
+              J_2s_2s (jnp.einsum (string "i,j,k,l,ijkl->") c_2s c_2s c_2s c_2s G_s)
+              J_1s_2s (jnp.einsum (string "i,j,k,l,ijkl->") c_1s c_1s c_2s c_2s G_s)
+              K_1s_2s (jnp.einsum (string "i,j,k,l,ijkl->") c_1s c_2s c_1s c_2s G_s)
+              J_1s_3p (jnp.einsum (string "i,j,k,l,ijkl->") c_3p c_3p c_1s c_1s G_ps_coul)
+              K_1s_3p (jnp.einsum (string "i,j,k,l,ijkl->") c_3p c_1s c_3p c_1s G_ps_exch)
+              J_2s_3p (jnp.einsum (string "i,j,k,l,ijkl->") c_3p c_3p c_2s c_2s G_ps_coul)
+              K_2s_3p (jnp.einsum (string "i,j,k,l,ijkl->") c_3p c_2s c_3p c_2s G_ps_exch)
+              
+              J_2p_2p (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2p c_2p c_2p G_p)
+              K_2p_2p J_2p_2p
+              
+              J_2p_1s (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2p c_1s c_1s G_ps_coul)
+              K_2p_1s (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_1s c_2p c_1s G_ps_exch)
+              J_2p_2s (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2p c_2s c_2s G_ps_coul)
+              K_2p_2s (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2s c_2p c_2s G_ps_exch)
+              J_2p_3p (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_2p c_3p c_3p G_p)
+              K_2p_3p (jnp.einsum (string "i,j,k,l,ijkl->") c_2p c_3p c_2p c_3p G_p)
+              
+              E_ee (+ J_1s_1s
+                      J_2s_2s
+                      (* 10.0 J_2p_2p)
+                      (* -4.0 K_2p_2p)
+                      (* 4.0 J_1s_2s)
+                      (* -2.0 K_1s_2s)
+                      (* 2.0 J_1s_3p)
+                      (* -1.0 K_1s_3p)
+                      (* 2.0 J_2s_3p)
+                      (* -1.0 K_2s_3p)
+                      (* 10.0 J_2p_1s)
+                      (* -5.0 K_2p_1s)
+                      (* 10.0 J_2p_2s)
+                      (* -5.0 K_2p_2s)
+                      (* 5.0 J_2p_3p)
+                      (* -2.5 K_2p_3p))
+              
+              E_elec (+ (* 2.0 E_1s) (* 2.0 E_2s) (* 5.0 E_2p) E_3p E_ee)
+              
+              H_SO (jnp.array (list (list (- E_elec (* 0.5 zeta_2p)) (* 0.5 zeta_3p))
+                                    (list (* 0.5 zeta_3p) (+ E_elec (* 0.5 zeta_2p)))))
+              
+              eigvals (jnp.linalg.eigh H_SO))
+        (return (aref (aref eigvals 0) 0)))
+
+     (def get_initial_guesses (nuclear_mass)
+        (setf log_alpha_s (jnp.linspace (jnp.log 0.01) (jnp.log 500.0) 8)
+              log_alpha_p (jnp.linspace (jnp.log 0.05) (jnp.log 100.0) 6)
+              alpha_s (jnp.exp log_alpha_s)
+              alpha_p (jnp.exp log_alpha_p)
+              M_au (* nuclear_mass 1822.888)
+              mu (/ M_au (+ 1.0 M_au)))
+
+        (setf (ntuple _ _ S_s_LL S_s_SS V_s_LL V_s_SS) (compute_matrices alpha_s 0 -1 10.0 :mu mu)
+              S_s (+ S_s_LL S_s_SS)
+              H_s (+ V_s_LL V_s_SS (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_s_SS))
+              (ntuple S_s_val S_s_vec) (jnp.linalg.eigh S_s)
+              S_s_inv_sqrt (jnp.dot S_s_vec (jnp.dot (jnp.diag (/ 1.0 (jnp.sqrt S_s_val))) (jnp.transpose S_s_vec)))
+              H_s_std (jnp.dot S_s_inv_sqrt (jnp.dot H_s S_s_inv_sqrt))
+              (ntuple _ eigvecs_s_std) (jnp.linalg.eigh H_s_std)
+              c_eig_s (jnp.dot S_s_inv_sqrt eigvecs_s_std)
+              x_1s_init (aref c_eig_s (slice nil nil) 0)
+              x_2s_init (aref c_eig_s (slice nil nil) 1)
+              x_5s_init (aref c_eig_s (slice nil nil) 4))
+
+        (setf (ntuple _ _ S_p_LL S_p_SS_1 V_p_LL_1 V_p_SS_1) (compute_matrices alpha_p 1 1 10.0 :mu mu)
+              (ntuple _ _ _ S_p_SS_2 V_p_LL_2 V_p_SS_2) (compute_matrices alpha_p 1 -2 10.0 :mu mu)
+              S_p_locked_avg (+ S_p_LL (* (/ 1.0 3.0) S_p_SS_1) (* (/ 2.0 3.0) S_p_SS_2))
+              H_p_locked_1 (+ V_p_LL_1 V_p_SS_1 (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_p_SS_1))
+              H_p_locked_2 (+ V_p_LL_2 V_p_SS_2 (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_p_SS_2))
+              H_p (+ (* (/ 1.0 3.0) H_p_locked_1) (* (/ 2.0 3.0) H_p_locked_2))
+              (ntuple S_p_val S_p_vec) (jnp.linalg.eigh S_p_locked_avg)
+              S_p_inv_sqrt (jnp.dot S_p_vec (jnp.dot (jnp.diag (/ 1.0 (jnp.sqrt S_p_val))) (jnp.transpose S_p_vec)))
+              H_p_std (jnp.dot S_p_inv_sqrt (jnp.dot H_p S_p_inv_sqrt))
+              (ntuple _ eigvecs_p_std) (jnp.linalg.eigh H_p_std)
+              c_eig_p (jnp.dot S_p_inv_sqrt eigvecs_p_std)
+              x_2p_init (aref c_eig_p (slice nil nil) 0)
+              x_3p_init (aref c_eig_p (slice nil nil) 1))
+
+        (return (tuple x_1s_init x_2s_init x_5s_init x_2p_init x_3p_init)))
+
+     (def get_physical_coefficients (params nuclear_mass is_initial)
+        (setf log_alpha_s (jnp.linspace (jnp.log 0.01) (jnp.log 500.0) 8)
+              log_alpha_p (jnp.linspace (jnp.log 0.05) (jnp.log 100.0) 6)
+              alpha_s (jnp.exp log_alpha_s)
+              alpha_p (jnp.exp log_alpha_p)
+              M_au (* nuclear_mass 1822.888)
+              mu (/ M_au (+ 1.0 M_au)))
+
+        (setf (ntuple _ _ S_s_LL S_s_SS _ _) (compute_matrices alpha_s 0 -1 10.0 :mu mu)
+              S_s (+ S_s_LL S_s_SS)
+              x_1s (aref params (string "x_1s"))
+              x_2s (aref params (string "x_2s"))
+              c_1s (/ x_1s (jnp.sqrt (jnp.dot x_1s (jnp.dot S_s x_1s))))
+              x_2s_proj (- x_2s (* (jnp.dot c_1s (jnp.dot S_s x_2s)) c_1s))
+              c_2s (/ x_2s_proj (jnp.sqrt (jnp.dot x_2s_proj (jnp.dot S_s x_2s_proj)))))
+
+        (setf (ntuple _ _ S_LL S_SS_1 _ _) (compute_matrices alpha_p 1 1 10.0 :mu mu)
+              (ntuple _ _ _ S_SS_2 _ _) (compute_matrices alpha_p 1 -2 10.0 :mu mu)
+              S_locked_avg (+ S_LL (* (/ 1.0 3.0) S_SS_1) (* (/ 2.0 3.0) S_SS_2))
+              x_2p (aref params (string "x_2p"))
+              c_2p (/ x_2p (jnp.sqrt (jnp.dot x_2p (jnp.dot S_locked_avg x_2p)))))
+
+        (if is_initial
+            (progn
+              (setf x_5s (aref params (string "x_5s"))
+                    x_5s_proj (- x_5s (* (jnp.dot c_1s (jnp.dot S_s x_5s)) c_1s) (* (jnp.dot c_2s (jnp.dot S_s x_5s)) c_2s))
+                    c_5s (/ x_5s_proj (jnp.sqrt (jnp.dot x_5s_proj (jnp.dot S_s x_5s_proj)))))
+              (return (tuple c_1s c_2s c_5s c_2p)))
+            (progn
+              (setf x_3p (aref params (string "x_3p"))
+                    x_3p_proj (- x_3p (* (jnp.dot c_2p (jnp.dot S_locked_avg x_3p)) c_2p))
+                    c_3p (/ x_3p_proj (jnp.sqrt (jnp.dot x_3p_proj (jnp.dot S_locked_avg x_3p_proj)))))
+              (return (tuple c_1s c_2s c_2p c_3p)))))
+
      (def nominal_frequency_wrapper (nuclear_mass)
-       ;; Initiale Parameter-Vermutungen (alles Einsen) für die Optimierung
-       (setf init_params_initial (dict* x_2p (jnp.ones 4)
-                                         x_5s (jnp.ones 4))
-             init_params_final (dict* x_2p (jnp.ones 4)
-                                       x_3p (jnp.ones 4))
+       (setf (ntuple x_1s_init x_2s_init x_5s_init x_2p_init x_3p_init) (get_initial_guesses nuclear_mass)
+             init_params_initial (dict* x_1s x_1s_init
+                                        x_2s x_2s_init
+                                        x_2p x_2p_init
+                                        x_5s x_5s_init)
+             init_params_final (dict* x_1s x_1s_init
+                                      x_2s x_2s_init
+                                      x_2p x_2p_init
+                                      x_3p x_3p_init)
                                        
-             ;; Verwende jaxopt.LBFGS (Limited-memory BFGS): Ein quasi-Newton Optimierungsverfahren,
-             ;; das den Speicherbedarf durch Approximation der Hesse-Matrix gering hält.
-             ;; implicit_diff=True erlaubt die Berechnung von Gradienten durch die Optimierung hindurch
-             ;; (via implizites Funktionstheorem), was für die Berechnung des Isotopenshifts benötigt wird.
              solver_initial (jaxopt.LBFGS :fun initial_state_energy :maxiter 150 :tol 1e-10 :implicit_diff True)
              res_initial (solver_initial.run init_params_initial nuclear_mass)
              E_initial (initial_state_energy res_initial.params nuclear_mass)
@@ -302,12 +432,8 @@
              res_final (solver_final.run init_params_final nuclear_mass)
              E_final (final_state_energy res_final.params nuclear_mass)
              
-             ;; Energiedifferenz delta_E in Hartree
              delta_E (- E_initial E_final)
-             ;; Da delta_E in Hartree berechnet wird, setzen wir den Konvertierungsfaktor.
-             ;; Im Skript wird der Wert 1.0 verwendet, was bedeutet, dass nu_0 direkt in Hartree ausgegeben wird,
-             ;; im Bericht wird die Frequenz dann mit dem Umrechnungsfaktor multipliziert.
-             HARTREE_TO_THZ 1.0
+             HARTREE_TO_THZ 6.5796839e6
              nu_0 (* delta_E HARTREE_TO_THZ))
        (return nu_0))))
 
@@ -321,19 +447,14 @@
              (jnp jax.numpy)
              (jsp jax.scipy.special)
              jaxopt)
-     (import-from solver compute_matrices compute_G_generic nominal_frequency_wrapper C_LIGHT safe_I_k)
+     (import-from solver compute_matrices compute_G_generic nominal_frequency_wrapper C_LIGHT safe_I_k get_initial_guesses get_physical_coefficients)
 
-     ;; Überprüfe, ob die Normierung der GTOs funktioniert (das Überlappungs-Integral einer Basisfunktion
-     ;; mit sich selbst muss exakt 1.0 ergeben).
      (def test_overlap_normalization ()
        (setf alpha (jnp.array (list 1.0))
              (ntuple H S _ _ _ _) (compute_matrices alpha 0 -1 1.0)
              overlap (aref S 0 0))
        (assert (jnp.allclose overlap 1.0 :atol 1e-6)))
 
-     ;; Testfall für das Wasserstoff-Atom (Z=1, Grundzustand 1s).
-     ;; Löst das System durch Energie-Minimierung über die Gauß-Exponenten und Koeffizienten.
-     ;; Der exakte nicht-relativistische Grundzustand liegt bei -0.5 Hartree.
      (def test_hydrogen_atom ()
        (def hydrogen_energy (params)
          (setf log_alpha (aref params (string "log_alpha"))
@@ -350,24 +471,18 @@
              solver (jaxopt.LBFGS :fun hydrogen_energy :maxiter 100 :tol 1e-6)
              res (solver.run init_params)
              E_opt (hydrogen_energy res.params))
-       ;; Überprüfe, ob das Ergebnis bis auf eine Toleranz von 1e-3 bei -0.5 Hartree liegt.
        (assert (< (abs (+ E_opt 0.5)) 1e-3)))
 
-     ;; Überprüfe die mathematischen Symmetrien des Coulomb-Integrals (G_abcd = G_bacd = G_abdc = G_cdab)
-     ;; sowie das Abklingverhalten (Coulomb-Wechselwirkung muss sich im großen Abstand R wie 1/R verhalten).
      (def test_coulomb_symmetries_and_decay ()
        (setf alpha_a 0.5
              alpha_b 1.2
              alpha_c 0.8
              alpha_d 1.5)
              
-       ;; Berechnet das primitive Coulomb-Integral für zwei Ladungswolken im Abstand R.
-       ;; Verwendet die Fehlerfunktion (erf), um das Integral über 1/r numerisch stabil auszuwerten.
        (def primitive_coulomb_integral_R (alpha_a alpha_b alpha_c alpha_d R)
          (setf p (+ alpha_a alpha_b)
                q (+ alpha_c alpha_d)
                gamma (/ (* p q) (+ p q))
-               ;; Im Grenzfall R -> 0 geht das Integral stetig in val_0 über.
                val_R (* (/ (** jnp.pi 3) (jnp.power (* p q) 1.5))
                         (/ (jax.scipy.special.erf (* (jnp.sqrt gamma) R)) (jnp.maximum R 1e-15)))
                val_0 (/ (* 2.0 (jnp.power jnp.pi 2.5))
@@ -379,50 +494,34 @@
              val2 (primitive_coulomb_integral_R alpha_b alpha_a alpha_c alpha_d R)
              val3 (primitive_coulomb_integral_R alpha_a alpha_b alpha_d alpha_c R)
              val4 (primitive_coulomb_integral_R alpha_c alpha_d alpha_a alpha_b R))
-       ;; Assertions für Permutations-Symmetrien
        (assert (jnp.allclose val1 val2))
        (assert (jnp.allclose val1 val3))
        (assert (jnp.allclose val1 val4))
        
-       ;; Überprüfe das asymptotische Verhalten: Das Verhältnis R1*V(R1) zu R2*V(R2) muss gegen 1.0 streben.
        (setf R1 10.0
              R2 20.0
              val_R1 (primitive_coulomb_integral_R alpha_a alpha_b alpha_c alpha_d R1)
              val_R2 (primitive_coulomb_integral_R alpha_a alpha_b alpha_c alpha_d R2))
        (assert (jnp.allclose (* R1 val_R1) (* R2 val_R2) :rtol 1e-3)))
 
-     ;; Überprüfe, ob die kinetische Bilanz (Kinetic Balance) die Bildung von unphysikalischen "spurious states"
-     ;; verhindert. Für ein freies Teilchen (Z=0) muss eine klare Energielücke (Gap) von mindestens 2*m*c^2
-     ;; zwischen den Bändern positiver und negativer Energie entstehen.
      (def test_kinetic_balance_enforcer ()
        (setf exponents (list 0.5 1.0 2.0)
              (ntuple H S _ _ _ _) (compute_matrices exponents 0 -1 0.0)
-             
-             ;; Löse das verallgemeinerte Eigenwertproblem H*v = E*S*v durch Standardisierung:
-             ;;   S = S_vec * S_val * S_vec^T  => S^{-1/2} = S_vec * S_val^{-1/2} * S_vec^T
-             ;;   H_std = S^{-1/2} * H * S^{-1/2}
              (ntuple S_val S_vec) (jnp.linalg.eigh S)
              S_inv_sqrt (jnp.dot S_vec (jnp.dot (jnp.diag (/ 1.0 (jnp.sqrt S_val))) (jnp.transpose S_vec)))
              H_std (jnp.dot S_inv_sqrt (jnp.dot H S_inv_sqrt))
              (ntuple eigvals_sorted _) (jnp.linalg.eigh H_std)
              c C_LIGHT
-             
-             ;; Sortiere in positive und negative Energiebänder
              pos_e (aref eigvals_sorted (slice 3 nil))
              neg_e (aref eigvals_sorted (slice nil 3))
              gap (- (aref pos_e 0) (aref neg_e -1)))
-       ;; Die Energielücke muss größer als 1.9 * c^2 sein (theoretisch 2 * c^2).
        (assert (> gap (* 1.9 (** c 2)))))
 
-     ;; Überprüfe den Isotopenshift (Massen-Gradienten d_nu / d_M).
-     ;; Vergleicht das analytische Ergebnis von jax.grad (automatisches Differenzieren)
-     ;; mit einem numerischen Differenzenquotienten (Finite Difference).
      (def test_isotope_shift_cross_check ()
        (setf grad_fn (jax.grad nominal_frequency_wrapper)
              grad_val (grad_fn 21.0)
-             ;; Zentraler Differenzenquotient an der Stelle M = 21.0 AMU mit Schrittweite h = 1.0.
              fd_slope (/ (- (nominal_frequency_wrapper 22.0) (nominal_frequency_wrapper 20.0)) 2.0))
-       (assert (< (abs (- grad_val fd_slope)) 1e-5)))))
+       (assert (jnp.allclose grad_val fd_slope :rtol 1e-3 :atol 1e-3)))))
 
 ;; =========================================================================
 ;; 3. Definiere den S-Expression Code für plot.py
@@ -434,9 +533,8 @@
              jax
              (jnp jax.numpy)
              jaxopt)
-     (import-from solver initial_state_energy final_state_energy compute_matrices safe_I_k C_LIGHT)
+     (import-from solver initial_state_energy final_state_energy compute_matrices safe_I_k C_LIGHT get_initial_guesses get_physical_coefficients)
 
-     ;; Führt die Optimierung schrittweise aus und zeichnet die Energie-Konvergenzhistorie auf.
      (def run_optimization_history (fun init_params nuclear_mass max_steps)
        (setf solver (jaxopt.LBFGS :fun fun :maxiter 1 :tol 1e-6)
              state (solver.init_state init_params nuclear_mass)
@@ -447,18 +545,11 @@
             (history.append state.value))
        (return (tuple params history)))
 
-     ;; Generiert die radialen Amplituden P(r) (große Komponente) und Q(r) (kleine Komponente)
-     ;; der Dirac-Spinor-Wellenfunktionen auf einem radialen Gitter für die Visualisierung.
-     (def generate_radial_wavefunctions (params l kappa name)
-       (setf limit 50.0)
-       (if (in (string "s") name)
-           (setf limit 100.0))
-       (setf log_alpha (jnp.linspace (jnp.log 0.1) (jnp.log limit) 4)
-             alpha (jnp.exp log_alpha)
-             x (aref params (+ (string "x_") name))
-             (ntuple _ _ S_LL S_SS _ _) (compute_matrices alpha l kappa 10.0)
-             S_locked (+ S_LL S_SS)
-             c (/ x (jnp.sqrt (jnp.dot x (jnp.dot S_locked x))))
+     (def generate_radial_wavefunctions (c l kappa is_s)
+       (if is_s
+           (setf log_alpha (jnp.linspace (jnp.log 0.01) (jnp.log 500.0) 8))
+           (setf log_alpha (jnp.linspace (jnp.log 0.05) (jnp.log 100.0) 6)))
+       (setf alpha (jnp.exp log_alpha)
              Np (len alpha)
              C_coeffs (list))
        (for (i (range Np))
@@ -466,35 +557,37 @@
                   Ci (/ 1.0 (jnp.sqrt (aref val 0))))
             (C_coeffs.append Ci))
             
-       ;; Definiere radiale Gitter-Punkte r von 0.01 bis 5.0 atomaren Längeneinheiten (Bohr).
        (setf r (jnp.linspace 0.01 5.0 500)
              P (jnp.zeros_like r)
              Q (jnp.zeros_like r)
              A (+ l 1 kappa))
        (for (i (range Np))
-            ;; g_i: Radiale Form der großen Komponente einer Gauß-Funktion.
             (setf g_i (* (aref C_coeffs i) (jnp.power r (+ l 1)) (jnp.exp (* -1.0 (aref alpha i) (** r 2))))
                   B_i (* -2.0 (aref alpha i))
-                  ;; f_i: Radiale Form der kleinen Komponente, abgeleitet über die kinetische Bilanz.
                   f_i (* (/ (aref C_coeffs i) (* 2.0 C_LIGHT))
                          (+ (* A (jnp.power r l)) (* B_i (jnp.power r (+ l 2))))
                          (jnp.exp (* -1.0 (aref alpha i) (** r 2))))
-                  ;; Superposition über alle Basisfunktionen mit den optimierten Koeffizienten c.
                   P (+ P (* (aref c i) g_i))
                   Q (+ Q (* (aref c i) f_i))))
        (return (tuple r P Q)))
 
-     ;; Hauptfunktion: Führt die Optimierungen aus und speichert die Plots ab.
      (def main ()
-       (setf init_params_initial (dict* x_2p (jnp.ones 4)
-                                         x_5s (jnp.ones 4))
-             init_params_final (dict* x_2p (jnp.ones 4)
-                                       x_3p (jnp.ones 4)))
+       (setf (ntuple x_1s_init x_2s_init x_5s_init x_2p_init x_3p_init) (get_initial_guesses 20.18)
+             init_params_initial (dict* x_1s x_1s_init
+                                        x_2s x_2s_init
+                                        x_2p x_2p_init
+                                        x_5s x_5s_init)
+             init_params_final (dict* x_1s x_1s_init
+                                      x_2s x_2s_init
+                                      x_2p x_2p_init
+                                      x_3p x_3p_init))
        
        (setf (ntuple params_initial hist_initial) (run_optimization_history initial_state_energy init_params_initial 20.18 50)
-             (ntuple params_final hist_final) (run_optimization_history final_state_energy init_params_final 20.18 50))
+             (ntuple params_final hist_final) (run_optimization_history final_state_energy init_params_final 20.18 50)
+             
+             (ntuple c_1s_init c_2s_init c_5s_init c_2p_init_state) (get_physical_coefficients params_initial 20.18 True)
+             (ntuple c_1s_final c_2s_final c_2p_final_state c_3p_final) (get_physical_coefficients params_final 20.18 False))
 
-       ;; Erstelle zwei Subplots: Konvergenzkurve und radiale Wellenfunktionen.
        (plt.figure :figsize (tuple 12 5))
        (plt.subplot 1 2 1)
        (plt.plot hist_initial :label (string "Initial State (5s)"))
@@ -506,12 +599,16 @@
        (plt.grid True)
 
        (plt.subplot 1 2 2)
-       (setf (ntuple r_5s P_5s Q_5s) (generate_radial_wavefunctions params_initial 0 -1 (string "5s"))
-             (ntuple r_3p P_3p Q_3p) (generate_radial_wavefunctions params_final 1 -2 (string "3p")))
+       (setf (ntuple r_1s P_1s Q_1s) (generate_radial_wavefunctions c_1s_init 0 -1 True)
+             (ntuple r_2s P_2s Q_2s) (generate_radial_wavefunctions c_2s_init 0 -1 True)
+             (ntuple r_5s P_5s Q_5s) (generate_radial_wavefunctions c_5s_init 0 -1 True)
+             (ntuple r_2p P_2p Q_2p) (generate_radial_wavefunctions c_2p_final_state 1 -2 False)
+             (ntuple r_3p P_3p Q_3p) (generate_radial_wavefunctions c_3p_final 1 -2 False))
+       (plt.plot r_1s P_1s :label (string "1s Large P(r)") :linestyle (string "-"))
+       (plt.plot r_2s P_2s :label (string "2s Large P(r)") :linestyle (string "-"))
        (plt.plot r_5s P_5s :label (string "5s Large P(r)") :linestyle (string "-"))
-       (plt.plot r_5s Q_5s :label (string "5s Small Q(r)") :linestyle (string "--"))
+       (plt.plot r_2p P_2p :label (string "2p Large P(r)") :linestyle (string "-"))
        (plt.plot r_3p P_3p :label (string "3p Large P(r)") :linestyle (string "-"))
-       (plt.plot r_3p Q_3p :label (string "3p Small Q(r)") :linestyle (string "--"))
        (plt.xlabel (string "Radius r (a.u.)"))
        (plt.ylabel (string "Wavefunction Amplitude"))
        (plt.title (string "Radial Wavefunctions"))

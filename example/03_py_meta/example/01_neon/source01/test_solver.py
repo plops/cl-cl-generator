@@ -9,6 +9,8 @@ from solver import (
     nominal_frequency_wrapper,
     C_LIGHT,
     safe_I_k,
+    get_initial_guesses,
+    get_physical_coefficients,
 )
 
 
@@ -94,4 +96,4 @@ def test_isotope_shift_cross_check():
     fd_slope = (
         nominal_frequency_wrapper(2.2e1) - nominal_frequency_wrapper(2.0e1)
     ) / 2.0
-    assert abs(grad_val - fd_slope) < 1.0e-5
+    assert jnp.allclose(grad_val, fd_slope, rtol=1.0e-3, atol=1.0e-3)
