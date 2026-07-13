@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import jax
 import jax.numpy as jnp
 import jaxopt
+
+jax.config.update("jax_enable_x64", True)
 from solver import (
     initial_state_energy,
     final_state_energy,
@@ -15,7 +17,7 @@ from solver import (
 
 
 def run_optimization_history(fun, init_params, nuclear_mass, max_steps):
-    solver = jaxopt.LBFGS(fun=fun, maxiter=1, tol=1.0e-6)
+    solver = jaxopt.LBFGS(fun=fun, maxiter=1, tol=1.0e-12)
     state = solver.init_state(init_params, nuclear_mass)
     params = init_params
     history = []
@@ -66,17 +68,16 @@ def generate_radial_wavefunctions(c, l, kappa, is_s):
 
 def main():
     x_1s_init, x_2s_init, x_5s_init, x_2p_init, x_3p_init = get_initial_guesses(20.18)
-    init_params_initial = dict(
-        x_1s=x_1s_init, x_2s=x_2s_init, x_2p=x_2p_init, x_5s=x_5s_init
-    )
-    init_params_final = dict(
-        x_1s=x_1s_init, x_2s=x_2s_init, x_2p=x_2p_init, x_3p=x_3p_init
-    )
+    X_s_init_initial = jnp.stack([x_1s_init, x_2s_init, x_5s_init], axis=1)
+    init_params_initial = dict(X_s=X_s_init_initial, x_2p=x_2p_init)
+    X_s_init_final = jnp.stack([x_1s_init, x_2s_init], axis=1)
+    X_p_init_final = jnp.stack([x_2p_init, x_3p_init], axis=1)
+    init_params_final = dict(X_s=X_s_init_final, X_p=X_p_init_final)
     params_initial, hist_initial = run_optimization_history(
-        initial_state_energy, init_params_initial, 20.18, 50
+        initial_state_energy, init_params_initial, 20.18, 800
     )
     params_final, hist_final = run_optimization_history(
-        final_state_energy, init_params_final, 20.18, 50
+        final_state_energy, init_params_final, 20.18, 800
     )
     c_1s_init, c_2s_init, c_5s_init, c_2p_init_state = get_physical_coefficients(
         params_initial, 20.18, True
