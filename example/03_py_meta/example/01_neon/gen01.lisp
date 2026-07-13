@@ -151,6 +151,9 @@
        (return G))
 
      ;; initial_state_energy berechnet die Gesamtenergie des Anfangszustands (2p^5 5s) von Neon.
+     ;; Da Neon ein 10-Elektronen-System ist, modellieren wir:
+     ;; - Rumpf- und Valenzzustände im s-Kanal (1s^2, 2s^2, 5s^1) -> total 5 Elektronen im s-Kanal
+     ;; - Valenzzustände im p-Kanal (2p^5) -> total 5 Elektronen im p-Kanal
      (def initial_state_energy (params nuclear_mass)
        (setf log_alpha_s (jnp.linspace (jnp.log 0.01) (jnp.log 500.0) 8)
              log_alpha_p (jnp.linspace (jnp.log 0.05) (jnp.log 100.0) 6)
@@ -185,7 +188,12 @@
              S_s (+ S_s_LL S_s_SS)
              H_s (+ V_s_LL V_s_SS (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_s_SS))
              
-             ;; Loewdin symmetric orthogonalization
+             ;; Loewdin-Symmetrische-Orthogonalisierung zur Orthonormalisierung der s-Orbitale:
+             ;; Im s-Kanal müssen 3 Orbitale (1s, 2s, 5s) strikt orthogonal zueinander sein:
+             ;;   <c_a | S_s | c_b> = delta_{ab}
+             ;; Wir berechnen die Metrik-Matrix M_s = X_s^T * S_s * X_s, diagonalisieren sie zu V * Lambda * V^T,
+             ;; und bestimmen den glatten Transformationsoperator M_s^(-1/2) = V * Lambda^(-1/2) * V^T.
+             ;; Dies garantiert Stetigkeit der Gradienten ohne die Vorzeichensprünge einer QR-Zerlegung.
              M_s (jnp.dot (jnp.transpose X_s) (jnp.dot S_s X_s))
              (ntuple vals_s vecs_s) (jnp.linalg.eigh M_s)
              M_s_inv_sqrt (jnp.dot vecs_s (jnp.dot (jnp.diag (/ 1.0 (jnp.sqrt vals_s))) (jnp.transpose vecs_s)))
@@ -246,12 +254,21 @@
                                    
              eigvals (jnp.linalg.eigh H_SO)
              
+             ;; Euklidischer Regularisierungsterm: Stabilisiert den LBFGS-Suchschritt,
+             ;; indem er die Norm der Parameter-Spalten nahe 1.0 hält. 
+             ;; Dies hat KEINE Massenabhängigkeit und verändert den physikalischen Massengradienten nicht,
+             ;; da der Wert im Optimum exakt Null ist.
              norm_penalty (* 1.0 (+ (** (- (jnp.dot (aref X_s (slice nil nil) 0) (aref X_s (slice nil nil) 0)) 1.0) 2)
                                     (** (- (jnp.dot (aref X_s (slice nil nil) 1) (aref X_s (slice nil nil) 1)) 1.0) 2)
                                     (** (- (jnp.dot (aref X_s (slice nil nil) 2) (aref X_s (slice nil nil) 2)) 1.0) 2)
                                     (** (- (jnp.dot x_2p x_2p) 1.0) 2))))
+       ;; Gib den niedrigsten Eigenwert der SO-Matrix plus den Regularisierungsterm zurück.
        (return (+ (aref (aref eigvals 0) 0) norm_penalty)))
 
+     ;; final_state_energy berechnet die Gesamtenergie des Endzustands (2p^5 3p) von Neon.
+     ;; Im Endzustand modellieren wir:
+     ;; - Rumpfzustände im s-Kanal (1s^2, 2s^2) -> total 4 Elektronen im s-Kanal
+     ;; - Rumpf- und Valenzzustände im p-Kanal (2p^5, 3p^1) -> total 6 Elektronen im p-Kanal
      (def final_state_energy (params nuclear_mass)
        (setf log_alpha_s (jnp.linspace (jnp.log 0.01) (jnp.log 500.0) 8)
              log_alpha_p (jnp.linspace (jnp.log 0.05) (jnp.log 100.0) 6)
@@ -266,6 +283,8 @@
              S_s (+ S_s_LL S_s_SS)
              H_s (+ V_s_LL V_s_SS (* (- 4.0 (* 2.0 mu)) (** C_LIGHT 2) S_s_SS))
              
+             ;; Loewdin-Verfahren für den s-Kanal (2 Dimensionen: 1s, 2s):
+             ;; Löst das verallgemeinerte Orthonormalisierungsproblem stetig und differenzierbar.
              M_s (jnp.dot (jnp.transpose X_s) (jnp.dot S_s X_s))
              (ntuple vals_s vecs_s) (jnp.linalg.eigh M_s)
              M_s_inv_sqrt (jnp.dot vecs_s (jnp.dot (jnp.diag (/ 1.0 (jnp.sqrt vals_s))) (jnp.transpose vecs_s)))
@@ -281,6 +300,7 @@
              Np (len alpha_p)
              S_locked_avg (+ S_LL (* (/ 1.0 3.0) S_SS_1) (* (/ 2.0 3.0) S_SS_2))
              
+             ;; Loewdin-Verfahren für den p-Kanal (2 Dimensionen: 2p, 3p) unter Verwendung der Locked-Mittelwert-Metrik:
              M_p (jnp.dot (jnp.transpose X_p) (jnp.dot S_locked_avg X_p))
              (ntuple vals_p vecs_p) (jnp.linalg.eigh M_p)
              M_p_inv_sqrt (jnp.dot vecs_p (jnp.dot (jnp.diag (/ 1.0 (jnp.sqrt vals_p))) (jnp.transpose vecs_p)))
@@ -351,6 +371,8 @@
              
              eigvals (jnp.linalg.eigh H_SO)
              
+             ;; Euklidische Regularisierung für den Endzustand:
+             ;; Stellt sicher, dass die Transformations-Spalten nahe an der Einheitsnorm bleiben.
              norm_penalty (* 1.0 (+ (** (- (jnp.dot (aref X_s (slice nil nil) 0) (aref X_s (slice nil nil) 0)) 1.0) 2)
                                     (** (- (jnp.dot (aref X_s (slice nil nil) 1) (aref X_s (slice nil nil) 1)) 1.0) 2)
                                     (** (- (jnp.dot (aref X_p (slice nil nil) 0) (aref X_p (slice nil nil) 0)) 1.0) 2)
@@ -424,7 +446,8 @@
              (return (tuple c_1s c_2s c_5s c_2p)))
            (progn
              (setf X_p (aref params (string "X_p"))
-                   M_p (jnp.dot (jnp.transpose X_p) (jnp.dot S_locked_avg X_p))
+                   ;; Loewdin-Verfahren für den p-Kanal (2 Dimensionen: 2p, 3p) unter Verwendung der Locked-Mittelwert-Metrik:
+              M_p (jnp.dot (jnp.transpose X_p) (jnp.dot S_locked_avg X_p))
                    (ntuple vals_p vecs_p) (jnp.linalg.eigh M_p)
                    M_p_inv_sqrt (jnp.dot vecs_p (jnp.dot (jnp.diag (/ 1.0 (jnp.sqrt vals_p))) (jnp.transpose vecs_p)))
                    C_p (jnp.dot X_p M_p_inv_sqrt)
