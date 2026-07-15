@@ -2,6 +2,44 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+enable_host_kmsg=0
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Run the AI environment container with the project source mounted in.
+
+Options:
+  --host-kmsg   Run the container privileged and bind /dev/kmsg so host kernel
+                messages can be read from inside the container.
+  -h, --help    Show this help text and exit.
+
+Environment:
+  ENV_FILE            Override the env file path. Default: $script_dir/.env.ai
+  IMAGE_NAME          Override the image name. Default: my-ai-env:latest
+  HOST_SRC_ROOT       Override the mounted source root.
+  WORKSPACE_SRC_ROOT  Fallback source root override.
+EOF
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --host-kmsg)
+      enable_host_kmsg=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      echo "Use -h for usage." >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 if [ -n "${ENV_FILE:-}" ]; then
   env_file=$ENV_FILE
@@ -33,6 +71,10 @@ set -- docker run -it \
   -v "$HOME/.gemini:/root/.gemini" \
   -v "$host_src_root:/workspace/src" \
   -v my-ai-env-cargo-cache:/root/.cargo
+
+if [ "$enable_host_kmsg" -eq 1 ]; then
+  set -- "$@" --privileged -v /dev/kmsg:/dev/kmsg
+fi
 
 # Pass through currently attached serial adapters from the host.
 for dev in /dev/ttyUSB* /dev/ttyACM*; do
