@@ -3,6 +3,7 @@ set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 enable_host_kmsg=0
+enable_host_opt=0
 
 usage() {
   cat <<EOF
@@ -13,6 +14,7 @@ Run the AI environment container with the project source mounted in.
 Options:
   --host-kmsg   Run the container privileged and bind /dev/kmsg so host kernel
                 messages can be read from inside the container.
+  --host-opt    Bind mount host /opt to /opt inside the container.
   -h, --help    Show this help text and exit.
 
 Environment:
@@ -27,6 +29,9 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --host-kmsg)
       enable_host_kmsg=1
+      ;;
+    --host-opt)
+      enable_host_opt=1
       ;;
     -h|--help)
       usage
@@ -74,6 +79,10 @@ set -- docker run -it \
 
 if [ "$enable_host_kmsg" -eq 1 ]; then
   set -- "$@" --privileged -v /dev/kmsg:/dev/kmsg
+fi
+
+if [ "$enable_host_opt" -eq 1 ]; then
+  set -- "$@" -v /opt:/opt
 fi
 
 # Pass through currently attached serial adapters from the host.
