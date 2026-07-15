@@ -9,7 +9,7 @@ ENV UV_LINK_MODE=copy
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Install base toolsets required to fetch the CLI and compile Python extensions
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates build-essential python3-dev python3-venv python3-pip nodejs npm git \
+ && apt-get install -y --no-install-recommends curl ca-certificates build-essential python3-dev python3-venv python3-pip git \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 # 1. Install the programmatic Python SDK using uv
@@ -19,13 +19,11 @@ RUN --mount=type=cache,target=/root/.cache/uv uv venv .venv \
 RUN curl -fsSL --compressed https://antigravity.google/cli/install.sh -o install.sh \
  && chmod +x install.sh \
  && ./install.sh
-# 3. Install Codex from the official npm package
-RUN npm install -g @openai/codex
-# 4. Download and install GitHub Copilot CLI from the official installer
+# 3. Download and install GitHub Copilot CLI from the official installer
 RUN curl -fsSL https://gh.io/copilot-install -o copilot-install.sh \
  && PREFIX=/usr/local VERSION=latest bash copilot-install.sh \
  && rm copilot-install.sh
-# 5. Install kiro-cli from the upstream Git repository using uv
+# 4. Install kiro-cli from the upstream Git repository using uv
 RUN uv tool install kiro-cli --from git+https://github.com/avelops/kiro-cli.git
 # =====================================================================
 # Stage 2: Insulated Runtime Runner
@@ -37,7 +35,7 @@ WORKDIR /workspace
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Install the essential tool belt for agents
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates git jq less file findutils tree man-db procps psmisc iproute2 iputils-ping dnsutils ripgrep fd-find yq lsof strace moreutils tmux shellcheck fzf bat git-lfs openssh-client dos2unix parallel unzip zip xz-utils rsync build-essential gcc sbcl rlwrap emacs-nox python3-full \
+ && apt-get install -y --no-install-recommends curl ca-certificates git jq less file findutils tree man-db procps psmisc iproute2 iputils-ping dnsutils ripgrep fd-find yq lsof strace moreutils tmux shellcheck fzf bat git-lfs openssh-client dos2unix parallel unzip zip xz-utils rsync build-essential gcc sbcl rlwrap emacs-nox python3-full nodejs npm \
  && rm -rf /var/lib/apt/lists/*
 # Install rustup and stable Rust toolchain
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
@@ -69,8 +67,9 @@ RUN chmod +x /usr/local/bin/agy
 # Add the Antigravity clean environment tweaks to .bashrc
 RUN echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1="\$ "; fi' >> /root/.bashrc \
  && echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc
-# Copy other AI CLI tools from the builder stage
-COPY --from=builder /usr/local/bin/codex /usr/local/bin/codex
+# Install or copy other AI CLI tools
+# Install the newest Codex release directly in the runner image
+RUN npm install -g @openai/codex@$(npm view @openai/codex version)
 # Rename the original binary and install a wrapper that bypasses approvals and sandboxing by default
 RUN mv /usr/local/bin/codex /usr/local/bin/codex.real
 COPY <<'EOF' /usr/local/bin/codex
@@ -137,29 +136,6 @@ RUN mkdir -p /root/quicklisp/local-projects \
  && ln -s /workspace/src/cl-rust-generator /root/quicklisp/local-projects/cl-rust-generator
 # Pre-fetch and cache Quicklisp systems and common dependencies
 RUN sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quickload "quicklisp-slime-helper")' --eval '(ql:quickload "alexandria")' --eval '(ql:quickload "jonathan")' --eval '(ql:quickload "external-program")' --eval '(ql:quickload "cl-ppcre")'
-# Install Grok Build from the official x.ai installer
-RUN curl -fsSL https://x.ai/cli/install.sh -o grok-install.sh \
- && bash grok-install.sh \
- && rm grok-install.sh
-# Move the installed Grok binaries out of ~/.grok so they survive optional auth volume mounts
-RUN cp /root/.grok/bin/grok /usr/local/bin/grok.real
-RUN cp /root/.grok/bin/agent /usr/local/bin/agent.real
-COPY <<'EOF' /usr/local/bin/grok
-#!/usr/bin/env bash
-set -euo pipefail
-case " $* " in
-  *" --always-approve "*) exec /usr/local/bin/grok.real "$@" ;;
-  *) exec /usr/local/bin/grok.real --always-approve "$@" ;;
-esac
-
-EOF
-COPY <<'EOF' /usr/local/bin/agent
-#!/usr/bin/env bash
-set -euo pipefail
-exec /usr/local/bin/agent.real "$@"
-
-EOF
-RUN chmod +x /usr/local/bin/grok /usr/local/bin/grok.real /usr/local/bin/agent /usr/local/bin/agent.real
 # Pre-install Emacs packages
 RUN emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(dolist (pkg '(compat cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (package-install pkg))"
 # Recompile installed Emacs packages with their dependencies available
@@ -213,12 +189,16 @@ set -eu
 sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'
 
 EOF
-# Smoke test Grok Build
-# Smoke test Grok Build by checking the CLI version
+# Smoke test Codex
+# Smoke test Codex by running the CLI and asserting it matches the latest npm release
 RUN <<'EOF'
 set -eu
-grok --version
-agent --version
+codex --version > /tmp/codex-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/codex-version.txt
+installed_version="$(node -p "require(require('path').join(process.argv[1], '@openai/codex/package.json')).version" "$(npm root -g)" | tr -d '[:space:]')"
+latest_version="$(npm view @openai/codex version | tr -d '[:space:]')"
+[ -n "$installed_version" ]
+[ "$installed_version" = "$latest_version" ]
 
 EOF
 # Smoke test Emacs

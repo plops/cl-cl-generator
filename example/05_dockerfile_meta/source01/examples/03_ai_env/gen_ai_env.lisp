@@ -67,7 +67,7 @@
 (defparameter *install-codex* t)
 (defparameter *install-copilot* t)
 (defparameter *install-kiro-cli* t)
-(defparameter *install-grok* t)
+(defparameter *install-grok* nil)
 
 ;; Toggle Rust support
 (defparameter *install-rust* t)
@@ -97,6 +97,17 @@
   (format nil "#!/usr/bin/env bash~%set -euo pipefail~%case \" $* \" in~%  *\" --always-approve \"*) exec ~a \"$@\" ;;~%  *) exec ~a --always-approve \"$@\" ;;~%esac~%"
           real-binary
           real-binary))
+
+(defun smoke-codex-test ()
+  `((comment "Smoke test Codex by running the CLI and asserting it matches the latest npm release")
+    (run :heredoc #r(set -eu
+codex --version > /tmp/codex-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/codex-version.txt
+installed_version="$(node -p "require(require('path').join(process.argv[1], '@openai/codex/package.json')).version" "$(npm root -g)" | tr -d '[:space:]')"
+latest_version="$(npm view @openai/codex version | tr -d '[:space:]')"
+[ -n "$installed_version" ]
+[ "$installed_version" = "$latest_version" ]
+))))
 
 (defun smoke-grok-test ()
   `((comment "Smoke test Grok Build by checking the CLI version")
@@ -202,6 +213,9 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
    (when *install-sbcl*
      `((comment "Smoke test SBCL")
        ,@(smoke-sbcl-test)))
+   (when *install-codex*
+     `((comment "Smoke test Codex")
+       ,@(smoke-codex-test)))
    (when *install-grok*
      `((comment "Smoke test Grok Build")
        ,@(smoke-grok-test)))
@@ -213,11 +227,8 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
              ,@(emacs-slime-test)))))))
 
 (defun builder-stage ()
-  (when (or *install-python-libs* *install-agy* *install-codex* *install-copilot* *install-kiro-cli*)
+  (when (or *install-python-libs* *install-agy* *install-copilot* *install-kiro-cli*)
     (let ((apt-packages '("python3-pip" "python3-venv" "python3-dev" "build-essential" "ca-certificates" "curl")))
-      (when *install-codex*
-        (push "nodejs" apt-packages)
-        (push "npm" apt-packages))
       (when *install-kiro-cli*
         (push "git" apt-packages))
       `((comment "=====================================================================")
@@ -249,18 +260,14 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                        "chmod +x install.sh"
                        "./install.sh"))))
         
-       ,@(when *install-codex*
-           `((comment "3. Install Codex from the official npm package")
-             (run "npm install -g @openai/codex")))
-        
        ,@(when *install-copilot*
-           `((comment "4. Download and install GitHub Copilot CLI from the official installer")
+           `((comment "3. Download and install GitHub Copilot CLI from the official installer")
              (run (and "curl -fsSL https://gh.io/copilot-install -o copilot-install.sh"
                        "PREFIX=/usr/local VERSION=latest bash copilot-install.sh"
                        "rm copilot-install.sh"))))
         
        ,@(when *install-kiro-cli*
-           `((comment "5. Install kiro-cli from the upstream Git repository using uv")
+           `((comment "4. Install kiro-cli from the upstream Git repository using uv")
              (run (and "uv tool install kiro-cli --from git+https://github.com/avelops/kiro-cli.git"))))))))
 
 (defun runner-stage ()
@@ -274,6 +281,8 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       (setf apt-packages (append apt-packages '("emacs-nox"))))
     (when (or *install-python* *install-python-libs*)
       (setf apt-packages (append apt-packages '("python3-full"))))
+    (when *install-codex*
+      (setf apt-packages (append apt-packages '("nodejs" "npm"))))
     
     `((comment "=====================================================================")
       (comment "Stage 2: Insulated Runtime Runner")
@@ -323,11 +332,12 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
             (run (and #r#echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1="\$ "; fi' >> /root/.bashrc#
                       #r#echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc#))))
       
-      ;; 3. Copy other CLI tools if enabled
+      ;; 3. Install and wrap other CLI tools if enabled
       ,@(when (or *install-codex* *install-copilot* *install-kiro-cli*)
-          `((comment "Copy other AI CLI tools from the builder stage")
+          `((comment "Install or copy other AI CLI tools")
             ,@(when *install-codex*
-               `((copy "/usr/local/bin/codex" "/usr/local/bin/codex" :from builder)
+               `((comment "Install the newest Codex release directly in the runner image")
+                 (run "npm install -g @openai/codex@$(npm view @openai/codex version)")
                  (comment "Rename the original binary and install a wrapper that bypasses approvals and sandboxing by default")
                  (run "mv /usr/local/bin/codex /usr/local/bin/codex.real")
                  (copy :heredoc "/usr/local/bin/codex"
