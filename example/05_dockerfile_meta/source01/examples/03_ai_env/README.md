@@ -22,7 +22,7 @@ You can easily customize the generated image directly in [gen_ai_env.lisp](file:
 | `*install-agy*` | Boolean | `t` | Fetches, compiles, and installs the Google Antigravity CLI tool (`agy`). |
 | `*install-codex*` | Boolean | `t` | Downloads and installs the official OpenAI Codex CLI installer. |
 | `*install-copilot*` | Boolean | `t` | Downloads and installs the official GitHub Copilot CLI installer. |
-| `*install-kiro-cli*` | Boolean | `t` | Installs `kiro-cli` from its upstream Git repository with `uv`. |
+| `*install-kiro-cli*` | Boolean | `t` | Installs `kiro-cli` from Amazon using the official zip package. |
 | `*install-grok*` | Boolean | `t` | Downloads and installs Grok Build from the official x.ai installer. |
 | `*install-rust*` | Boolean | `t` | Installs the Rust toolchain (via `rustup`) including `rustc`, `cargo`, `clippy`, and `rustfmt`. |
 | `*rust-cache-volume*` | Boolean | `t` | Appends `/root/.cargo` to the list of Docker `VOLUME` mounts to enable Cargo registry caching. |
@@ -38,7 +38,7 @@ This makes the example reproducible on any machine with Docker and network acces
 - `agy`: `https://antigravity.google/cli/install.sh`
 - `codex`: `npm install -g @openai/codex`
 - `copilot`: `https://gh.io/copilot-install`
-- `kiro-cli`: `https://github.com/avelops/kiro-cli.git`
+- `kiro-cli`: `https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip`
 - `grok`: `https://x.ai/cli/install.sh`
 
 The generated image also wraps `agy`, `copilot`, `codex`, and `grok` so they launch with permissive agent flags by default (`--dangerously-skip-permissions`, `--allow-all`, `--dangerously-bypass-approvals-and-sandbox`, and `--always-approve`), `kiro-cli` so `init` skips confirmation by default with `--force`, while still keeping the original binaries available as `*.real`.

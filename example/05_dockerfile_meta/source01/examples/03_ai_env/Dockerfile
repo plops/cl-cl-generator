@@ -9,7 +9,7 @@ ENV UV_LINK_MODE=copy
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Install base toolsets required to fetch the CLI and compile Python extensions
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates build-essential python3-dev python3-venv python3-pip git \
+ && apt-get install -y --no-install-recommends curl ca-certificates build-essential python3-dev python3-venv python3-pip unzip \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 # 1. Install the programmatic Python SDK using uv
@@ -23,8 +23,12 @@ RUN curl -fsSL --compressed https://antigravity.google/cli/install.sh -o install
 RUN curl -fsSL https://gh.io/copilot-install -o copilot-install.sh \
  && PREFIX=/usr/local VERSION=latest bash copilot-install.sh \
  && rm copilot-install.sh
-# 4. Install kiro-cli from the upstream Git repository using uv
-RUN uv tool install kiro-cli --from git+https://github.com/avelops/kiro-cli.git
+# 4. Install kiro-cli from Amazon using the official zip package
+RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip -o /tmp/kirocli.zip \
+ && unzip -q /tmp/kirocli.zip -d /tmp/kirocli-extracted \
+ && chmod +x /tmp/kirocli-extracted/kirocli/install.sh \
+ && KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh \
+ && rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted
 # =====================================================================
 # Stage 2: Insulated Runtime Runner
 # =====================================================================
@@ -199,6 +203,15 @@ installed_version="$(node -p "require(require('path').join(process.argv[1], '@op
 latest_version="$(npm view @openai/codex version | tr -d '[:space:]')"
 [ -n "$installed_version" ]
 [ "$installed_version" = "$latest_version" ]
+
+EOF
+# Smoke test kiro-cli
+# Smoke test kiro-cli by invoking the wrapped CLI
+RUN <<'EOF'
+set -eu
+kiro-cli --help > /tmp/kiro-cli-help.txt
+[ -s /tmp/kiro-cli-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-help.txt
 
 EOF
 # Smoke test Emacs

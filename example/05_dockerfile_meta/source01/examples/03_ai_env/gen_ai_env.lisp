@@ -109,6 +109,14 @@ latest_version="$(npm view @openai/codex version | tr -d '[:space:]')"
 [ "$installed_version" = "$latest_version" ]
 ))))
 
+(defun smoke-kiro-cli-test ()
+  `((comment "Smoke test kiro-cli by invoking the wrapped CLI")
+    (run :heredoc #r(set -eu
+kiro-cli --help > /tmp/kiro-cli-help.txt
+[ -s /tmp/kiro-cli-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-help.txt
+))))
+
 (defun smoke-grok-test ()
   `((comment "Smoke test Grok Build by checking the CLI version")
     (run :heredoc #r(set -eu
@@ -216,6 +224,9 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
    (when *install-codex*
      `((comment "Smoke test Codex")
        ,@(smoke-codex-test)))
+   (when *install-kiro-cli*
+     `((comment "Smoke test kiro-cli")
+       ,@(smoke-kiro-cli-test)))
    (when *install-grok*
      `((comment "Smoke test Grok Build")
        ,@(smoke-grok-test)))
@@ -230,7 +241,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
   (when (or *install-python-libs* *install-agy* *install-copilot* *install-kiro-cli*)
     (let ((apt-packages '("python3-pip" "python3-venv" "python3-dev" "build-essential" "ca-certificates" "curl")))
       (when *install-kiro-cli*
-        (push "git" apt-packages))
+        (push "unzip" apt-packages))
       `((comment "=====================================================================")
        (comment "Stage 1: Build Environment & Cache Dependency Compilation")
        (comment "=====================================================================")
@@ -267,8 +278,12 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                        "rm copilot-install.sh"))))
         
        ,@(when *install-kiro-cli*
-           `((comment "4. Install kiro-cli from the upstream Git repository using uv")
-             (run (and "uv tool install kiro-cli --from git+https://github.com/avelops/kiro-cli.git"))))))))
+            `((comment "4. Install kiro-cli from Amazon using the official zip package")
+              (run (and "curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip -o /tmp/kirocli.zip"
+                        "unzip -q /tmp/kirocli.zip -d /tmp/kirocli-extracted"
+                        "chmod +x /tmp/kirocli-extracted/kirocli/install.sh"
+                        "KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh"
+                        "rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted"))))))))
 
 (defun runner-stage ()
   (let ((apt-packages '("curl" "ca-certificates" "git" "jq")))
@@ -343,7 +358,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                  (copy :heredoc "/usr/local/bin/codex"
                        ,(agent-wrapper-script "/usr/local/bin/codex.real" "--dangerously-bypass-approvals-and-sandbox"))
                  (run "chmod +x /usr/local/bin/codex")))
-             ,@(when *install-copilot*
+            ,@(when *install-copilot*
                `((copy "/usr/local/bin/copilot" "/usr/local/bin/copilot" :from builder)
                  (comment "Rename the original binary and install a wrapper that allows all actions by default")
                  (run "mv /usr/local/bin/copilot /usr/local/bin/copilot.real")
@@ -351,12 +366,12 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                        ,(agent-wrapper-script "/usr/local/bin/copilot.real" "--allow-all"))
                  (run "chmod +x /usr/local/bin/copilot")))
             ,@(when *install-kiro-cli*
-              `((copy "/root/.local/bin/kiro-cli" "/usr/local/bin/kiro-cli" :from builder)
-                (comment "Rename the original binary and install a wrapper that skips confirmation for init")
-                (run "mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real")
-                (copy :heredoc "/usr/local/bin/kiro-cli"
-                      ,(kiro-wrapper-script "/usr/local/bin/kiro-cli.real"))
-                (run "chmod +x /usr/local/bin/kiro-cli")))
+               `((copy "/root/.local/bin/kiro-cli" "/usr/local/bin/kiro-cli" :from builder)
+                 (comment "Rename the original binary and install a wrapper that skips confirmation for init")
+                 (run "mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real")
+                 (copy :heredoc "/usr/local/bin/kiro-cli"
+                       ,(kiro-wrapper-script "/usr/local/bin/kiro-cli.real"))
+                 (run "chmod +x /usr/local/bin/kiro-cli")))
             (comment "Ensure executable permissions for copied CLI tools")
             (run (and ,@(remove nil (list
                                       (when *install-codex* "chmod +x /usr/local/bin/codex")

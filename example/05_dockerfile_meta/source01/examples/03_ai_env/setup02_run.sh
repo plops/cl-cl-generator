@@ -4,6 +4,7 @@ set -eu
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 enable_host_kmsg=0
 enable_host_opt=0
+verbose=0
 
 usage() {
   cat <<EOF
@@ -12,10 +13,11 @@ Usage: $(basename "$0") [OPTIONS]
 Run the AI environment container with the project source mounted in.
 
 Options:
-  --host-kmsg   Run the container privileged and bind /dev/kmsg so host kernel
-                messages can be read from inside the container.
-  --host-opt    Bind mount host /opt to /opt inside the container.
-  -h, --help    Show this help text and exit.
+  --host-kmsg    Run the container privileged and bind /dev/kmsg so host kernel
+                 messages can be read from inside the container.
+  --host-opt     Bind mount host /opt to /opt inside the container.
+  -v, --verbose  Print the executed commands.
+  -h, --help     Show this help text and exit.
 
 Environment:
   ENV_FILE            Override the env file path. Default: $script_dir/.env.ai
@@ -32,6 +34,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --host-opt)
       enable_host_opt=1
+      ;;
+    -v|--verbose)
+      verbose=1
       ;;
     -h|--help)
       usage
@@ -63,6 +68,13 @@ fi
 image_name=${IMAGE_NAME:-my-ai-env:latest}
 
 mkdir -p "$HOME/.gemini"
+mkdir -p "$HOME/.kiro"
+mkdir -p "$HOME/.aws"
+mkdir -p "$HOME/.copilot"
+mkdir -p "$HOME/.openai"
+mkdir -p "$HOME/.config/github-copilot"
+mkdir -p "$HOME/.config/openai"
+mkdir -p "$HOME/.config/codex"
 
 if [ ! -f "$env_file" ]; then
   echo "Missing env file: $env_file" >&2
@@ -74,6 +86,13 @@ set -- docker run -it \
   --env-file "$env_file" \
   -e ANTIGRAVITY_PLAINTEXT_AUTH=1 \
   -v "$HOME/.gemini:/root/.gemini" \
+  -v "$HOME/.kiro:/root/.kiro" \
+  -v "$HOME/.aws:/root/.aws" \
+  -v "$HOME/.copilot:/root/.copilot" \
+  -v "$HOME/.openai:/root/.openai" \
+  -v "$HOME/.config/github-copilot:/root/.config/github-copilot" \
+  -v "$HOME/.config/openai:/root/.config/openai" \
+  -v "$HOME/.config/codex:/root/.config/codex" \
   -v "$host_src_root:/workspace/src" \
   -v my-ai-env-cargo-cache:/root/.cargo
 
@@ -91,5 +110,9 @@ for dev in /dev/ttyUSB* /dev/ttyACM*; do
     set -- "$@" --device "$dev:$dev"
   fi
 done
+
+if [ "$verbose" -eq 1 ]; then
+  echo "+ $* $image_name" >&2
+fi
 
 exec "$@" "$image_name"
