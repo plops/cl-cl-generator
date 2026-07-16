@@ -100,7 +100,7 @@ Keep the file out of git; `.gitignore` already excludes `.env` and `.env.*` file
 - `setup01_build.sh` builds the image from the checked-in `Dockerfile`. It only needs Docker and a shell, and it creates a temporary `.emacs` if needed for the build context.
 - `setup02_run.sh` starts the image with portable defaults. Override `ENV_FILE`, `HOST_SRC_ROOT`, or `IMAGE_NAME` if you need a different env file, source mount, or tag.
 - `setup03_save.sh` exports the image with `docker save`. It writes a tar file next to the script by default and also creates a `.zst` copy when `zstd` is installed.
-- `setup04_cleanup.sh` performs targeted cleanup for this example: it stops and removes containers created from `IMAGE_NAME`, removes that image tag, can optionally remove the Cargo cache volume or prune dangling images, and can list or remove other local images sorted by size or age.
+- `setup04_cleanup.sh` performs targeted cleanup for this example: it stops and removes containers created from `IMAGE_NAME`, removes that image tag, can optionally remove the Cargo cache volume or prune dangling images, can suggest cleanup command variants with estimated reclaimable space, and can list or remove other local images sorted by size or age.
 
 On Linux/macOS, run the scripts with the system shell or `sh`. On Windows, they work when you have a compatible shell such as Git Bash or WSL plus Docker Desktop.
 

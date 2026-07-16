@@ -9,6 +9,7 @@ prune_dangling=0
 verbose=0
 list_other_images_sort=
 delete_other_images=""
+suggest_cleanup=0
 
 usage() {
   cat <<EOF
@@ -24,6 +25,9 @@ Default behavior:
 Options:
   --remove-volume  Also remove the Cargo cache volume (\$CARGO_CACHE_VOLUME).
   --prune-dangling Remove dangling images after targeted cleanup.
+  --suggest-cleanup
+                  Show suggested cleanup commands with estimated reclaimable
+                  space, then exit without deleting anything.
   --list-other-images SORT
                   List local images other than \$IMAGE_NAME sorted by SORT.
                   SORT must be 'size' or 'age'.
@@ -44,6 +48,97 @@ log_cmd() {
   if [ "$verbose" -eq 1 ]; then
     echo "+ $*" >&2
   fi
+}
+
+have_cmd() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+format_bytes() {
+  bytes=${1:-0}
+  if have_cmd numfmt; then
+    numfmt --to=iec-i --suffix=B "$bytes" 2>/dev/null || echo "${bytes}B"
+  else
+    echo "${bytes}B"
+  fi
+}
+
+image_size_bytes() {
+  ref=$1
+  docker image inspect --format '{{.VirtualSize}}' "$ref" 2>/dev/null ||
+    docker image inspect --format '{{.Size}}' "$ref" 2>/dev/null ||
+    echo 0
+}
+
+volume_size_bytes() {
+  volume=$1
+
+  if ! docker volume inspect "$volume" >/dev/null 2>&1; then
+    echo 0
+    return
+  fi
+
+  mountpoint=$(docker volume inspect --format '{{.Mountpoint}}' "$volume" 2>/dev/null || echo "")
+  if [ -z "$mountpoint" ] || [ ! -d "$mountpoint" ]; then
+    echo 0
+    return
+  fi
+
+  if du -sb "$mountpoint" >/dev/null 2>&1; then
+    du -sb "$mountpoint" 2>/dev/null | awk '{print $1}'
+  else
+    du -sk "$mountpoint" 2>/dev/null | awk '{print $1 * 1024}'
+  fi
+}
+
+estimate_dangling_bytes() {
+  docker image ls -f dangling=true -q --no-trunc |
+  sort -u |
+  while IFS= read -r image_id; do
+    [ -n "$image_id" ] || continue
+    image_size_bytes "$image_id"
+  done |
+  awk '{sum += $1} END {print sum + 0}'
+}
+
+print_cleanup_suggestions() {
+  target_image_bytes=0
+  volume_bytes=0
+  dangling_bytes=0
+
+  if docker image inspect "$image_name" >/dev/null 2>&1; then
+    target_image_bytes=$(image_size_bytes "$image_name")
+  fi
+
+  if docker volume inspect "$volume_name" >/dev/null 2>&1; then
+    volume_bytes=$(volume_size_bytes "$volume_name")
+  fi
+
+  dangling_bytes=$(estimate_dangling_bytes)
+
+  base_total=$target_image_bytes
+  with_dangling_total=$(awk "BEGIN {print $base_total + $dangling_bytes}")
+  with_volume_total=$(awk "BEGIN {print $base_total + $volume_bytes}")
+  full_total=$(awk "BEGIN {print $base_total + $volume_bytes + $dangling_bytes}")
+
+  echo "Suggested cleanup commands (estimated reclaimable space):"
+  printf '  %s\n' "$script_name"
+  printf '    %s\n' "$(format_bytes "$base_total")"
+  printf '  %s --prune-dangling\n' "$script_name"
+  printf '    %s\n' "$(format_bytes "$with_dangling_total")"
+  printf '  %s --remove-volume\n' "$script_name"
+  printf '    %s\n' "$(format_bytes "$with_volume_total")"
+  printf '  %s --remove-volume --prune-dangling\n' "$script_name"
+  printf '    %s\n' "$(format_bytes "$full_total")"
+
+  if [ "$target_image_bytes" -eq 0 ] && [ "$volume_bytes" -eq 0 ] && [ "$dangling_bytes" -eq 0 ]; then
+    echo "  No matching image, volume, or dangling images were found."
+  fi
+
+  echo
+  echo "Notes:"
+  echo "  Estimates are approximate because Docker layers may be shared."
+  echo "  Use --list-other-images size to inspect large tagged images outside this example."
 }
 
 append_delete_other_image() {
@@ -140,6 +235,9 @@ while [ "$#" -gt 0 ]; do
     --prune-dangling)
       prune_dangling=1
       ;;
+    --suggest-cleanup)
+      suggest_cleanup=1
+      ;;
     --list-other-images)
       shift
       if [ "$#" -eq 0 ]; then
@@ -180,6 +278,11 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+
+if [ "$suggest_cleanup" -eq 1 ]; then
+  print_cleanup_suggestions
+  exit 0
+fi
 
 running_container_ids=$(docker ps -q --filter "ancestor=$image_name")
 all_container_ids=$(docker ps -aq --filter "ancestor=$image_name")
