@@ -449,7 +449,7 @@ exec /usr/local/bin/agent.real "$@"
           (test-stage))
       
       ;; 7. Define Volumes for sharing configs, logins, caches, and source files
-      (volume ,(let ((vols '("/workspace/src" "/root/.config" "/root/.cache" "/root/.gemini" "/root/.grok")))
+      (volume ,(let ((vols '("/workspace/src" "/root/.config" "/root/.cache" "/root/.gemini" "/root/.grok" "/root/.codex")))
                  (if (and *install-rust* *rust-cache-volume*)
                      (append vols '("/root/.cargo"))
                      vols)))

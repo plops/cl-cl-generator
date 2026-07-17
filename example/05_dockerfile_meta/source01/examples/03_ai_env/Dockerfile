@@ -273,6 +273,6 @@ sed -i "s#/tmp/ai-env-slime.XXXXXX#$tmpdir#g" "$tmpdir/slime-check.el"
 emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
 
 EOF
-VOLUME ["/workspace/src", "/root/.config", "/root/.cache", "/root/.gemini", "/root/.grok", "/root/.cargo"]
+VOLUME ["/workspace/src", "/root/.config", "/root/.cache", "/root/.gemini", "/root/.grok", "/root/.codex", "/root/.cargo"]
 # Default to launching a bash shell
 CMD ["/bin/bash"]

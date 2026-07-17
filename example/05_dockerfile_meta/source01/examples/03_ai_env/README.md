@@ -51,7 +51,8 @@ The generated image also wraps `agy`, `copilot`, `codex`, and `grok` so they lau
 
 To avoid authenticating every time you run a new container and to persist chat histories or intermediate results across container lifecycles, the Dockerfile defines shared volumes:
 - `/workspace/src` (where your source code directories are mounted)
-- `/root/.config` (shared config directory, containing configuration files for `codex`, `copilot`, `kiro-cli`, and Grok)
+- `/root/.config` (shared config directory, containing configuration files for `copilot`, `kiro-cli`, and Grok)
+- `/root/.codex` (holds OpenAI Codex CLI authentication and configuration)
 - `/root/.cache` (shared cache files for various runtimes/commands)
 - `/root/.gemini` (holds `agy` authentication details)
 - `/root/.grok` (holds Grok auth, downloads, and completions)
@@ -67,6 +68,7 @@ docker run -it \
   -v "$HOME/.config:/root/.config" \
   -v "$HOME/.cache:/root/.cache" \
   -v "$HOME/.gemini:/root/.gemini" \
+  -v "$HOME/.codex:/root/.codex" \
   -v "$HOME/.grok:/root/.grok" \
   -v my-ai-env-cargo-cache:/root/.cargo \
   my-ai-env:latest

@@ -73,6 +73,7 @@ mkdir -p "$HOME/.local/share/kiro-cli"
 mkdir -p "$HOME/.aws"
 mkdir -p "$HOME/.copilot"
 mkdir -p "$HOME/.openai"
+mkdir -p "$HOME/.codex"
 mkdir -p "$HOME/.config/github-copilot"
 mkdir -p "$HOME/.config/openai"
 mkdir -p "$HOME/.config/codex"
@@ -92,6 +93,7 @@ set -- docker run -it \
   -v "$HOME/.aws:/root/.aws" \
   -v "$HOME/.copilot:/root/.copilot" \
   -v "$HOME/.openai:/root/.openai" \
+  -v "$HOME/.codex:/root/.codex" \
   -v "$HOME/.config/github-copilot:/root/.config/github-copilot" \
   -v "$HOME/.config/openai:/root/.config/openai" \
   -v "$HOME/.config/codex:/root/.config/codex" \
