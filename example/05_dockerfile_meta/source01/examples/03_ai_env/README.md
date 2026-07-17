@@ -23,7 +23,7 @@ You can easily customize the generated image directly in [gen_ai_env.lisp](file:
 | `*install-codex*` | Boolean | `t` | Downloads and installs the official OpenAI Codex CLI installer. |
 | `*install-copilot*` | Boolean | `t` | Downloads and installs the official GitHub Copilot CLI installer. |
 | `*install-kiro-cli*` | Boolean | `t` | Installs `kiro-cli` from Amazon using the official zip package. |
-| `*install-grok*` | Boolean | `t` | Downloads and installs Grok Build from the official x.ai installer. |
+| `*install-grok*` | Boolean | `nil` | Downloads and installs Grok Build from the official x.ai installer. |
 | `*install-rust*` | Boolean | `t` | Installs the Rust toolchain (via `rustup`) including `rustc`, `cargo`, `clippy`, and `rustfmt`. |
 | `*rust-cache-volume*` | Boolean | `t` | Appends `/root/.cargo` to the list of Docker `VOLUME` mounts to enable Cargo registry caching. |
 | `*enable-tests*` | Boolean | `t` | Runs image smoke tests for GCC, Rust, Python, SBCL, Grok Build, and Emacs/SLIME during `docker build`. |
@@ -98,7 +98,7 @@ Keep the file out of git; `.gitignore` already excludes `.env` and `.env.*` file
 
 ## Script Overview
 
-- `script00_generate_dockerfile.sh` regenerates `Dockerfile` from `gen_ai_env.lisp`. It is the only script that needs SBCL and is mainly for maintainers.
+- `setup00_generate_dockerfile.sh` regenerates `Dockerfile` from `gen_ai_env.lisp`. It is the only script that needs SBCL and is mainly for maintainers.
 - `setup01_build.sh` builds the image from the checked-in `Dockerfile`. It only needs Docker and a shell, and it creates a temporary `.emacs` if needed for the build context.
 - `setup02_run.sh` starts the image with portable defaults. Override `ENV_FILE`, `HOST_SRC_ROOT`, or `IMAGE_NAME` if you need a different env file, source mount, or tag.
 - `setup03_save.sh` exports the image with `docker save`. It writes a tar file next to the script by default and also creates a `.zst` copy when `zstd` is installed.

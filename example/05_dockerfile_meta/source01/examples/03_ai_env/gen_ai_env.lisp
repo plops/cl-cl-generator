@@ -72,8 +72,8 @@
 (defparameter *install-codex* t)
 (defparameter *install-copilot* t)
 (defparameter *install-kiro-cli* t)
-(defparameter *install-azure-cli* nil)
-(defparameter *install-teamcity-cli* nil)
+(defparameter *install-azure-cli* t)
+(defparameter *install-teamcity-cli* t)
 (defparameter *install-grok* nil)
 
 ;; Toggle Rust support
@@ -95,7 +95,8 @@
           default-flag))
 
 (defun kiro-wrapper-script (real-binary)
-  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%~%# Kiro CLI tool trust is controlled via --trust-all-tools, which is only~%# valid after the 'chat' subcommand (see 'kiro-cli chat --help'). Always~%# start a trusted chat session, forwarding any arguments as the query.~%# Use ~a directly for other subcommands (settings, whoami, ...).~%if [[ ${1:-} == init ]]; then~%  for arg in \"$@\"; do~%    if [[ $arg == --force ]]; then~%      exec ~a --v3 \"$@\"~%    fi~%  done~%  exec ~a --v3 init --force \"${@:2}\"~%fi~%exec ~a chat --v3 --trust-all-tools \"$@\"~%"
+  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%~%subcommand=\"${1:-}\"~%case \"$subcommand\" in~%  init)~%    for arg in \"$@\"; do~%      if [[ $arg == --force ]]; then~%        exec ~a --v3 \"$@\"~%      fi~%    done~%    exec ~a --v3 init --force \"${@:2}\"~%    ;;~%  whoami|settings|version|help|--help|-h|--version)~%    exec ~a \"$@\"~%    ;;~%  chat)~%    exec ~a chat --v3 --trust-all-tools \"${@:2}\"~%    ;;~%  *)~%    exec ~a chat --v3 --trust-all-tools \"$@\"~%    ;;~%esac~%"
+          real-binary
           real-binary
           real-binary
           real-binary
@@ -274,60 +275,69 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
            `((comment "Smoke test Emacs + SLIME")
              ,@(emacs-slime-test)))))))
 
-(defun builder-stage ()
-  (when (or *install-python-libs* *install-agy* *install-copilot* *install-kiro-cli* *install-teamcity-cli*)
-    (let ((apt-packages (copy-list '("python3-pip" "python3-venv" "python3-dev" "build-essential" "ca-certificates" "curl"))))
+(defun builder-python-stage ()
+  (when *install-python-libs*
+    `((comment "====================================================================" )
+      (comment "Stage: Python Dependencies (runs in parallel with other builders)")
+      (comment "====================================================================" )
+      (from ,*base-image* :as builder-python)
+      (env DEBIAN_FRONTEND "noninteractive")
+      (env UV_COMPILE_BYTECODE "1")
+      (env UV_LINK_MODE "copy")
+      (comment "Grab the modern uv binary directly from Astral's official release container")
+      ,(uv-copy-stage)
+      (comment "Install base toolsets required to compile Python extensions")
+      (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
+           (and "apt-get update"
+                "apt-get install -y --no-install-recommends python3-pip python3-venv python3-dev build-essential ca-certificates"))
+      (workdir "/workspace")
+      (comment "Install the programmatic Python SDK using uv")
+      (run :mount "type=cache,target=/root/.cache/uv"
+           (and "uv venv .venv"
+                ,(format nil "uv pip install ~{~a~^ ~}" *python-libs*))))))
+
+(defun builder-cli-stage ()
+  (when (or *install-agy* *install-copilot* *install-kiro-cli* *install-teamcity-cli*)
+    (let ((apt-packages (copy-list '("ca-certificates" "curl"))))
       (when *install-kiro-cli*
         (setf apt-packages (append apt-packages '("unzip"))))
-      `((comment "=====================================================================")
-       (comment "Stage 1: Build Environment & Cache Dependency Compilation")
-       (comment "=====================================================================")
-       (from ,*base-image* :as builder)
-       (env DEBIAN_FRONTEND "noninteractive")
-       (env UV_COMPILE_BYTECODE "1")
-       (env UV_LINK_MODE "copy")
-        
-       (comment "Grab the modern uv binary directly from Astral's official release container")
-       ,(uv-copy-stage)
-        
-       (comment "Install base toolsets required to fetch the CLI and compile Python extensions")
-       (run (and "apt-get update"
-                 ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" apt-packages)
-                 "rm -rf /var/lib/apt/lists/*"))
-       (workdir "/workspace")
-        
-       ,@(when *install-python-libs*
-           `((comment "1. Install the programmatic Python SDK using uv")
-             (run :mount "type=cache,target=/root/.cache/uv"
-                  (and "uv venv .venv"
-                       ,(format nil "uv pip install --no-cache-dir ~{~a~^ ~}" *python-libs*)))))
-        
-       ,@(when *install-agy*
-           `((comment "2. Safely download, decompress, and run the installation script")
-             (run (and "curl -fsSL --compressed https://antigravity.google/cli/install.sh -o install.sh"
-                       "chmod +x install.sh"
-                       "./install.sh"))))
-        
-       ,@(when *install-copilot*
-           `((comment "3. Download and install GitHub Copilot CLI from the official installer")
-             (run (and "curl -fsSL https://gh.io/copilot-install -o copilot-install.sh"
-                       "PREFIX=/usr/local VERSION=latest bash copilot-install.sh"
-                       "rm copilot-install.sh"))))
-        
-       ,@(when *install-kiro-cli*
-            `((comment "4. Install kiro-cli from Amazon using the official zip package")
+      `((comment "====================================================================" )
+        (comment "Stage: CLI Tool Downloads (runs in parallel with other builders)")
+        (comment "====================================================================" )
+        (from ,*base-image* :as builder-cli)
+        (env DEBIAN_FRONTEND "noninteractive")
+        (comment "Install base toolsets required to fetch CLI tools")
+        (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
+             (and "apt-get update"
+                  ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" apt-packages)))
+        (workdir "/workspace")
+
+        ,@(when *install-agy*
+            `((comment "Download, decompress, and run the Antigravity installation script")
+              (run (and "curl -fsSL --compressed https://antigravity.google/cli/install.sh -o install.sh"
+                        "chmod +x install.sh"
+                        "./install.sh"))))
+
+        ,@(when *install-copilot*
+            `((comment "Download and install GitHub Copilot CLI from the official installer")
+              (run (and "curl -fsSL https://gh.io/copilot-install -o copilot-install.sh"
+                        "PREFIX=/usr/local VERSION=latest bash copilot-install.sh"
+                        "rm copilot-install.sh"))))
+
+        ,@(when *install-kiro-cli*
+            `((comment "Install kiro-cli from Amazon using the official zip package")
               (run (and "curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip -o /tmp/kirocli.zip"
                         "unzip -q /tmp/kirocli.zip -d /tmp/kirocli-extracted"
                         "chmod +x /tmp/kirocli-extracted/kirocli/install.sh"
                         "KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh"
                         "rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted"))))
 
-       ,@(when *install-teamcity-cli*
-           `((comment "5. Install TeamCity CLI from the official JetBrains installer")
-             (run (and "curl -fsSL https://jb.gg/tc/install -o /tmp/teamcity-install.sh"
-                       "bash /tmp/teamcity-install.sh"
-                       "rm -f /tmp/teamcity-install.sh"
-                       "command -v teamcity >/dev/null"))))))))
+        ,@(when *install-teamcity-cli*
+            `((comment "Install TeamCity CLI from the official JetBrains installer")
+              (run (and "curl -fsSL https://jb.gg/tc/install -o /tmp/teamcity-install.sh"
+                        "bash /tmp/teamcity-install.sh"
+                        "rm -f /tmp/teamcity-install.sh"
+                        "command -v teamcity >/dev/null"))))))))
 
 (defun runner-stage ()
   (let ((apt-packages '("curl" "ca-certificates" "git" "jq")))
@@ -356,9 +366,9 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       ,(uv-copy-stage)
       
       (comment "Install the essential tool belt for agents")
-      (run (and "apt-get update"
-                ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" apt-packages)
-                "rm -rf /var/lib/apt/lists/*"))
+      (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
+           (and "apt-get update"
+                ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" apt-packages)))
       
       ;; Install Rustup and the stable Rust toolchain if enabled
       ,@(when *install-rust*
@@ -368,22 +378,22 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
             (env PATH "/root/.cargo/bin:$PATH")
             ,@(when *install-difftastic*
                 `((comment "Install difftastic syntax-aware diff tool")
-                  (run (and "cargo install difftastic"
-                            "ln -sf /root/.cargo/bin/difft /usr/local/bin/difft"
-                            "rm -rf /root/.cargo/registry /root/.cargo/git"))
+                  (run :mount ("type=cache,target=/root/.cargo/registry" "type=cache,target=/root/.cargo/git")
+                       (and "cargo install difftastic"
+                            "ln -sf /root/.cargo/bin/difft /usr/local/bin/difft"))
                   (comment "Configure Git to use difftastic as default diff tool")
                   (run "git config --global diff.external difft")))))
       
       ;; 1. Copy Python virtualenv if python libs are enabled
       ,@(when *install-python-libs*
           `((comment "Copy the isolated Python environment")
-            (copy "/workspace/.venv" "/workspace/.venv" :from builder)
+            (copy "/workspace/.venv" "/workspace/.venv" :from builder-python :link t)
             (env PATH "/workspace/.venv/bin:$PATH")))
       
       ;; 2. Copy agy if enabled
       ,@(when *install-agy*
           `((comment "Copy the actual agy CLI tool from the builder's local path to system binaries")
-            (copy "/root/.local/bin/agy" "/usr/local/bin/agy" :from builder)
+            (copy "/root/.local/bin/agy" "/usr/local/bin/agy" :from builder-cli :link t :chmod "755")
             (comment "Rename the original binary and install a wrapper that skips permissions by default")
             (run "mv /usr/local/bin/agy /usr/local/bin/agy.real")
             (copy :heredoc "/usr/local/bin/agy"
@@ -398,23 +408,24 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
           `((comment "Install or copy other AI CLI tools")
             ,@(when *install-codex*
                `((comment "Install the newest Codex release directly in the runner image")
-                 (run "npm install -g @openai/codex@$(npm view @openai/codex version)")
+                 (run :mount "type=cache,target=/root/.npm"
+                      "npm install -g @openai/codex@$(npm view @openai/codex version)")
                  (comment "Rename the original binary and install a wrapper that bypasses approvals and sandboxing by default")
                  (run "mv /usr/local/bin/codex /usr/local/bin/codex.real")
                  (copy :heredoc "/usr/local/bin/codex"
                        ,(agent-wrapper-script "/usr/local/bin/codex.real" "--dangerously-bypass-approvals-and-sandbox"))
                  (run "chmod +x /usr/local/bin/codex")))
             ,@(when *install-copilot*
-               `((copy "/usr/local/bin/copilot" "/usr/local/bin/copilot" :from builder)
+               `((copy "/usr/local/bin/copilot" "/usr/local/bin/copilot" :from builder-cli :link t :chmod "755")
                  (comment "Rename the original binary and install a wrapper that allows all actions by default")
                  (run "mv /usr/local/bin/copilot /usr/local/bin/copilot.real")
                  (copy :heredoc "/usr/local/bin/copilot"
                        ,(agent-wrapper-script "/usr/local/bin/copilot.real" "--allow-all"))
                  (run "chmod +x /usr/local/bin/copilot")))
             ,@(when *install-kiro-cli*
-                `((copy "/root/.local/bin/kiro-cli" "/usr/local/bin/kiro-cli" :from builder)
-                  (copy "/root/.local/bin/kiro-cli-chat" "/usr/local/bin/kiro-cli-chat" :from builder)
-                  (copy "/root/.local/bin/kiro-cli-term" "/usr/local/bin/kiro-cli-term" :from builder)
+                `((copy "/root/.local/bin/kiro-cli" "/usr/local/bin/kiro-cli" :from builder-cli :link t :chmod "755")
+                  (copy "/root/.local/bin/kiro-cli-chat" "/usr/local/bin/kiro-cli-chat" :from builder-cli :link t :chmod "755")
+                  (copy "/root/.local/bin/kiro-cli-term" "/usr/local/bin/kiro-cli-term" :from builder-cli :link t :chmod "755")
                   (comment "Rename the original binary and install a wrapper that skips confirmation for init")
                   (run "mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real")
                   (copy :heredoc "/usr/local/bin/kiro-cli"
@@ -422,18 +433,12 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                   (run "chmod +x /usr/local/bin/kiro-cli")))
             ,@(when *install-teamcity-cli*
                 `((comment "Copy TeamCity CLI from the builder image")
-                  (copy "/usr/local/bin/teamcity" "/usr/local/bin/teamcity" :from builder)
-                  (run "chmod +x /usr/local/bin/teamcity")))
-            (comment "Ensure executable permissions for copied CLI tools")
-            (run (and ,@(remove nil (list
-                                      (when *install-codex* "chmod +x /usr/local/bin/codex")
-                                      (when *install-copilot* "chmod +x /usr/local/bin/copilot")
-                                      (when *install-kiro-cli* "chmod +x /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-term")
-                                      (when *install-teamcity-cli* "chmod +x /usr/local/bin/teamcity")))))))
+                  (copy "/usr/local/bin/teamcity" "/usr/local/bin/teamcity" :from builder-cli :link t :chmod "755")))))
 
       ,@(when *install-azure-cli*
           `((comment "Install Azure CLI from Microsoft's official apt repository")
-            (run (and "mkdir -p /etc/apt/keyrings"
+            (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
+                 (and "mkdir -p /etc/apt/keyrings"
                       "curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg"
                       "chmod go+r /etc/apt/keyrings/microsoft.gpg"
                       "arch=\"$(dpkg --print-architecture)\""
@@ -442,8 +447,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                       "if ! curl -fsI \"https://packages.microsoft.com/repos/azure-cli/dists/${repo_suite}/Release\" >/dev/null; then repo_suite=\"noble\"; fi"
                       "printf '%s\\n' 'Types: deb' 'URIs: https://packages.microsoft.com/repos/azure-cli/' \"Suites: ${repo_suite}\" 'Components: main' \"Architectures: ${arch}\" 'Signed-By: /etc/apt/keyrings/microsoft.gpg' > /etc/apt/sources.list.d/azure-cli.sources"
                       "apt-get update"
-                      "apt-get install -y --no-install-recommends azure-cli"
-                      "rm -rf /var/lib/apt/lists/*"))))
+                      "apt-get install -y --no-install-recommends azure-cli"))))
 
       ;; 4. Setup Quicklisp and Lisp dependencies if SBCL is enabled
       ,@(when *install-sbcl*
@@ -494,7 +498,7 @@ exec /usr/local/bin/agent.real "$@"
             (run #r#emacs --batch --eval "(require 'package)" --eval "(package-initialize)" --eval "(byte-recompile-directory package-user-dir 0 t)"#)
             (comment "Copy the modified .emacs configuration from the build context if present")
             (comment "Note: In real usage, ensure .emacs exists in the build context directory")
-            (copy ".emacs" "/root/.emacs")))
+            (copy ".emacs" "/root/.emacs" :link t)))
 
       ,@(when *enable-tests*
           (test-stage))
@@ -510,7 +514,8 @@ exec /usr/local/bin/agent.real "$@"
 
 (let ((all-code
         `(toplevel
-           ,@(builder-stage)
+           ,@(builder-python-stage)
+           ,@(builder-cli-stage)
            ,@(runner-stage))))
   (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
     (write-df (merge-pathnames "Dockerfile" current-dir) all-code t)

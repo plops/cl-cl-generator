@@ -117,9 +117,9 @@ print_cleanup_suggestions() {
   dangling_bytes=$(estimate_dangling_bytes)
 
   base_total=$target_image_bytes
-  with_dangling_total=$(awk "BEGIN {print $base_total + $dangling_bytes}")
-  with_volume_total=$(awk "BEGIN {print $base_total + $volume_bytes}")
-  full_total=$(awk "BEGIN {print $base_total + $volume_bytes + $dangling_bytes}")
+  with_dangling_total=$((base_total + dangling_bytes))
+  with_volume_total=$((base_total + volume_bytes))
+  full_total=$((base_total + volume_bytes + dangling_bytes))
 
   echo "Suggested cleanup commands (estimated reclaimable space):"
   printf '  %s\n' "$script_name"

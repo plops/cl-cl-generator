@@ -1,34 +1,47 @@
-# =====================================================================
-# Stage 1: Build Environment & Cache Dependency Compilation
-# =====================================================================
-FROM ubuntu:26.04 AS builder
+# ====================================================================
+# Stage: Python Dependencies (runs in parallel with other builders)
+# ====================================================================
+FROM ubuntu:26.04 AS builder-python
 ENV DEBIAN_FRONTEND=noninteractive
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 # Grab the modern uv binary directly from Astral's official release container
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-# Install base toolsets required to fetch the CLI and compile Python extensions
-RUN apt-get update \
- && apt-get install -y --no-install-recommends python3-pip python3-venv python3-dev build-essential ca-certificates curl unzip \
- && rm -rf /var/lib/apt/lists/*
+# Install base toolsets required to compile Python extensions
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
+ && apt-get install -y --no-install-recommends python3-pip python3-venv python3-dev build-essential ca-certificates
 WORKDIR /workspace
-# 1. Install the programmatic Python SDK using uv
+# Install the programmatic Python SDK using uv
 RUN --mount=type=cache,target=/root/.cache/uv uv venv .venv \
- && uv pip install --no-cache-dir google-antigravity azure-cognitiveservices-speech openai matplotlib numpy pandas scipy tqdm xarray loguru nbdev requests ruff scikit-learn seaborn
-# 2. Safely download, decompress, and run the installation script
+ && uv pip install google-antigravity azure-cognitiveservices-speech openai matplotlib numpy pandas scipy tqdm xarray loguru nbdev requests ruff scikit-learn seaborn
+# ====================================================================
+# Stage: CLI Tool Downloads (runs in parallel with other builders)
+# ====================================================================
+FROM ubuntu:26.04 AS builder-cli
+ENV DEBIAN_FRONTEND=noninteractive
+# Install base toolsets required to fetch CLI tools
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl unzip
+WORKDIR /workspace
+# Download, decompress, and run the Antigravity installation script
 RUN curl -fsSL --compressed https://antigravity.google/cli/install.sh -o install.sh \
  && chmod +x install.sh \
  && ./install.sh
-# 3. Download and install GitHub Copilot CLI from the official installer
+# Download and install GitHub Copilot CLI from the official installer
 RUN curl -fsSL https://gh.io/copilot-install -o copilot-install.sh \
  && PREFIX=/usr/local VERSION=latest bash copilot-install.sh \
  && rm copilot-install.sh
-# 4. Install kiro-cli from Amazon using the official zip package
+# Install kiro-cli from Amazon using the official zip package
 RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip -o /tmp/kirocli.zip \
  && unzip -q /tmp/kirocli.zip -d /tmp/kirocli-extracted \
  && chmod +x /tmp/kirocli-extracted/kirocli/install.sh \
  && KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh \
  && rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted
+# Install TeamCity CLI from the official JetBrains installer
+RUN curl -fsSL https://jb.gg/tc/install -o /tmp/teamcity-install.sh \
+ && bash /tmp/teamcity-install.sh \
+ && rm -f /tmp/teamcity-install.sh \
+ && command -v teamcity >/dev/null
 # =====================================================================
 # Stage 2: Insulated Runtime Runner
 # =====================================================================
@@ -38,24 +51,22 @@ WORKDIR /workspace
 # Copy the modern uv binary directly from Astral's official release container
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Install the essential tool belt for agents
-RUN apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates git jq less file findutils tree man-db procps psmisc iproute2 iputils-ping dnsutils ripgrep fd-find yq picocom usbutils libusb-1.0-0-dev lsof strace moreutils tmux shellcheck fzf cmake ninja-build bat git-lfs openssh-client dos2unix parallel unzip zip xz-utils rsync build-essential gcc sbcl rlwrap emacs-nox python3-full nodejs npm \
- && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates git jq less file findutils tree man-db procps psmisc iproute2 iputils-ping dnsutils ripgrep fd-find yq picocom usbutils libusb-1.0-0-dev lsof strace moreutils tmux shellcheck fzf cmake ninja-build bat git-lfs openssh-client dos2unix parallel unzip zip xz-utils rsync build-essential gcc sbcl rlwrap emacs-nox python3-full nodejs npm gnupg lsb-release
 # Install rustup and stable Rust toolchain
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
  && chmod -R a+w /root/.rustup
 ENV PATH=/root/.cargo/bin:$PATH
 # Install difftastic syntax-aware diff tool
-RUN cargo install difftastic \
- && ln -sf /root/.cargo/bin/difft /usr/local/bin/difft \
- && rm -rf /root/.cargo/registry /root/.cargo/git
+RUN --mount=type=cache,target=/root/.cargo/registry --mount=type=cache,target=/root/.cargo/git cargo install difftastic \
+ && ln -sf /root/.cargo/bin/difft /usr/local/bin/difft
 # Configure Git to use difftastic as default diff tool
 RUN git config --global diff.external difft
 # Copy the isolated Python environment
-COPY --from=builder /workspace/.venv /workspace/.venv
+COPY --from=builder-python --link /workspace/.venv /workspace/.venv
 ENV PATH=/workspace/.venv/bin:$PATH
 # Copy the actual agy CLI tool from the builder's local path to system binaries
-COPY --from=builder /root/.local/bin/agy /usr/local/bin/agy
+COPY --from=builder-cli --link --chmod=755 /root/.local/bin/agy /usr/local/bin/agy
 # Rename the original binary and install a wrapper that skips permissions by default
 RUN mv /usr/local/bin/agy /usr/local/bin/agy.real
 COPY <<'EOF' /usr/local/bin/agy
@@ -73,7 +84,7 @@ RUN echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN
  && echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc
 # Install or copy other AI CLI tools
 # Install the newest Codex release directly in the runner image
-RUN npm install -g @openai/codex@$(npm view @openai/codex version)
+RUN --mount=type=cache,target=/root/.npm npm install -g @openai/codex@$(npm view @openai/codex version)
 # Rename the original binary and install a wrapper that bypasses approvals and sandboxing by default
 RUN mv /usr/local/bin/codex /usr/local/bin/codex.real
 COPY <<'EOF' /usr/local/bin/codex
@@ -86,7 +97,7 @@ esac
 
 EOF
 RUN chmod +x /usr/local/bin/codex
-COPY --from=builder /usr/local/bin/copilot /usr/local/bin/copilot
+COPY --from=builder-cli --link --chmod=755 /usr/local/bin/copilot /usr/local/bin/copilot
 # Rename the original binary and install a wrapper that allows all actions by default
 RUN mv /usr/local/bin/copilot /usr/local/bin/copilot.real
 COPY <<'EOF' /usr/local/bin/copilot
@@ -99,35 +110,51 @@ esac
 
 EOF
 RUN chmod +x /usr/local/bin/copilot
-COPY --from=builder /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli
-COPY --from=builder /root/.local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-chat
-COPY --from=builder /root/.local/bin/kiro-cli-term /usr/local/bin/kiro-cli-term
+COPY --from=builder-cli --link --chmod=755 /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli
+COPY --from=builder-cli --link --chmod=755 /root/.local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-chat
+COPY --from=builder-cli --link --chmod=755 /root/.local/bin/kiro-cli-term /usr/local/bin/kiro-cli-term
 # Rename the original binary and install a wrapper that skips confirmation for init
 RUN mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real
 COPY <<'EOF' /usr/local/bin/kiro-cli
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Kiro CLI tool trust is controlled via --trust-all-tools, which is only
-# valid after the 'chat' subcommand (see 'kiro-cli chat --help'). Always
-# start a trusted chat session, forwarding any arguments as the query.
-# Use /usr/local/bin/kiro-cli.real directly for other subcommands (settings, whoami, ...).
-if [[ ${1:-} == init ]]; then
-  for arg in "$@"; do
-    if [[ $arg == --force ]]; then
-      exec /usr/local/bin/kiro-cli.real --v3 "$@"
-    fi
-  done
-  exec /usr/local/bin/kiro-cli.real --v3 init --force "${@:2}"
-fi
-exec /usr/local/bin/kiro-cli.real chat --v3 --trust-all-tools "$@"
+subcommand="${1:-}"
+case "$subcommand" in
+  init)
+    for arg in "$@"; do
+      if [[ $arg == --force ]]; then
+        exec /usr/local/bin/kiro-cli.real --v3 "$@"
+      fi
+    done
+    exec /usr/local/bin/kiro-cli.real --v3 init --force "${@:2}"
+    ;;
+  whoami|settings|version|help|--help|-h|--version)
+    exec /usr/local/bin/kiro-cli.real "$@"
+    ;;
+  chat)
+    exec /usr/local/bin/kiro-cli.real chat --v3 --trust-all-tools "${@:2}"
+    ;;
+  *)
+    exec /usr/local/bin/kiro-cli.real chat --v3 --trust-all-tools "$@"
+    ;;
+esac
 
 EOF
 RUN chmod +x /usr/local/bin/kiro-cli
-# Ensure executable permissions for copied CLI tools
-RUN chmod +x /usr/local/bin/codex \
- && chmod +x /usr/local/bin/copilot \
- && chmod +x /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-term
+# Copy TeamCity CLI from the builder image
+COPY --from=builder-cli --link --chmod=755 /usr/local/bin/teamcity /usr/local/bin/teamcity
+# Install Azure CLI from Microsoft's official apt repository
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked mkdir -p /etc/apt/keyrings \
+ && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg \
+ && chmod go+r /etc/apt/keyrings/microsoft.gpg \
+ && arch="$(dpkg --print-architecture)" \
+ && suite="$(. /etc/os-release && printf '%s' "${UBUNTU_CODENAME:-$VERSION_CODENAME}")" \
+ && repo_suite="$suite" \
+ && if ! curl -fsI "https://packages.microsoft.com/repos/azure-cli/dists/${repo_suite}/Release" >/dev/null; then repo_suite="noble"; fi \
+ && printf '%s\n' 'Types: deb' 'URIs: https://packages.microsoft.com/repos/azure-cli/' "Suites: ${repo_suite}" 'Components: main' "Architectures: ${arch}" 'Signed-By: /etc/apt/keyrings/microsoft.gpg' > /etc/apt/sources.list.d/azure-cli.sources \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends azure-cli
 # Download and install Quicklisp
 RUN curl -O https://beta.quicklisp.org/quicklisp.lisp \
  && sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)" \
@@ -153,7 +180,7 @@ RUN emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-arch
 RUN emacs --batch --eval "(require 'package)" --eval "(package-initialize)" --eval "(byte-recompile-directory package-user-dir 0 t)"
 # Copy the modified .emacs configuration from the build context if present
 # Note: In real usage, ensure .emacs exists in the build context directory
-COPY .emacs /root/.emacs
+COPY --link .emacs /root/.emacs
 # 7. Smoke test the C toolchain
 # Smoke test GCC by compiling and running a tiny C program
 RUN <<'EOF'
@@ -227,6 +254,23 @@ grep -qi "kiro" /tmp/kiro-cli-chat-help.txt
 kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
 [ -s /tmp/kiro-cli-term-help.txt ]
 grep -qi "kiro" /tmp/kiro-cli-term-help.txt
+
+EOF
+# Smoke test Azure CLI
+# Smoke test Azure CLI by checking the installed version
+RUN <<'EOF'
+set -eu
+az version > /tmp/az-version.json
+grep -q '"azure-cli"' /tmp/az-version.json
+
+EOF
+# Smoke test TeamCity CLI
+# Smoke test TeamCity CLI by checking the installed version
+RUN <<'EOF'
+set -eu
+teamcity --version > /tmp/teamcity-version.txt
+[ -s /tmp/teamcity-version.txt ]
+grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
 
 EOF
 # Smoke test Emacs

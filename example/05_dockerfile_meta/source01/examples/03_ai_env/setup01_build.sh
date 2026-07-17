@@ -17,7 +17,7 @@ trap cleanup EXIT INT TERM HUP
 
 if [ ! -f "$dockerfile" ]; then
   echo "Missing Dockerfile: $dockerfile" >&2
-  echo "Run script00_generate_dockerfile.sh first if you need to regenerate it." >&2
+  echo "Run setup00_generate_dockerfile.sh first if you need to regenerate it." >&2
   exit 1
 fi
 
@@ -35,4 +35,4 @@ if [ ! -f "$emacs_file" ]; then
 EOF
 fi
 
-docker build -t "$image_name" "$script_dir"
+DOCKER_BUILDKIT=1 docker build -t "$image_name" "$script_dir"

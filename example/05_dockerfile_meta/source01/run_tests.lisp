@@ -72,6 +72,40 @@
   (assert-df "HEALTHCHECK --start-period=10s NONE"
              (healthcheck NONE :start-period 10s))
 
+  ;; Test 9: Newly introduced features and refactoring improvements
+  (assert-df (format nil "RUN --mount=a --mount=b command") (run :mount ("a" "b") |COMMAND|))
+  (assert-df (format nil "RUN --mount=a command") (run :mount "a" |COMMAND|))
+  (assert-df (format nil "RUN <<'EOF'~%command~%EOF") (run :heredoc "command"))
+  (assert-df (format nil "FROM alpine:3.18~%RUN command~%") (toplevel (from |ALPINE:3.18|) (run |COMMAND|)))
+  (assert-df "COPY --from=stage --chown=owner --link --chmod=755 --parents --exclude=*.log src dest"
+             (copy src dest :from stage :chown owner :link t :chmod 755 :parents t :exclude "*.log"))
+  (assert-df "ADD --chown=owner --link --chmod=755 --checksum=sha256:123 src dest"
+             (add src dest :chown owner :link t :chmod 755 :checksum "sha256:123"))
+
+  ;; Test 10: Error handling and warnings
+  (let ((warned nil))
+    (handler-bind ((warning (lambda (w)
+                              (declare (ignore w))
+                              (setf warned t)
+                              (muffle-warning))))
+      (emit-df '(runn |something|)))
+    (if warned
+        (format t "PASS: (runn ...) signaled warning~%")
+        (progn
+          (incf *test-failures*)
+          (format t "FAIL: (runn ...) did not signal warning~%"))))
+
+  (let ((errored nil))
+    (handler-case (emit-df '(copy src dest :from))
+      (error (e)
+        (declare (ignore e))
+        (setf errored t)))
+    (if errored
+        (format t "PASS: (copy src dest :from) threw error as expected~%")
+        (progn
+          (incf *test-failures*)
+          (format t "FAIL: (copy src dest :from) did not throw error~%"))))
+
   (format t "~%Test results: ~a failures.~%" *test-failures*)
   (if (> *test-failures* 0)
       (sb-ext:exit :code 1)
