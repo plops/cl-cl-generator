@@ -71,9 +71,11 @@ mkdir -p "$HOME/.gemini"
 mkdir -p "$HOME/.kiro"
 mkdir -p "$HOME/.local/share/kiro-cli"
 mkdir -p "$HOME/.aws"
+mkdir -p "$HOME/.azure"
 mkdir -p "$HOME/.copilot"
 mkdir -p "$HOME/.openai"
 mkdir -p "$HOME/.codex"
+mkdir -p "$HOME/.config/tc"
 mkdir -p "$HOME/.config/github-copilot"
 mkdir -p "$HOME/.config/openai"
 mkdir -p "$HOME/.config/codex"
@@ -87,13 +89,16 @@ fi
 set -- docker run -it \
   --env-file "$env_file" \
   -e ANTIGRAVITY_PLAINTEXT_AUTH=1 \
+  -e AZURE_CONFIG_DIR=/root/.azure \
   -v "$HOME/.gemini:/root/.gemini" \
   -v "$HOME/.kiro:/root/.kiro" \
   -v "$HOME/.local/share/kiro-cli:/root/.local/share/kiro-cli" \
   -v "$HOME/.aws:/root/.aws" \
+  -v "$HOME/.azure:/root/.azure" \
   -v "$HOME/.copilot:/root/.copilot" \
   -v "$HOME/.openai:/root/.openai" \
   -v "$HOME/.codex:/root/.codex" \
+  -v "$HOME/.config/tc:/root/.config/tc" \
   -v "$HOME/.config/github-copilot:/root/.config/github-copilot" \
   -v "$HOME/.config/openai:/root/.config/openai" \
   -v "$HOME/.config/codex:/root/.config/codex" \

@@ -9,7 +9,7 @@ ENV UV_LINK_MODE=copy
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Install base toolsets required to fetch the CLI and compile Python extensions
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates build-essential python3-dev python3-venv python3-pip unzip \
+ && apt-get install -y --no-install-recommends python3-pip python3-venv python3-dev build-essential ca-certificates curl unzip \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 # 1. Install the programmatic Python SDK using uv
@@ -273,6 +273,6 @@ sed -i "s#/tmp/ai-env-slime.XXXXXX#$tmpdir#g" "$tmpdir/slime-check.el"
 emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
 
 EOF
-VOLUME ["/workspace/src", "/root/.config", "/root/.cache", "/root/.gemini", "/root/.grok", "/root/.codex", "/root/.cargo"]
+VOLUME ["/workspace/src", "/root/.config", "/root/.config/tc", "/root/.cache", "/root/.gemini", "/root/.grok", "/root/.codex", "/root/.azure", "/root/.cargo"]
 # Default to launching a bash shell
 CMD ["/bin/bash"]

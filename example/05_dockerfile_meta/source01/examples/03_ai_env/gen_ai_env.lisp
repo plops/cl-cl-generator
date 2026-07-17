@@ -72,6 +72,8 @@
 (defparameter *install-codex* t)
 (defparameter *install-copilot* t)
 (defparameter *install-kiro-cli* t)
+(defparameter *install-azure-cli* nil)
+(defparameter *install-teamcity-cli* nil)
 (defparameter *install-grok* nil)
 
 ;; Toggle Rust support
@@ -136,6 +138,21 @@ grep -qi "kiro" /tmp/kiro-cli-term-help.txt
     (run :heredoc #r(set -eu
 grok --version
 agent --version
+))))
+
+(defun smoke-azure-cli-test ()
+  `((comment "Smoke test Azure CLI by checking the installed version")
+    (run :heredoc #r(set -eu
+az version > /tmp/az-version.json
+grep -q '"azure-cli"' /tmp/az-version.json
+))))
+
+(defun smoke-teamcity-cli-test ()
+  `((comment "Smoke test TeamCity CLI by checking the installed version")
+    (run :heredoc #r(set -eu
+teamcity --version > /tmp/teamcity-version.txt
+[ -s /tmp/teamcity-version.txt ]
+grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
 ))))
 
 (defun smoke-gcc-test ()
@@ -244,6 +261,12 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
    (when *install-grok*
      `((comment "Smoke test Grok Build")
        ,@(smoke-grok-test)))
+   (when *install-azure-cli*
+     `((comment "Smoke test Azure CLI")
+       ,@(smoke-azure-cli-test)))
+   (when *install-teamcity-cli*
+     `((comment "Smoke test TeamCity CLI")
+       ,@(smoke-teamcity-cli-test)))
    (when *install-emacs*
      `((comment "Smoke test Emacs")
        ,@(emacs-open-file-test)
@@ -252,10 +275,10 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
              ,@(emacs-slime-test)))))))
 
 (defun builder-stage ()
-  (when (or *install-python-libs* *install-agy* *install-copilot* *install-kiro-cli*)
-    (let ((apt-packages '("python3-pip" "python3-venv" "python3-dev" "build-essential" "ca-certificates" "curl")))
+  (when (or *install-python-libs* *install-agy* *install-copilot* *install-kiro-cli* *install-teamcity-cli*)
+    (let ((apt-packages (copy-list '("python3-pip" "python3-venv" "python3-dev" "build-essential" "ca-certificates" "curl"))))
       (when *install-kiro-cli*
-        (push "unzip" apt-packages))
+        (setf apt-packages (append apt-packages '("unzip"))))
       `((comment "=====================================================================")
        (comment "Stage 1: Build Environment & Cache Dependency Compilation")
        (comment "=====================================================================")
@@ -269,7 +292,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
         
        (comment "Install base toolsets required to fetch the CLI and compile Python extensions")
        (run (and "apt-get update"
-                 ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" (nreverse apt-packages))
+                 ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" apt-packages)
                  "rm -rf /var/lib/apt/lists/*"))
        (workdir "/workspace")
         
@@ -297,7 +320,14 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                         "unzip -q /tmp/kirocli.zip -d /tmp/kirocli-extracted"
                         "chmod +x /tmp/kirocli-extracted/kirocli/install.sh"
                         "KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh"
-                        "rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted"))))))))
+                        "rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted"))))
+
+       ,@(when *install-teamcity-cli*
+           `((comment "5. Install TeamCity CLI from the official JetBrains installer")
+             (run (and "curl -fsSL https://jb.gg/tc/install -o /tmp/teamcity-install.sh"
+                       "bash /tmp/teamcity-install.sh"
+                       "rm -f /tmp/teamcity-install.sh"
+                       "command -v teamcity >/dev/null"))))))))
 
 (defun runner-stage ()
   (let ((apt-packages '("curl" "ca-certificates" "git" "jq")))
@@ -312,6 +342,8 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       (setf apt-packages (append apt-packages '("python3-full"))))
     (when *install-codex*
       (setf apt-packages (append apt-packages '("nodejs" "npm"))))
+    (when *install-azure-cli*
+      (setf apt-packages (append apt-packages '("gnupg" "lsb-release"))))
     
     `((comment "=====================================================================")
       (comment "Stage 2: Insulated Runtime Runner")
@@ -362,7 +394,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                       #r#echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc#))))
       
       ;; 3. Install and wrap other CLI tools if enabled
-      ,@(when (or *install-codex* *install-copilot* *install-kiro-cli*)
+      ,@(when (or *install-codex* *install-copilot* *install-kiro-cli* *install-teamcity-cli*)
           `((comment "Install or copy other AI CLI tools")
             ,@(when *install-codex*
                `((comment "Install the newest Codex release directly in the runner image")
@@ -388,12 +420,31 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                   (copy :heredoc "/usr/local/bin/kiro-cli"
                         ,(kiro-wrapper-script "/usr/local/bin/kiro-cli.real"))
                   (run "chmod +x /usr/local/bin/kiro-cli")))
+            ,@(when *install-teamcity-cli*
+                `((comment "Copy TeamCity CLI from the builder image")
+                  (copy "/usr/local/bin/teamcity" "/usr/local/bin/teamcity" :from builder)
+                  (run "chmod +x /usr/local/bin/teamcity")))
             (comment "Ensure executable permissions for copied CLI tools")
             (run (and ,@(remove nil (list
                                       (when *install-codex* "chmod +x /usr/local/bin/codex")
                                       (when *install-copilot* "chmod +x /usr/local/bin/copilot")
-                                      (when *install-kiro-cli* "chmod +x /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-term")))))))
-      
+                                      (when *install-kiro-cli* "chmod +x /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-term")
+                                      (when *install-teamcity-cli* "chmod +x /usr/local/bin/teamcity")))))))
+
+      ,@(when *install-azure-cli*
+          `((comment "Install Azure CLI from Microsoft's official apt repository")
+            (run (and "mkdir -p /etc/apt/keyrings"
+                      "curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg"
+                      "chmod go+r /etc/apt/keyrings/microsoft.gpg"
+                      "arch=\"$(dpkg --print-architecture)\""
+                      "suite=\"$(. /etc/os-release && printf '%s' \"${UBUNTU_CODENAME:-$VERSION_CODENAME}\")\""
+                      "repo_suite=\"$suite\""
+                      "if ! curl -fsI \"https://packages.microsoft.com/repos/azure-cli/dists/${repo_suite}/Release\" >/dev/null; then repo_suite=\"noble\"; fi"
+                      "printf '%s\\n' 'Types: deb' 'URIs: https://packages.microsoft.com/repos/azure-cli/' \"Suites: ${repo_suite}\" 'Components: main' \"Architectures: ${arch}\" 'Signed-By: /etc/apt/keyrings/microsoft.gpg' > /etc/apt/sources.list.d/azure-cli.sources"
+                      "apt-get update"
+                      "apt-get install -y --no-install-recommends azure-cli"
+                      "rm -rf /var/lib/apt/lists/*"))))
+
       ;; 4. Setup Quicklisp and Lisp dependencies if SBCL is enabled
       ,@(when *install-sbcl*
           `((comment "Download and install Quicklisp")
@@ -449,7 +500,7 @@ exec /usr/local/bin/agent.real "$@"
           (test-stage))
       
       ;; 7. Define Volumes for sharing configs, logins, caches, and source files
-      (volume ,(let ((vols '("/workspace/src" "/root/.config" "/root/.cache" "/root/.gemini" "/root/.grok" "/root/.codex")))
+      (volume ,(let ((vols '("/workspace/src" "/root/.config" "/root/.config/tc" "/root/.cache" "/root/.gemini" "/root/.grok" "/root/.codex" "/root/.azure")))
                  (if (and *install-rust* *rust-cache-volume*)
                      (append vols '("/root/.cargo"))
                      vols)))
