@@ -107,15 +107,30 @@ RUN mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real
 COPY <<'EOF' /usr/local/bin/kiro-cli
 #!/usr/bin/env bash
 set -euo pipefail
+
+# Ensure Kiro v3 has the "allow all" permission rule to avoid prompts
+mkdir -p /root/.kiro/settings
+if [ ! -f /root/.kiro/settings/permissions.yaml ]; then
+  cat <<'PERM_EOF' > /root/.kiro/settings/permissions.yaml
+rules:
+  - capability: all
+    effect: allow
+PERM_EOF
+fi
+
+args=()
+if [[ " $* " != *" --v3 "* && " $* " != *" --classic "* ]]; then
+  args+=("--v3")
+fi
 if [[ ${1:-} == init ]]; then
   for arg in "$@"; do
     if [[ $arg == --force ]]; then
-      exec /usr/local/bin/kiro-cli.real "$@"
+      exec /usr/local/bin/kiro-cli.real "${args[@]}" "$@"
     fi
   done
-  exec /usr/local/bin/kiro-cli.real init --force "${@:2}"
+  exec /usr/local/bin/kiro-cli.real "${args[@]}" init --force "${@:2}"
 fi
-exec /usr/local/bin/kiro-cli.real "$@"
+exec /usr/local/bin/kiro-cli.real "${args[@]}" "$@"
 
 EOF
 RUN chmod +x /usr/local/bin/kiro-cli

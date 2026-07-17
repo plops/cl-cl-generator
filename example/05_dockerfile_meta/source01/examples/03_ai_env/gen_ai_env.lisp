@@ -93,7 +93,7 @@
           default-flag))
 
 (defun kiro-wrapper-script (real-binary)
-  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%if [[ ${1:-} == init ]]; then~%  for arg in \"$@\"; do~%    if [[ $arg == --force ]]; then~%      exec ~a \"$@\"~%    fi~%  done~%  exec ~a init --force \"${@:2}\"~%fi~%exec ~a \"$@\"~%"
+  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%~%# Ensure Kiro v3 has the \"allow all\" permission rule to avoid prompts~%mkdir -p /root/.kiro/settings~%if [ ! -f /root/.kiro/settings/permissions.yaml ]; then~%  cat <<'PERM_EOF' > /root/.kiro/settings/permissions.yaml~%rules:~%  - capability: all~%    effect: allow~%PERM_EOF~%fi~%~%args=()~%if [[ \" $* \" != *\" --v3 \"* && \" $* \" != *\" --classic \"* ]]; then~%  args+=(\"--v3\")~%fi~%if [[ ${1:-} == init ]]; then~%  for arg in \"$@\"; do~%    if [[ $arg == --force ]]; then~%      exec ~a \"${args[@]}\" \"$@\"~%    fi~%  done~%  exec ~a \"${args[@]}\" init --force \"${@:2}\"~%fi~%exec ~a \"${args[@]}\" \"$@\"~%"
           real-binary
           real-binary
           real-binary))
