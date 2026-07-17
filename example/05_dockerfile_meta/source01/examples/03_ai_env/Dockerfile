@@ -15,28 +15,51 @@ WORKDIR /workspace
 RUN --mount=type=cache,target=/root/.cache/uv uv venv .venv \
  && uv pip install google-antigravity azure-cognitiveservices-speech openai matplotlib numpy pandas scipy tqdm xarray loguru nbdev requests ruff scikit-learn seaborn
 # ====================================================================
-# Stage: CLI Tool Downloads (runs in parallel with other builders)
+# Stage: Antigravity CLI Download
 # ====================================================================
-FROM ubuntu:26.04 AS builder-cli
+FROM ubuntu:26.04 AS builder-agy
 ENV DEBIAN_FRONTEND=noninteractive
-# Install base toolsets required to fetch CLI tools
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl unzip
+ && apt-get install -y --no-install-recommends ca-certificates curl
 WORKDIR /workspace
 # Download, decompress, and run the Antigravity installation script
 RUN curl -fsSL --compressed https://antigravity.google/cli/install.sh -o install.sh \
  && chmod +x install.sh \
  && ./install.sh
+# ====================================================================
+# Stage: GitHub Copilot CLI Download
+# ====================================================================
+FROM ubuntu:26.04 AS builder-copilot
+ENV DEBIAN_FRONTEND=noninteractive
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl
+WORKDIR /workspace
 # Download and install GitHub Copilot CLI from the official installer
 RUN curl -fsSL https://gh.io/copilot-install -o copilot-install.sh \
  && PREFIX=/usr/local VERSION=latest bash copilot-install.sh \
  && rm copilot-install.sh
+# ====================================================================
+# Stage: Kiro CLI Download
+# ====================================================================
+FROM ubuntu:26.04 AS builder-kiro
+ENV DEBIAN_FRONTEND=noninteractive
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl unzip
+WORKDIR /workspace
 # Install kiro-cli from Amazon using the official zip package
 RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip -o /tmp/kirocli.zip \
  && unzip -q /tmp/kirocli.zip -d /tmp/kirocli-extracted \
  && chmod +x /tmp/kirocli-extracted/kirocli/install.sh \
  && KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh \
  && rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted
+# ====================================================================
+# Stage: TeamCity CLI Download
+# ====================================================================
+FROM ubuntu:26.04 AS builder-teamcity
+ENV DEBIAN_FRONTEND=noninteractive
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl
+WORKDIR /workspace
 # Install TeamCity CLI from the official JetBrains installer
 RUN curl -fsSL https://jb.gg/tc/install -o /tmp/teamcity-install.sh \
  && bash /tmp/teamcity-install.sh \
@@ -52,7 +75,14 @@ WORKDIR /workspace
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Install the essential tool belt for agents
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates git jq less file findutils tree man-db procps psmisc iproute2 iputils-ping dnsutils ripgrep fd-find yq picocom usbutils libusb-1.0-0-dev lsof strace moreutils tmux shellcheck fzf cmake ninja-build bat git-lfs openssh-client dos2unix parallel unzip zip xz-utils rsync build-essential gcc sbcl rlwrap emacs-nox python3-full nodejs npm gnupg lsb-release
+ && apt-get install -y --no-install-recommends curl ca-certificates git jq less file findutils tree man-db procps psmisc iproute2 iputils-ping dnsutils ripgrep fd-find yq picocom usbutils libusb-1.0-0-dev lsof strace moreutils tmux shellcheck fzf cmake ninja-build bat git-lfs openssh-client dos2unix parallel unzip zip xz-utils rsync
+# Install component dependencies in separate layers for caching
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends build-essential gcc
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends sbcl rlwrap
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends emacs-nox
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends python3-full
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends nodejs npm
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends gnupg lsb-release
 # Install rustup and stable Rust toolchain
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
  && chmod -R a+w /root/.rustup
@@ -66,7 +96,7 @@ RUN git config --global diff.external difft
 COPY --from=builder-python --link /workspace/.venv /workspace/.venv
 ENV PATH=/workspace/.venv/bin:$PATH
 # Copy the actual agy CLI tool from the builder's local path to system binaries
-COPY --from=builder-cli --link --chmod=755 /root/.local/bin/agy /usr/local/bin/agy
+COPY --from=builder-agy --link --chmod=755 /root/.local/bin/agy /usr/local/bin/agy
 # Rename the original binary and install a wrapper that skips permissions by default
 RUN mv /usr/local/bin/agy /usr/local/bin/agy.real
 COPY <<'EOF' /usr/local/bin/agy
@@ -76,7 +106,6 @@ case " $* " in
   *" --dangerously-skip-permissions "*) exec /usr/local/bin/agy.real "$@" ;;
   *) exec /usr/local/bin/agy.real --dangerously-skip-permissions "$@" ;;
 esac
-
 EOF
 RUN chmod +x /usr/local/bin/agy
 # Add the Antigravity clean environment tweaks to .bashrc
@@ -94,10 +123,9 @@ case " $* " in
   *" --dangerously-bypass-approvals-and-sandbox "*) exec /usr/local/bin/codex.real "$@" ;;
   *) exec /usr/local/bin/codex.real --dangerously-bypass-approvals-and-sandbox "$@" ;;
 esac
-
 EOF
 RUN chmod +x /usr/local/bin/codex
-COPY --from=builder-cli --link --chmod=755 /usr/local/bin/copilot /usr/local/bin/copilot
+COPY --from=builder-copilot --link --chmod=755 /usr/local/bin/copilot /usr/local/bin/copilot
 # Rename the original binary and install a wrapper that allows all actions by default
 RUN mv /usr/local/bin/copilot /usr/local/bin/copilot.real
 COPY <<'EOF' /usr/local/bin/copilot
@@ -107,18 +135,16 @@ case " $* " in
   *" --allow-all "*) exec /usr/local/bin/copilot.real "$@" ;;
   *) exec /usr/local/bin/copilot.real --allow-all "$@" ;;
 esac
-
 EOF
 RUN chmod +x /usr/local/bin/copilot
-COPY --from=builder-cli --link --chmod=755 /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli
-COPY --from=builder-cli --link --chmod=755 /root/.local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-chat
-COPY --from=builder-cli --link --chmod=755 /root/.local/bin/kiro-cli-term /usr/local/bin/kiro-cli-term
+COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli
+COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-chat
+COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli-term /usr/local/bin/kiro-cli-term
 # Rename the original binary and install a wrapper that skips confirmation for init
 RUN mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real
 COPY <<'EOF' /usr/local/bin/kiro-cli
 #!/usr/bin/env bash
 set -euo pipefail
-
 subcommand="${1:-}"
 case "$subcommand" in
   init)
@@ -139,11 +165,10 @@ case "$subcommand" in
     exec /usr/local/bin/kiro-cli.real chat --v3 --trust-all-tools "$@"
     ;;
 esac
-
 EOF
 RUN chmod +x /usr/local/bin/kiro-cli
 # Copy TeamCity CLI from the builder image
-COPY --from=builder-cli --link --chmod=755 /usr/local/bin/teamcity /usr/local/bin/teamcity
+COPY --from=builder-teamcity --link --chmod=755 /usr/local/bin/teamcity /usr/local/bin/teamcity
 # Install Azure CLI from Microsoft's official apt repository
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked mkdir -p /etc/apt/keyrings \
  && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg \
@@ -181,7 +206,48 @@ RUN emacs --batch --eval "(require 'package)" --eval "(package-initialize)" --ev
 # Copy the modified .emacs configuration from the build context if present
 # Note: In real usage, ensure .emacs exists in the build context directory
 COPY --link .emacs /root/.emacs
-# 7. Smoke test the C toolchain
+# Smoke test Codex by running the CLI and asserting it matches the latest npm release
+RUN <<'EOF'
+set -eu
+codex --version > /tmp/codex-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/codex-version.txt
+installed_version="$(node -p "require(require('path').join(process.argv[1], '@openai/codex/package.json')).version" "$(npm root -g)" | tr -d '[:space:]')"
+latest_version="$(npm view @openai/codex version | tr -d '[:space:]')"
+[ -n "$installed_version" ]
+[ "$installed_version" = "$latest_version" ]
+
+EOF
+# Smoke test kiro-cli by invoking the wrapped CLI and helpers
+RUN <<'EOF'
+set -eu
+kiro-cli --help > /tmp/kiro-cli-help.txt
+[ -s /tmp/kiro-cli-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-help.txt
+
+kiro-cli-chat --help > /tmp/kiro-cli-chat-help.txt
+[ -s /tmp/kiro-cli-chat-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-chat-help.txt
+
+kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
+[ -s /tmp/kiro-cli-term-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-term-help.txt
+
+EOF
+# Smoke test Azure CLI by checking the installed version
+RUN <<'EOF'
+set -eu
+az version > /tmp/az-version.json
+grep -q '"azure-cli"' /tmp/az-version.json
+
+EOF
+# Smoke test TeamCity CLI by checking the installed version
+RUN <<'EOF'
+set -eu
+teamcity --version > /tmp/teamcity-version.txt
+[ -s /tmp/teamcity-version.txt ]
+grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
+
+EOF
 # Smoke test GCC by compiling and running a tiny C program
 RUN <<'EOF'
 set -eu
@@ -211,7 +277,6 @@ rustc "$tmpdir/test.rs" -o "$tmpdir/test"
 "$tmpdir/test"
 
 EOF
-# Smoke test Python
 # Smoke test Python by running a tiny script
 RUN <<'EOF'
 set -eu
@@ -220,60 +285,12 @@ print("python-ok")
 PY_EOF
 
 EOF
-# Smoke test SBCL
 # Smoke test SBCL by evaluating a simple expression
 RUN <<'EOF'
 set -eu
 sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'
 
 EOF
-# Smoke test Codex
-# Smoke test Codex by running the CLI and asserting it matches the latest npm release
-RUN <<'EOF'
-set -eu
-codex --version > /tmp/codex-version.txt
-grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/codex-version.txt
-installed_version="$(node -p "require(require('path').join(process.argv[1], '@openai/codex/package.json')).version" "$(npm root -g)" | tr -d '[:space:]')"
-latest_version="$(npm view @openai/codex version | tr -d '[:space:]')"
-[ -n "$installed_version" ]
-[ "$installed_version" = "$latest_version" ]
-
-EOF
-# Smoke test kiro-cli
-# Smoke test kiro-cli by invoking the wrapped CLI and helpers
-RUN <<'EOF'
-set -eu
-kiro-cli --help > /tmp/kiro-cli-help.txt
-[ -s /tmp/kiro-cli-help.txt ]
-grep -qi "kiro" /tmp/kiro-cli-help.txt
-
-kiro-cli-chat --help > /tmp/kiro-cli-chat-help.txt
-[ -s /tmp/kiro-cli-chat-help.txt ]
-grep -qi "kiro" /tmp/kiro-cli-chat-help.txt
-
-kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
-[ -s /tmp/kiro-cli-term-help.txt ]
-grep -qi "kiro" /tmp/kiro-cli-term-help.txt
-
-EOF
-# Smoke test Azure CLI
-# Smoke test Azure CLI by checking the installed version
-RUN <<'EOF'
-set -eu
-az version > /tmp/az-version.json
-grep -q '"azure-cli"' /tmp/az-version.json
-
-EOF
-# Smoke test TeamCity CLI
-# Smoke test TeamCity CLI by checking the installed version
-RUN <<'EOF'
-set -eu
-teamcity --version > /tmp/teamcity-version.txt
-[ -s /tmp/teamcity-version.txt ]
-grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
-
-EOF
-# Smoke test Emacs
 # Smoke test Emacs by opening a file with the configured init
 RUN <<'EOF'
 set -eu
@@ -290,7 +307,6 @@ sed -i "s#/tmp/ai-env-emacs-open.XXXXXX#$tmpdir#g" "$tmpdir/check.el"
 emacs --batch -l /root/.emacs -l "$tmpdir/check.el"
 
 EOF
-# Smoke test Emacs + SLIME
 # Smoke test Emacs + SLIME by opening and loading a Lisp file
 RUN <<'EOF'
 set -eu
