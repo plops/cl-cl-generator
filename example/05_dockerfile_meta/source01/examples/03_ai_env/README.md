@@ -18,6 +18,7 @@ You can easily customize the generated image directly in [gen_ai_env.lisp](file:
 | `*install-emacs*` | Boolean | `t` | Installs terminal Emacs (`emacs-nox`), pre-installs SLIME/magit/gptel, and copies `.emacs`. (Only runs if `*install-sbcl*` is `t`). |
 | `*install-python*` | Boolean | `t` | Installs Python 3 runtime. |
 | `*install-python-libs*` | Boolean | `t` | Installs Python libraries (like `google-antigravity` SDK) using a cache-mounted multi-stage builder. |
+| `*install-docker-cli*` | Boolean | `t` | Installs Docker CLI and Buildx. Set to `nil` to omit both; use with `setup02_run.sh --docker-sock` when access to the host Docker daemon is needed. |
 | `*ubuntu-packages*` | List of strings | `("less" "file" "findutils" "tree" "man-db" "procps" "psmisc" "iproute2" "iputils-ping" "dnsutils" "ripgrep" "fd-find" "yq" "lsof" "strace" "moreutils" "tmux" "shellcheck" "fzf" "bat" "git-lfs" "openssh-client" "dos2unix" "parallel" "unzip" "zip" "xz-utils" "rsync")` | Extra Ubuntu utilities installed into the final runtime image. |
 | `*install-agy*` | Boolean | `t` | Fetches, compiles, and installs the Google Antigravity CLI tool (`agy`). |
 | `*install-codex*` | Boolean | `t` | Downloads and installs the official OpenAI Codex CLI installer. |
@@ -100,7 +101,7 @@ Keep the file out of git; `.gitignore` already excludes `.env` and `.env.*` file
 
 - `setup00_generate_dockerfile.sh` regenerates `Dockerfile` from `gen_ai_env.lisp`. It is the only script that needs SBCL and is mainly for maintainers.
 - `setup01_build.sh` builds the image from the checked-in `Dockerfile`. It only needs Docker and a shell, and it creates a temporary `.emacs` if needed for the build context.
-- `setup02_run.sh` starts the image with portable defaults. Override `ENV_FILE`, `HOST_SRC_ROOT`, or `IMAGE_NAME` if you need a different env file, source mount, or tag.
+- `setup02_run.sh` starts the image with portable defaults. Override `ENV_FILE`, `HOST_SRC_ROOT`, or `IMAGE_NAME` if you need a different env file, source mount, or tag. Pass `--docker-sock` to mount the host Docker socket; this grants the container root-equivalent control of the host Docker daemon.
 - `setup03_save.sh` exports the image with `docker save`. It writes a tar file next to the script by default and also creates a `.zst` copy when `zstd` is installed.
 - `setup04_cleanup.sh` performs targeted cleanup for this example: it stops and removes containers created from `IMAGE_NAME`, removes that image tag, can optionally remove the Cargo cache volume or prune dangling images, can suggest cleanup command variants with estimated reclaimable space, and can list or remove other local images sorted by size or age.
 

@@ -15,6 +15,8 @@
 (defparameter *install-emacs* t)
 (defparameter *install-python* t)
 (defparameter *install-python-libs* t) ; google-antigravity SDK
+(defparameter *install-docker-cli* t
+  "Install the Docker CLI for use with an optionally mounted host Docker socket.")
 (defparameter *enable-tests* t)
 (defparameter *python-libs* `(google-antigravity
 			      azure-cognitiveservices-speech
@@ -139,6 +141,13 @@ agent --version
                         #r(set -eu
 az version > /tmp/az-version.json
 grep -q '"azure-cli"' /tmp/az-version.json
+))
+    (*install-docker-cli* "Docker CLI and Buildx by checking their client versions"
+                          #r(set -eu
+docker --version > /tmp/docker-version.txt
+grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
+docker buildx version > /tmp/docker-buildx-version.txt
+grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
 ))
     (*install-teamcity-cli* "TeamCity CLI by checking the installed version"
                             #r(set -eu
@@ -320,7 +329,8 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     (*install-emacs* "emacs-nox")
     ((or *install-python* *install-python-libs*) "python3-full")
     (*install-codex* "nodejs" "npm")
-    (*install-azure-cli* "gnupg" "lsb-release")))
+    ((or *install-azure-cli* *install-docker-cli*) "gnupg")
+    (*install-azure-cli* "lsb-release")))
 
 (defun runner-stage ()
   `((comment "=====================================================================")
@@ -422,6 +432,17 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                     "printf '%s\\n' 'Types: deb' 'URIs: https://packages.microsoft.com/repos/azure-cli/' \"Suites: ${repo_suite}\" 'Components: main' \"Architectures: ${arch}\" 'Signed-By: /etc/apt/keyrings/microsoft.gpg' > /etc/apt/sources.list.d/azure-cli.sources"
                     "apt-get update"
                     "apt-get install -y --no-install-recommends azure-cli"))))
+
+    ,@(when *install-docker-cli*
+        `((comment "Install Docker CLI for an optionally mounted host Docker socket")
+          (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
+               (and "install -m 0755 -d /etc/apt/keyrings"
+                    "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg"
+                    "chmod a+r /etc/apt/keyrings/docker.gpg"
+                    "suite=\"$(. /etc/os-release && printf '%s' \"${UBUNTU_CODENAME:-$VERSION_CODENAME}\")\""
+                    "printf '%s\\n' 'Types: deb' 'URIs: https://download.docker.com/linux/ubuntu' \"Suites: ${suite}\" 'Components: stable' 'Signed-By: /etc/apt/keyrings/docker.gpg' > /etc/apt/sources.list.d/docker.sources"
+                    "apt-get update"
+                    "apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin"))))
 
     ;; 4. Setup Quicklisp and Lisp dependencies if SBCL is enabled
     ,@(when *install-sbcl*

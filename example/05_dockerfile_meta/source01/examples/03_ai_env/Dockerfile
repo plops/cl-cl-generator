@@ -82,7 +82,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends emacs-nox
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends python3-full
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends nodejs npm
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends gnupg lsb-release
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends gnupg
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends lsb-release
 # Install rustup and stable Rust toolchain
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
  && chmod -R a+w /root/.rustup
@@ -180,6 +181,14 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
  && printf '%s\n' 'Types: deb' 'URIs: https://packages.microsoft.com/repos/azure-cli/' "Suites: ${repo_suite}" 'Components: main' "Architectures: ${arch}" 'Signed-By: /etc/apt/keyrings/microsoft.gpg' > /etc/apt/sources.list.d/azure-cli.sources \
  && apt-get update \
  && apt-get install -y --no-install-recommends azure-cli
+# Install Docker CLI for an optionally mounted host Docker socket
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked install -m 0755 -d /etc/apt/keyrings \
+ && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+ && chmod a+r /etc/apt/keyrings/docker.gpg \
+ && suite="$(. /etc/os-release && printf '%s' "${UBUNTU_CODENAME:-$VERSION_CODENAME}")" \
+ && printf '%s\n' 'Types: deb' 'URIs: https://download.docker.com/linux/ubuntu' "Suites: ${suite}" 'Components: stable' 'Signed-By: /etc/apt/keyrings/docker.gpg' > /etc/apt/sources.list.d/docker.sources \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin
 # Download and install Quicklisp
 RUN curl -O https://beta.quicklisp.org/quicklisp.lisp \
  && sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)" \
@@ -238,6 +247,15 @@ RUN <<'EOF'
 set -eu
 az version > /tmp/az-version.json
 grep -q '"azure-cli"' /tmp/az-version.json
+
+EOF
+# Smoke test Docker CLI and Buildx by checking their client versions
+RUN <<'EOF'
+set -eu
+docker --version > /tmp/docker-version.txt
+grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
+docker buildx version > /tmp/docker-buildx-version.txt
+grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
 
 EOF
 # Smoke test TeamCity CLI by checking the installed version

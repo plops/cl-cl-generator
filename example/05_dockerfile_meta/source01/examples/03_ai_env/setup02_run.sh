@@ -4,6 +4,7 @@ set -eu
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 enable_host_kmsg=0
 enable_host_opt=0
+enable_docker_sock=0
 verbose=0
 
 usage() {
@@ -16,6 +17,8 @@ Options:
   --host-kmsg    Run the container privileged and bind /dev/kmsg so host kernel
                  messages can be read from inside the container.
   --host-opt     Bind mount host /opt to /opt inside the container.
+  --docker-sock  Bind mount the host Docker socket. This grants the container
+                 root-equivalent control over the host Docker daemon.
   -v, --verbose  Print the executed commands.
   -h, --help     Show this help text and exit.
 
@@ -34,6 +37,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --host-opt)
       enable_host_opt=1
+      ;;
+    --docker-sock)
+      enable_docker_sock=1
       ;;
     -v|--verbose)
       verbose=1
@@ -111,6 +117,14 @@ fi
 
 if [ "$enable_host_opt" -eq 1 ]; then
   set -- "$@" -v /opt:/opt
+fi
+
+if [ "$enable_docker_sock" -eq 1 ]; then
+  if [ ! -S /var/run/docker.sock ]; then
+    echo "Docker socket is not available at /var/run/docker.sock" >&2
+    exit 1
+  fi
+  set -- "$@" -v /var/run/docker.sock:/var/run/docker.sock
 fi
 
 # Pass through currently attached serial adapters from the host.
