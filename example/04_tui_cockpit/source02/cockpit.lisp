@@ -192,15 +192,15 @@
     (values rchar wchar read-bytes write-bytes)))
 
 (defun parse-pid-oom (pid &optional (proc-root ""))
-  (let ((oom-file (format nil "~a/proc/~a/oom_score" proc-root pid)))
-    (with-open-file (stream oom-file :direction :input :if-does-not-exist nil)
+  (let ((file-path (format nil "~a/proc/~a/~a" proc-root pid "oom_score")))
+    (with-open-file (stream file-path :direction :input :if-does-not-exist nil)
       (if stream
           (or (parse-integer (read-line stream nil) :junk-allowed t) 0)
           0))))
 
 (defun parse-pid-name (pid &optional (proc-root ""))
-  (let ((comm-file (format nil "~a/proc/~a/comm" proc-root pid)))
-    (with-open-file (stream comm-file :direction :input :if-does-not-exist nil)
+  (let ((file-path (format nil "~a/proc/~a/~a" proc-root pid "comm")))
+    (with-open-file (stream file-path :direction :input :if-does-not-exist nil)
       (if stream
           (string-trim '(#\Newline #\Return #\ ) (read-line stream nil))
           "unknown"))))
@@ -341,7 +341,8 @@
                (format nil "Update interval set to ~d sec"
                        (interval-sec model)))
        (values model nil))
-      ((or (and (characterp key) (char= key #\t)) (eq key :enter))
+      ((or (and (characterp key) (or (char= key #\t) (char= key #\T)))
+           (eq key :enter))
        (let ((procs (top-processes model)) (idx (selected-index model)))
          (if (and procs (< idx (length procs)))
              (let* ((p (nth idx procs)) (pid (process-info-pid p))
