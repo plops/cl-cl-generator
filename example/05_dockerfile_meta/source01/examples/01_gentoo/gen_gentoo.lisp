@@ -1,7 +1,7 @@
 (eval-when (:compile-toplevel :execute :load-toplevel)
   (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
     (push (merge-pathnames "../../" current-dir) asdf:*central-registry*))
-  (ql:quickload :cl-dockerfile-generator))
+  (ql:quickload '(:cl-dockerfile-generator :cl-json)))
 
 (in-package :cl-dockerfile-generator)
 
@@ -13,10 +13,19 @@
   "If T, split the @world compilation into 10 cached Docker layers.")
 
 (defparameter *portage-date* :auto
-  "Portage snapshot date (YYYYMMDD) or :auto for current date.")
+  "Portage snapshot date (YYYYMMDD) or :auto for the newest available AMD64 snapshot.")
 
 (defparameter *stage3-date* :auto ;; "20260629"
-  "Stage3 snapshot date (YYYYMMDD) or :auto for the most recent Monday.")
+  "Stage3 snapshot date (YYYYMMDD) or :auto for the newest AMD64 OpenRC nomultilib image.")
+
+(defparameter *snapshot-platform* "amd64"
+  "Docker architecture required for automatically selected Gentoo snapshots.")
+
+(defparameter *auto-stage3-date-cache* nil
+  "Cached stage3 date selected from the Docker Hub tag API for this generator run.")
+
+(defparameter *auto-portage-date-cache* nil
+  "Cached portage date selected from the Docker Hub tag API for this generator run.")
 
 (defparameter *minimal-image* t
   "If T, build a minimal image (xorg, xterm, dwm only). Package categories default to NIL.")
@@ -54,6 +63,22 @@
     (*enable-alacritty*          . t)
     (*enable-dracut-ssh*         . nil)))
 
+;; These values are initialized from *feature-flags* below.  Declare them
+;; special before compiling the generator functions that reference them.
+(declaim (special *enable-emacs-sbcl* *enable-rust* *enable-go*
+                  *enable-uv-ruff* *enable-nvidia* *enable-nvidia-cuda*
+                  *enable-wireshark* *enable-lua* *enable-firefox*
+                  *enable-google-chrome* *enable-llvm* *enable-clion*
+                  *enable-docker* *enable-slstatus* *enable-dev-tools*
+                  *enable-media-playback* *enable-network-admin*
+                  *enable-remote-access* *enable-cli-productivity*
+                  *enable-sys-monitoring-hw* *enable-power-management*
+                  *enable-desktop-extras* *enable-signal* *enable-pdf-viewer*
+                  *enable-ios-sync* *enable-alacritty* *enable-dracut-ssh*
+                  *user-pipewire-initd* *user-pipewire-pulse-initd*
+                  *user-wireplumber-initd* *reverse-ssh-eu-initd*
+                  *reverse-ssh-us-initd*))
+
 ;; Instantiate all feature flags from the table above
 (dolist (entry *feature-flags*)
   (set (car entry) (cdr entry)))
@@ -63,25 +88,79 @@
 
 (defparameter *kver* "6.18.36")
 
-;; --- Helper functions for Date Calculations ---
-(defun get-formatted-date (universal-time)
-  (multiple-value-bind (sec min hour day month year day-of-week dst-p tz)
-      (decode-universal-time universal-time 0) ; use UTC
-    (declare (ignore sec min hour day-of-week dst-p tz))
-    (format nil "~4,'0d~2,'0d~2,'0d" year month day)))
+;; --- Snapshot resolution ---
+(defun json-value (key object)
+  (cdr (assoc key object)))
+
+(defun docker-hub-tags (repository query)
+  (let* ((url (format nil "https://hub.docker.com/v2/repositories/~a/tags?page_size=100~a"
+                      repository query))
+         (json (handler-case
+                   (uiop:run-program (list "curl" "--fail" "--silent" "--show-error"
+                                           "--location" url)
+                                     :output :string)
+                 (error (condition)
+                   (error "Unable to query Docker Hub tags for ~a: ~a" repository condition)))))
+    (json-value :results (cl-json:decode-json-from-string json))))
+
+(defun tag-supports-platform-p (tag platform)
+  (some (lambda (image)
+          (and (string= "linux" (json-value :os image))
+               (string= platform (json-value :architecture image))))
+        (json-value :images tag)))
+
+(defun tag-date (tag-name prefix)
+  (let ((prefix-length (length prefix)))
+    (when (and (<= prefix-length (length tag-name))
+               (string= prefix tag-name :end2 prefix-length))
+      (let ((date (subseq tag-name prefix-length)))
+        (when (and (= 8 (length date)) (every #'digit-char-p date))
+          date)))))
+
+(defun available-snapshot-dates ()
+  (let* ((stage-prefix (format nil "~a-nomultilib-openrc-" *snapshot-platform*))
+         (stage-tags (docker-hub-tags "gentoo/stage3" (format nil "&name=~a" stage-prefix)))
+         (portage-tags (docker-hub-tags "gentoo/portage" ""))
+         (stage-dates (remove nil
+                              (mapcar (lambda (tag)
+                                        (when (tag-supports-platform-p tag *snapshot-platform*)
+                                          (tag-date (json-value :name tag) stage-prefix)))
+                                      stage-tags)))
+         (portage-dates (remove nil
+                                (mapcar (lambda (tag)
+                                          (when (tag-supports-platform-p tag *snapshot-platform*)
+                                            (tag-date (json-value :name tag) "")))
+                                        portage-tags)))
+         (sorted-stage-dates (sort stage-dates #'string>))
+         (sorted-portage-dates (sort portage-dates #'string>)))
+    (unless sorted-stage-dates
+      (error "Docker Hub returned no compatible ~a OpenRC nomultilib stage3 snapshot"
+             *snapshot-platform*))
+    (unless sorted-portage-dates
+      (error "Docker Hub returned no compatible ~a portage snapshot" *snapshot-platform*))
+    (values sorted-stage-dates sorted-portage-dates)))
+
+(defun resolve-auto-snapshot-dates ()
+  (unless (and *auto-stage3-date-cache* *auto-portage-date-cache*)
+    (multiple-value-bind (stage-dates portage-dates) (available-snapshot-dates)
+      (setf *auto-stage3-date-cache* (first stage-dates)
+            *auto-portage-date-cache* (first portage-dates))
+      (format t "Available Gentoo ~a OpenRC nomultilib stage3 snapshots: ~{~a~^, ~}~%"
+              *snapshot-platform* stage-dates)
+      (format t "Available Gentoo ~a portage snapshots: ~{~a~^, ~}~%"
+              *snapshot-platform* portage-dates)
+      (format t "Selected stage3 snapshot: ~a; selected portage snapshot: ~a~%"
+              *auto-stage3-date-cache* *auto-portage-date-cache*)))
+  (values *auto-stage3-date-cache* *auto-portage-date-cache*))
 
 (defun get-portage-date ()
   (if (eq *portage-date* :auto)
-      (get-formatted-date (get-universal-time))
+      (nth-value 1 (resolve-auto-snapshot-dates))
       *portage-date*))
 
 (defun get-stage3-date ()
   (if (eq *stage3-date* :auto)
-      (let* ((now (get-universal-time))
-             (day-of-week (nth-value 6 (decode-universal-time now 0)))
-             ;; decode-universal-time returns 0 for Monday, 6 for Sunday
-             (monday-time (- now (* day-of-week 86400))))
-        (get-formatted-date monday-time))
+      (nth-value 0 (resolve-auto-snapshot-dates))
       *stage3-date*))
 
 ;; --- Dynamic Configuration File Generators ---
@@ -512,7 +591,7 @@ exec dbus-run-session dwm
          (setup-str (if extra-setup
                         (format nil " \\~{~%  && ~a \\~}" extra-setup)
                         " \\"))
-         (exclude-str (format nil "~{~%       ~a \\~}" all-excludes)))
+         (exclude-str (format nil "~{~%       ~a~^ \\~}" all-excludes)))
     `(run ,(format nil "set -e \\
   && echo ~s~a
   && mksquashfs / ~a \\
@@ -541,7 +620,8 @@ exec dbus-run-session dwm
      (from ,(format nil "gentoo/portage:~a" (get-portage-date)) :as portage)
      (comment "Stage3 base (1GB)")
      (comment "https://hub.docker.com/r/gentoo/stage3/tags")
-     (from ,(format nil "gentoo/stage3:nomultilib-~a" (get-stage3-date)) :as base)
+     (from ,(format nil "gentoo/stage3:~a-nomultilib-openrc-~a"
+                    *snapshot-platform* (get-stage3-date)) :as base)
      (comment "https://hub.docker.com/r/gentoo/portage/tags")
      (comment "Copy full Portage tree (570MB)")
      (copy "/var/db/repos/gentoo" "/var/db/repos/gentoo" :from portage)
@@ -731,26 +811,6 @@ IUSE="experimental"
      (copy :heredoc "/etc/conf.d/modules" "modules=\"amdgpu mt7921e\"")
      (copy :heredoc "/etc/conf.d/keymaps" "keymap=\"colemak\"")
      (run :heredoc #r(set -e
-if grep -q '^rc_logger=' /etc/rc.conf 2>/dev/null; then
-  sed -i 's/^rc_logger=.*/rc_logger="YES"/' /etc/rc.conf
-else
-  printf '%s\n' 'rc_logger="YES"' >> /etc/rc.conf
-fi
-if grep -q '^rc_log_path=' /etc/rc.conf 2>/dev/null; then
-  sed -i 's|^rc_log_path=.*|rc_log_path="/var/log/rc.log"|' /etc/conf
-else
-  printf '%s\n' 'rc_log_path="/var/log/rc.log"' >> /etc/rc.conf
-fi
-if grep -q '^rc_verbose=' /etc/rc.conf 2>/dev/null; then
-  sed -i 's/^rc_verbose=.*/rc_verbose="YES"/' /etc/rc.conf
-else
-  printf '%s\n' 'rc_verbose="YES"' >> /etc/rc.conf
-fi
-if grep -q '^rc_autostart_user=' /etc/rc.conf 2>/dev/null; then
-  sed -i 's/^rc_autostart_user=.*/rc_autostart_user="NO"/' /etc/rc.conf
-else
-  printf '%s\n' 'rc_autostart_user="NO"' >> /etc/rc.conf
-fi
 if ! grep -q '^s0:12345:respawn:/sbin/agetty 115200 ttyS0 vt100$' /etc/inittab; then
   printf '%s\n' 's0:12345:respawn:/sbin/agetty 115200 ttyS0 vt100' >> /etc/inittab
 fi

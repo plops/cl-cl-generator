@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 # Base images
-FROM gentoo/portage:20260706 AS portage
+FROM gentoo/portage:20260717 AS portage
 # Stage3 base (1GB)
 # https://hub.docker.com/r/gentoo/stage3/tags
-FROM gentoo/stage3:nomultilib-20260706 AS base
+FROM gentoo/stage3:amd64-nomultilib-openrc-20260629 AS base
 # https://hub.docker.com/r/gentoo/portage/tags
 # Copy full Portage tree (570MB)
 COPY --from=portage /var/db/repos/gentoo /var/db/repos/gentoo
@@ -630,26 +630,6 @@ keymap="colemak"
 EOF
 RUN <<'EOF'
 set -e
-if grep -q '^rc_logger=' /etc/rc.conf 2>/dev/null; then
-  sed -i 's/^rc_logger=.*/rc_logger="YES"/' /etc/rc.conf
-else
-  printf '%s\n' 'rc_logger="YES"' >> /etc/rc.conf
-fi
-if grep -q '^rc_log_path=' /etc/rc.conf 2>/dev/null; then
-  sed -i 's|^rc_log_path=.*|rc_log_path="/var/log/rc.log"|' /etc/conf
-else
-  printf '%s\n' 'rc_log_path="/var/log/rc.log"' >> /etc/rc.conf
-fi
-if grep -q '^rc_verbose=' /etc/rc.conf 2>/dev/null; then
-  sed -i 's/^rc_verbose=.*/rc_verbose="YES"/' /etc/rc.conf
-else
-  printf '%s\n' 'rc_verbose="YES"' >> /etc/rc.conf
-fi
-if grep -q '^rc_autostart_user=' /etc/rc.conf 2>/dev/null; then
-  sed -i 's/^rc_autostart_user=.*/rc_autostart_user="NO"/' /etc/rc.conf
-else
-  printf '%s\n' 'rc_autostart_user="NO"' >> /etc/rc.conf
-fi
 if ! grep -q '^s0:12345:respawn:/sbin/agetty 115200 ttyS0 vt100$' /etc/inittab; then
   printf '%s\n' 's0:12345:respawn:/sbin/agetty 115200 ttyS0 vt100' >> /etc/inittab
 fi
@@ -809,7 +789,7 @@ RUN set -e \
        var/cache/genkernel \
        var/tmp \
        initramfs-with-squashfs.img \
-       lost+found \
+       lost+found
 
 FROM base AS builder
 FROM base AS cache-exporter
