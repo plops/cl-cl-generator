@@ -105,7 +105,68 @@ To avoid complex multi-line shell strings with chained `&&` or backslashes, `cl-
 
 ---
 
-## 6. Generation-Time Parameterization & Lisp Splicing
+## 6. BuildKit Cache Mounts (`:mount`)
+
+The `:mount` option supports both a single cache mount string or a list of cache mount strings for configuring multiple mounts:
+
+- **Single Mount**:
+  ```lisp
+  (run :mount "type=cache,target=/root/.npm" "npm install -g @openai/codex")
+  ```
+  Generates:
+  ```dockerfile
+  RUN --mount=type=cache,target=/root/.npm npm install -g @openai/codex
+  ```
+
+- **Multiple Mounts**:
+  ```lisp
+  (run :mount ("type=cache,target=/var/cache/apt,sharing=locked"
+               "type=cache,target=/var/lib/apt/lists,sharing=locked")
+       (and "apt-get update" "apt-get install -y ca-certificates"))
+  ```
+  Generates:
+  ```dockerfile
+  RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update && apt-get install -y ca-certificates
+  ```
+
+---
+
+## 7. Modern BuildKit COPY/ADD Options
+
+The `copy` and `add` DSL constructs support modern BuildKit optimization parameters:
+
+- **COPY options**: `:from`, `:chown`, `:link` (Boolean), `:chmod`, `:parents` (Boolean), and `:exclude`.
+- **ADD options**: `:chown`, `:link` (Boolean), `:chmod`, and `:checksum`.
+
+**Example**:
+```lisp
+(copy "src" "dest" :from stage :chown owner :link t :chmod 755 :parents t :exclude "*.log")
+```
+Generates:
+```dockerfile
+COPY --from=stage --chown=owner --link --chmod=755 --parents --exclude=*.log src dest
+```
+
+---
+
+## 8. Compiler Diagnostics & Validations
+
+To safeguard against typos and syntax errors, the transpiler runs validations during compilation:
+- **Typo Warnings**: Emitting an unknown Dockerfile instruction (e.g. `(runn "apt-get update")`) triggers a warning (`Unknown Dockerfile instruction: RUNN`) in the fallback case.
+- **Option Value Validation**: Specifying a keyword option (like `:from` or `:chown`) without a following value throws a compile-time error.
+
+---
+
+## 9. File Writing & Cache Optimization
+
+The `write-df` function writes the generated Dockerfile to the filesystem. To avoid touching the file's modification time (`mtime`) unnecessarily (which triggers downstream rebuilds), it verifies content state:
+
+- **Disk-Based Check**: Uses `file-contents-equal-p` to verify the actual disk file content against the generated output.
+- **Robustness**: This approach is 100% collision-free (not reliant on `sxhash`) and handles cases where the target file was deleted or modified externally.
+
+---
+
+## 10. Generation-Time Parameterization & Lisp Splicing
 
 Leverage Common Lisp parameterization (`*variables*` and `format` evaluation) at generation time to build paths, comments, or commands dynamically instead of hardcoding them. Because S-expressions in templates are backquoted, you can evaluate them with `,` or `,@`.
 
@@ -126,7 +187,7 @@ This keeps version configuration in a single location while producing clean, com
 
 ---
 
-## 7. Running Tests
+## 11. Running Tests
 
 Load the test system and trigger the runner function:
 
