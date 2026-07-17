@@ -69,6 +69,7 @@ image_name=${IMAGE_NAME:-my-ai-env:latest}
 
 mkdir -p "$HOME/.gemini"
 mkdir -p "$HOME/.kiro"
+mkdir -p "$HOME/.local/share/kiro-cli"
 mkdir -p "$HOME/.aws"
 mkdir -p "$HOME/.copilot"
 mkdir -p "$HOME/.openai"
@@ -87,6 +88,7 @@ set -- docker run -it \
   -e ANTIGRAVITY_PLAINTEXT_AUTH=1 \
   -v "$HOME/.gemini:/root/.gemini" \
   -v "$HOME/.kiro:/root/.kiro" \
+  -v "$HOME/.local/share/kiro-cli:/root/.local/share/kiro-cli" \
   -v "$HOME/.aws:/root/.aws" \
   -v "$HOME/.copilot:/root/.copilot" \
   -v "$HOME/.openai:/root/.openai" \
