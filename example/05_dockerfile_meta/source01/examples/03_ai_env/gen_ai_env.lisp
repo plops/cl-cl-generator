@@ -115,11 +115,19 @@ latest_version="$(npm view @openai/codex version | tr -d '[:space:]')"
 ))))
 
 (defun smoke-kiro-cli-test ()
-  `((comment "Smoke test kiro-cli by invoking the wrapped CLI")
+  `((comment "Smoke test kiro-cli by invoking the wrapped CLI and helpers")
     (run :heredoc #r(set -eu
 kiro-cli --help > /tmp/kiro-cli-help.txt
 [ -s /tmp/kiro-cli-help.txt ]
 grep -qi "kiro" /tmp/kiro-cli-help.txt
+
+kiro-cli-chat --help > /tmp/kiro-cli-chat-help.txt
+[ -s /tmp/kiro-cli-chat-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-chat-help.txt
+
+kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
+[ -s /tmp/kiro-cli-term-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-term-help.txt
 ))))
 
 (defun smoke-grok-test ()
@@ -371,17 +379,19 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                        ,(agent-wrapper-script "/usr/local/bin/copilot.real" "--allow-all"))
                  (run "chmod +x /usr/local/bin/copilot")))
             ,@(when *install-kiro-cli*
-               `((copy "/root/.local/bin/kiro-cli" "/usr/local/bin/kiro-cli" :from builder)
-                 (comment "Rename the original binary and install a wrapper that skips confirmation for init")
-                 (run "mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real")
-                 (copy :heredoc "/usr/local/bin/kiro-cli"
-                       ,(kiro-wrapper-script "/usr/local/bin/kiro-cli.real"))
-                 (run "chmod +x /usr/local/bin/kiro-cli")))
+                `((copy "/root/.local/bin/kiro-cli" "/usr/local/bin/kiro-cli" :from builder)
+                  (copy "/root/.local/bin/kiro-cli-chat" "/usr/local/bin/kiro-cli-chat" :from builder)
+                  (copy "/root/.local/bin/kiro-cli-term" "/usr/local/bin/kiro-cli-term" :from builder)
+                  (comment "Rename the original binary and install a wrapper that skips confirmation for init")
+                  (run "mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real")
+                  (copy :heredoc "/usr/local/bin/kiro-cli"
+                        ,(kiro-wrapper-script "/usr/local/bin/kiro-cli.real"))
+                  (run "chmod +x /usr/local/bin/kiro-cli")))
             (comment "Ensure executable permissions for copied CLI tools")
             (run (and ,@(remove nil (list
                                       (when *install-codex* "chmod +x /usr/local/bin/codex")
                                       (when *install-copilot* "chmod +x /usr/local/bin/copilot")
-                                      (when *install-kiro-cli* "chmod +x /usr/local/bin/kiro-cli")))))))
+                                      (when *install-kiro-cli* "chmod +x /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-term")))))))
       
       ;; 4. Setup Quicklisp and Lisp dependencies if SBCL is enabled
       ,@(when *install-sbcl*

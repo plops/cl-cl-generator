@@ -100,6 +100,8 @@ esac
 EOF
 RUN chmod +x /usr/local/bin/copilot
 COPY --from=builder /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli
+COPY --from=builder /root/.local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-chat
+COPY --from=builder /root/.local/bin/kiro-cli-term /usr/local/bin/kiro-cli-term
 # Rename the original binary and install a wrapper that skips confirmation for init
 RUN mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real
 COPY <<'EOF' /usr/local/bin/kiro-cli
@@ -120,7 +122,7 @@ RUN chmod +x /usr/local/bin/kiro-cli
 # Ensure executable permissions for copied CLI tools
 RUN chmod +x /usr/local/bin/codex \
  && chmod +x /usr/local/bin/copilot \
- && chmod +x /usr/local/bin/kiro-cli
+ && chmod +x /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-term
 # Download and install Quicklisp
 RUN curl -O https://beta.quicklisp.org/quicklisp.lisp \
  && sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)" \
@@ -206,12 +208,20 @@ latest_version="$(npm view @openai/codex version | tr -d '[:space:]')"
 
 EOF
 # Smoke test kiro-cli
-# Smoke test kiro-cli by invoking the wrapped CLI
+# Smoke test kiro-cli by invoking the wrapped CLI and helpers
 RUN <<'EOF'
 set -eu
 kiro-cli --help > /tmp/kiro-cli-help.txt
 [ -s /tmp/kiro-cli-help.txt ]
 grep -qi "kiro" /tmp/kiro-cli-help.txt
+
+kiro-cli-chat --help > /tmp/kiro-cli-chat-help.txt
+[ -s /tmp/kiro-cli-chat-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-chat-help.txt
+
+kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
+[ -s /tmp/kiro-cli-term-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-term-help.txt
 
 EOF
 # Smoke test Emacs
