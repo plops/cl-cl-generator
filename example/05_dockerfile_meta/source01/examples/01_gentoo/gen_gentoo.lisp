@@ -379,7 +379,7 @@ GENTOO_MIRRORS=\"https://pkg.adfinis-on-exoscale.ch/gentoo/ \\
        (push "media-video/wireplumber dbus" lines)
        (push "media-plugins/alsa-plugins pulseaudio" lines))
       (:alsa
-       (push "media-plugins/alsa-plugins -pulseaudio" lines)))
+       (push "media-plugins/alsa-plugins pulseaudio" lines)))
     (format nil "~{~a~^~%~}~%" (nreverse lines))))
 
 (defun generate-package-accept-keywords ()
@@ -432,10 +432,11 @@ GENTOO_MIRRORS=\"https://pkg.adfinis-on-exoscale.ch/gentoo/ \\
                "cp -rn /var/cache/binpkgs-host/. /var/cache/binhost/ 2>/dev/null || true"
                "cp -rn /var/cache/binpkgs-cache/. /var/cache/binpkgs/ 2>/dev/null || true"
                "cp -rn /var/cache/binpkgs-cache/. /var/cache/binhost/ 2>/dev/null || true"
-               ,command
+               ,(format nil "STATUS=0; ~a || STATUS=$?" command)
                "cp -rn /var/cache/distfiles/. /var/cache/distfiles-cache/ 2>/dev/null || true"
                "cp -rn /var/cache/binpkgs/. /var/cache/binpkgs-cache/ 2>/dev/null || true"
-               "cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true"))))
+               "cp -rn /var/cache/binhost/. /var/cache/binpkgs-cache/ 2>/dev/null || true"
+               "[ $STATUS -eq 0 ]"))))
 
 ;; --- Inline service & configuration file strings ---
 (defparameter *resolv-conf*
@@ -653,6 +654,7 @@ LDFLAGS="${LDFLAGS} ${LTO_FLAGS}"
      (env KVER_PURE ,*kver*)
      (env KVER_SOURCE "${KVER_PURE}-gentoo")
      (env KVER_RELEASE "${KVER_SOURCE}-dist")
+     (env CHECKREQS_DONOTHING "1")
      (run "df -h")
      
      (comment ,(format nil "Recreate the gentoo-sources-~a ebuild" *kver*))
