@@ -35,6 +35,15 @@ This reference provides complete documentation for all functions, macros, struct
 - **Description:** Queries the X server whether named extension `name` (string) is supported.
 - **Return Value:** Extension major opcode integer.
 
+### `intern-atom`
+- **Signature:** `intern-atom (name &key (only-if-exists 0))`
+- **Description:** Interns (resolves) a string atom name to a 32-bit atom ID. Used for ICCCM protocol atoms like `"WM_PROTOCOLS"` and `"WM_DELETE_WINDOW"`.
+- **Return Value:** Atom ID (32-bit integer).
+
+### `change-property`
+- **Signature:** `change-property (window property type data &key (mode 0) (format 32))`
+- **Description:** Sets a window property. Used to announce ICCCM `WM_PROTOCOLS` support by setting the `WM_PROTOCOLS` atom on the window.
+
 ---
 
 ## 2. Window & Resource Management
@@ -201,6 +210,16 @@ This reference provides complete documentation for all functions, macros, struct
 - `parse-button-release (reply-buffer)`
 - `parse-key-press (reply-buffer)`
 - `parse-configure-notify (reply-buffer)`
+- `parse-client-message (reply-buffer)`
+
+### Modular Event Handlers
+- `handle-expose-event (layout)` — Triggers full redraw on Expose events.
+- `handle-configure-event (reply layout rebuild-layout-fn)` — Handles window resize.
+- `handle-motion-event (reply layout)` — Updates hover state on mouse motion.
+- `handle-button-press-event (reply layout)` — Handles mouse press, updates focus/pressed state.
+- `handle-button-release-event (reply layout state update-fn rebuild-layout-fn)` — Dispatches widget click messages, returns updated state.
+- `handle-key-press-event (reply layout state keyboard-map update-fn rebuild-layout-fn)` — Dispatches keyboard input, returns updated state.
+- `handle-client-message-event (reply)` — Returns `:close` when `WM_DELETE_WINDOW` is received.
 
 ---
 
@@ -219,6 +238,11 @@ This reference provides complete documentation for all functions, macros, struct
 | `*gc-text*` | Integer ID | Graphics Context for foreground text & border lines (`#000000`). |
 | `*packet-buffer*` | List | Accumulator list for buffered output packets during `with-buffered-output`. |
 | `*pending-events*` | List | Queue holding unhandled X11 event buffers. |
+| `*wm-protocols-atom*` | Integer | Interned atom ID for `WM_PROTOCOLS` ICCCM property. |
+| `*wm-delete-window-atom*` | Integer | Interned atom ID for `WM_DELETE_WINDOW` ICCCM close message. |
+| `*resource-id-base*` | Integer | Base offset for client-allocated X11 resource IDs. |
+| `*resource-id-mask*` | Integer | Bitmask for client resource ID space. |
+| `*resource-id-counter*` | Integer | Monotonically incrementing counter for resource ID allocation. |
 
 ---
 
@@ -268,6 +292,18 @@ This reference provides complete documentation for all functions, macros, struct
            #:parse-button-release
            #:parse-key-press
            #:parse-configure-notify
+           #:parse-client-message
+           #:handle-expose-event
+           #:handle-configure-event
+           #:handle-motion-event
+           #:handle-button-press-event
+           #:handle-button-release-event
+           #:handle-key-press-event
+           #:handle-client-message-event
+           #:intern-atom
+           #:change-property
+           #:*wm-protocols-atom*
+           #:*wm-delete-window-atom*
            #:draw-line
            #:*s*
            #:*root*
@@ -277,6 +313,9 @@ This reference provides complete documentation for all functions, macros, struct
            #:*gc-shadow*
            #:*gc-dark*
            #:*gc-text*
+           #:*resource-id-base*
+           #:*resource-id-mask*
+           #:*resource-id-counter*
            #:*packet-buffer*
            #:with-buffered-output
            #:flush-packets

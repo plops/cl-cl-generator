@@ -51,7 +51,7 @@ source/
 ├── event-loop.lisp        ; MUV event loop (run-gui), dirty tracking, double-buffered redrawing
 ├── example.lisp           ; Interactive Athena GUI demo application
 ├── orbit-demo.lisp        ; Earth-to-Mars Hohmann transfer simulation
-└── tests.lisp             ; 9 automated test suites
+└── tests.lisp             ; 15 automated test suites
 ```
 
 ---
@@ -106,7 +106,7 @@ Launch the real-time Hohmann transfer simulation:
 
 ## Step 6: Running the Unit Test Suite
 
-Execute all 9 test suites directly in REPL (no X11 window display needed for unit tests):
+Execute all 15 test suites directly in REPL (no X11 window display needed for unit tests):
 
 ```lisp
 (push "/workspace/src/cl-cl-generator/example/07_pure_x11/source/" asdf:*central-registry*)

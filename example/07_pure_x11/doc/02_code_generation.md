@@ -107,7 +107,7 @@ graph TD
 4. **`04_widgets_builtin.lisp`**: Template quote tree for widget renderer registrations (`PANEL`, `LABEL`, `BUTTON`, `CHECKBOX`, `TEXT-INPUT`, `CANVAS`).
 5. **`05_event_loop.lisp`**: Template quote tree for MUV event loop (`run-gui`), dirty tracking (`compute-dirty-widgets`), and redraw mechanisms.
 6. **`06_example_template.lisp`**: Template for Athena GUI demo application (`pure-x11-gen/example`).
-7. **`07_tests_template.lisp`**: Template for 9 test suites (`pure-x11-gen/tests`).
+7. **`07_tests_template.lisp`**: Template for 15 test suites (`pure-x11-gen/tests`).
 8. **`08_orbit_demo_template.lisp`**: Template for Hohmann transfer orbit animation (`pure-x11-gen/orbit-demo`).
 9. **`generate.lisp`**: Orchestrator script that loads `01` through `08`, defines `x11-core` inline, and invokes `write-source` for all target files.
 

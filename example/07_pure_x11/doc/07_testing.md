@@ -5,7 +5,7 @@
 
 ## Overview
 
-The `pure-x11-gen` testing framework in `source/tests.lisp` (generated from `07_tests_template.lisp`) provides automated unit and integration tests covering node parsing, spatial hit testing, glue solver math, focus navigation, renderer dispatch, packet buffering, dirty widget tracking, and binary protocol opcode verification.
+The `pure-x11-gen` testing framework in `source/tests.lisp` (generated from `07_tests_template.lisp`) provides automated unit and integration tests covering node parsing, spatial hit testing, glue solver math, focus navigation, renderer dispatch, packet buffering, dirty widget tracking, binary protocol opcode verification, modular event handler dispatch, ICCCM client message parsing, socket buffer flushing, pixmap cleanup exception safety, live X11 connection integration, and keycode translation.
 
 ---
 
@@ -24,13 +24,13 @@ The framework relies on a minimal, zero-dependency testing macro `assert-test`:
          (incf *test-failures*))))
 ```
 
-`run-all-tests` executes all 9 test suites sequentially. If `*test-failures*` is zero upon completion, it prints `ALL TESTS PASSED!`. If failures exist, it exits SBCL with non-zero exit status `(sb-ext:exit :code 1)`, integrating seamlessly with CI/CD runners.
+`run-all-tests` executes all 15 test suites sequentially. If `*test-failures*` is zero upon completion, it prints `ALL TESTS PASSED!`. If failures exist, it exits SBCL with non-zero exit status `(sb-ext:exit :code 1)`, integrating seamlessly with CI/CD runners.
 
 ---
 
 ## Complete Test Suite Reference
 
-The test suite consists of 9 targeted verification functions:
+The test suite consists of 15 targeted verification functions:
 
 ```mermaid
 graph TD
@@ -48,6 +48,7 @@ graph TD
     Runner --> T12["12. test-put-image-big-req"]
     Runner --> T13["13. test-canvas-pixmap-cleanup"]
     Runner --> T14["14. test-live-x11-connection"]
+    Runner --> T15["15. test-translate-keycode"]
 ```
 
 ### 1. `test-parse-node`
@@ -112,6 +113,10 @@ graph TD
 ### 14. `test-live-x11-connection`
 - **Purpose:** End-to-end integration test against a live X server (e.g. Xvfb on `$DISPLAY`).
 - **Checks:** Connects to `$DISPLAY` Unix domain socket, parses initial setup reply, allocates window/atom resource IDs, creates and maps a live window, sends properties, and cleanly closes the connection.
+
+### 15. `test-translate-keycode`
+- **Purpose:** Verifies expanded keycode-to-keyword translation including Tab (`#xff09`), Escape (`#xff1b`), Delete (`#xffff`), Home (`#xff50`), End (`#xff57`), PageUp (`#xff55`), PageDown (`#xff56`), and Function keys F1–F12 (`#xffbe`–`#xffc9`).
+- **Checks:** Asserts that mock keyboard mapping arrays translate correctly to `:tab`, `:escape`, `:delete`, `:home`, `:end`, `:page-up`, `:page-down`, and `:f1` through `:f12` keyword symbols.
 
 ---
 

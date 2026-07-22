@@ -175,6 +175,8 @@ Requests are specified as property lists in `*x11-requests*` inside `02_x11_spec
 | `grab-pointer` | 26 | Actively grabs pointer control (`grab-window`, `event-mask`, options). Returns status code. |
 | `ungrab-pointer` | 27 | Releases active pointer grab (`:time`). |
 | `get-keyboard-mapping` | 101 | Queries keycode-to-keysym translation table (`first-keycode`, `count`). Returns `(values keysyms keysyms-per-keycode)`. |
+| `intern-atom` | 16 | Interns (resolves) a string atom name to a 32-bit atom ID (`name`, `&key only-if-exists`). Returns atom ID integer. |
+| `change-property` | 18 | Sets a window property (`window`, `property`, `type`, `data`, `&key mode format`). Used for ICCCM `WM_PROTOCOLS`. |
 
 ---
 
@@ -201,6 +203,7 @@ Event parsers are defined in `*x11-events*` in `02_x11_spec.lisp` and compiled i
 | `parse-button-release` | 5 | `ButtonRelease` | `(values detail event-x event-y state time)` |
 | `parse-key-press` | 2 | `KeyPress` | `(values detail event-x event-y state time)` |
 | `parse-configure-notify` | 22 | `ConfigureNotify` | `(values width height)` |
+| `parse-client-message` | 33 | `ClientMessage` | `(values type data0)` |
 
 ---
 

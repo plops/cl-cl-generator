@@ -70,6 +70,7 @@ flowchart TD
     Dispatch -->|Code 5: ButtonRelease| BRelease["Parse button & (mx, my). Trigger widget action :msg. Update state, rebuild-layout, redraw"]
     Dispatch -->|Code 2: KeyPress| KeyPress["Translate keycode. Direction arrows -> focus shift. Characters -> text input :msg-change"]
     Dispatch -->|Timeout: Tick| Tick["Send tick-msg to update-fn. Rebuild layout, trigger full-redraw"]
+    Dispatch -->|Code 33: ClientMessage| ClientMsg["Parse data. If WM_DELETE_WINDOW atom matches, break event loop cleanly"]
 ```
 
 ### Handled X11 Event Opcodes
@@ -80,6 +81,7 @@ flowchart TD
 - **Code 4 (`ButtonPress`):** Mouse button click down. Sets `*pressed-widget*`. If the hit widget is focusable (`BUTTON`, `CHECKBOX`, `TEXT-INPUT`), updates `*focused-widget*` and calls `smart-redraw`.
 - **Code 5 (`ButtonRelease`):** Mouse button release. If released inside the pressed widget, evaluates its action property (`:msg`), passes it to `update-fn`, rebuilds layout, and triggers `full-redraw`.
 - **Code 2 (`KeyPress`):** Keyboard press. If focused element is a `TEXT-INPUT`, handles character entry, backspace, and cursor navigation (`:left`/`:right`). Otherwise, arrow keys trigger cone-based focus shift (`find-nearest-widget`).
+- **Code 33 (`ClientMessage`):** Parsed by `handle-client-message-event`. If the event's data matches the interned `WM_DELETE_WINDOW` atom ID (`*wm-delete-window-atom*`), the event loop exits cleanly via ICCCM protocol.
 
 ---
 
@@ -107,7 +109,7 @@ flowchart LR
 Tracks changes across `*focused-widget*`, `*pressed-widget*`, and `*hovered-widget*` relative to `*prev-focused*`, `*prev-pressed*`, and `*prev-hovered*`. Returns a list of widget names whose visual appearance changed.
 
 ### 3. `partial-redraw (layout dirty-names)`
-Iterates over `dirty-names`, clears their specific bounding boxes with `clear-area`, and re-renders only those specific widgets.
+Iterates over `dirty-names`, creates a temporary offscreen pixmap, paints background and widget content offscreen, and copies each dirty widget's bounding rectangle to the window via `copy-area` for flicker-free partial updates.
 
 ### 4. `smart-redraw (layout)`
 Executes `compute-dirty-widgets`. If dirty widgets exist, performs a `partial-redraw`; if no visual state changed, drawing socket operations are completely skipped.

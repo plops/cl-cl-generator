@@ -116,6 +116,14 @@ Translates raw X11 keycodes and shift modifier state into characters or keyword 
 - Keycode `#xff52` $\rightarrow$ `:up`
 - Keycode `#xff53` $\rightarrow$ `:right`
 - Keycode `#xff54` $\rightarrow$ `:down`
+- Keycode `#xff09` $\rightarrow$ `:tab`
+- Keycode `#xff1b` $\rightarrow$ `:escape`
+- Keycode `#xffff` $\rightarrow$ `:delete`
+- Keycode `#xff50` $\rightarrow$ `:home`
+- Keycode `#xff57` $\rightarrow$ `:end`
+- Keycode `#xff55` $\rightarrow$ `:page-up`
+- Keycode `#xff56` $\rightarrow$ `:page-down`
+- Keycodes `#xffbe`–`#xffc9` $\rightarrow$ `:f1` through `:f12`
 
 ---
 

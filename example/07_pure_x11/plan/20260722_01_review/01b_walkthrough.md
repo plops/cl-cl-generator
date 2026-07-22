@@ -25,7 +25,7 @@ With `xvfb` (X Virtual Framebuffer), `xdotool`, and `imagemagick` installed on t
 
 ## 2. Test Suite Architecture
 
-The complete test suite in `source/tests.lisp` now comprises **14 automated test functions**:
+The complete test suite in `source/tests.lisp` now comprises **15 automated test functions**:
 
 ```mermaid
 graph TD
@@ -43,6 +43,7 @@ graph TD
     Runner --> T12["12. test-put-image-big-req"]
     Runner --> T13["13. test-canvas-pixmap-cleanup"]
     Runner --> T14["14. test-live-x11-connection"]
+    Runner --> T15["15. test-translate-keycode"]
 ```
 
 ---
