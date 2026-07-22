@@ -51,16 +51,28 @@
        (save-visual-state))
 
      (defun partial-redraw (layout dirty-names)
-       "Re-render only the widgets in DIRTY-NAMES."
+       "Re-render only the widgets in DIRTY-NAMES using offscreen pixmap double-buffering to eliminate flicker."
        (with-buffered-output
          (dolist (name dirty-names)
            (let ((w (find-widget-by-name layout name)))
-             (when w
-               (let ((type (widget-type w)))
-                 (unless (and type (symbolp type) (string-equal (symbol-name type) "CANVAS"))
-                   (clear-area :x (widget-x w) :y (widget-y w)
-                               :w (widget-w w) :h (widget-h w))))
-               (render-widget w *focused-widget* *pressed-widget* *hovered-widget*)))))
+             (when (and w (> (widget-w w) 0) (> (widget-h w) 0))
+               (let* ((type (widget-type w))
+                      (wx (widget-x w))
+                      (wy (widget-y w))
+                      (ww (widget-w w))
+                      (wh (widget-h w)))
+                 (if (eq type :canvas)
+                     (render-widget w *focused-widget* *pressed-widget* *hovered-widget*)
+                     (let ((pix (next-resource-id))
+                           (win-id *window*))
+                       (create-pixmap pix *window-width* *window-height* :depth (or *root-depth* 24))
+                       (unwind-protect
+                           (progn
+                             (let ((*window* pix))
+                               (poly-fill-rectangle (list (list wx wy ww wh)) :gc *gc-face*)
+                               (render-widget w *focused-widget* *pressed-widget* *hovered-widget*))
+                             (copy-area pix win-id *gc-text* wx wy wx wy ww wh))
+                         (free-pixmap pix)))))))))
        (save-visual-state))
 
      (defun smart-redraw (layout)
@@ -102,8 +114,7 @@
                   (hit-type (when hit (widget-type hit))))
              (when hit-name
                (setf *pressed-widget* hit-name)
-               (if (and hit-type (symbolp hit-type)
-                        (member (symbol-name hit-type) '("BUTTON" "CHECKBOX" "TEXT-INPUT") :test #'string-equal))
+               (if (member hit-type '(:button :checkbox :text-input) :test #'eq)
                    (setf *focused-widget* hit-name)
                    (setf *focused-widget* nil))
                (smart-redraw layout))))))
@@ -120,9 +131,8 @@
                (when (eq hit-name *pressed-widget*)
                  (let ((w-struct (find-widget-by-name layout *pressed-widget*)))
                    (when w-struct
-                     (let* ((w-type (widget-type w-struct))
-                            (type-name (and w-type (symbolp w-type) (symbol-name w-type))))
-                       (when (and type-name (member type-name '("BUTTON" "CHECKBOX") :test #'string-equal))
+                     (let ((w-type (widget-type w-struct)))
+                       (when (member w-type '(:button :checkbox) :test #'eq)
                          (let ((msg (getf (widget-props w-struct) :msg)))
                            (when msg
                              (setf new-state (funcall update-fn state msg))
@@ -140,10 +150,20 @@
          (declare (ignorable mx my time))
          (let* ((keysym (translate-keycode keyboard-map detail state-mask))
                 (focused-is-text-input (and *focused-widget*
-                                           (let ((w (find-widget-by-name layout *focused-widget*)))
-                                             (and w (let ((type (widget-type w)))
-                                                      (and type (symbolp type) (string-equal (symbol-name type) "TEXT-INPUT"))))))))
+                                            (let ((w (find-widget-by-name layout *focused-widget*)))
+                                              (and w (eq (widget-type w) :text-input))))))
            (cond
+             ((eq keysym :tab)
+              (let* ((widgets (collect-focusable-widgets layout))
+                     (names (mapcar #'widget-name widgets)))
+                (when names
+                  (let* ((pos (position *focused-widget* names))
+                         (next-name (if pos
+                                        (nth (mod (1+ pos) (length names)) names)
+                                        (car names))))
+                    (setf *focused-widget* next-name)
+                    (smart-redraw layout))))
+              state)
              ((and (member keysym '(:left :right :up :down))
                    (not (and focused-is-text-input (member keysym '(:left :right)))))
               (let ((next-focus (find-nearest-widget layout *focused-widget* keysym)))
@@ -207,7 +227,15 @@
 
      (defun run-gui (update-fn view-fn initial-state &key (tick-interval nil) (tick-msg '(:tick)) (init-fn nil))
         "Run the X11 GUI event loop using Model-Update-View (MUV)."
-        (format t "Connecting to X server...~%")
+        (let ((*focused-widget* nil)
+              (*pressed-widget* nil)
+              (*hovered-widget* nil)
+              (*prev-focused* nil)
+              (*prev-pressed* nil)
+              (*prev-hovered* nil)
+              (*window-width* *window-width*)
+              (*window-height* *window-height*))
+          (format t "Connecting to X server...~%")
         (handler-case (connect)
           (error (c)
             (format t "Failed to connect to X server: ~a~%" c)
@@ -281,4 +309,4 @@
                            ((= code 33) ; ClientMessage (WM_DELETE_WINDOW)
                             (when (eq (handle-client-message-event reply) :close)
                               (format t "Received WM_DELETE_WINDOW. Exiting event loop...~%")
-                              (return-from run-gui t))))))))))))))))
+                              (return-from run-gui t)))))))))))))))))

@@ -352,8 +352,8 @@
                         (unused3 (inc-current (pad length-of-vendor))))
                    (unless (= 1 success)
                      (error "Connection didn't succeed."))
-                   (defparameter *resource-id-base* resource-id-base)
-                   (defparameter *resource-id-mask* resource-id-mask)
+                   (setf *resource-id-base* resource-id-base)
+                   (setf *resource-id-mask* resource-id-mask)
                    (dotimes (i number-of-formats)
                      (let ((depth (card8))
                            (bpp (card8))
@@ -381,8 +381,8 @@
                                            width height width-in-mm height-in-mm min-installed-maps
                                            max-installed-maps root-visual backing-stores save-unders
                                            root-depth number-of-allowed-depths))
-                       (defparameter *root* root)
-                       (defparameter *root-depth* root-depth)
+                       (setf *root* root)
+                       (setf *root-depth* root-depth)
                        (dotimes (i number-of-allowed-depths)
                          (let ((depth (card8))
                                (unused (card8))

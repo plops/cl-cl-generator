@@ -28,12 +28,19 @@
        (time 0.0)
        (animating-p t))
 
+     (defparameter *orbit-trace-cache*
+       (let ((a 1.262)
+             (ecc 0.208))
+         (loop for theta from 0.0 to (+ pi 0.05) by 0.05
+               collect (let ((r (/ (* a (- 1 (* ecc ecc))) (+ 1 (* ecc (cos theta))))))
+                         (list theta (list (* r (cos theta)) (* r (sin theta))))))))
+
      (defun update (state msg)
        (case (car msg)
          (:tick
           (if (app-state-animating-p state)
               (let ((new-time (+ (app-state-time state) 0.03)))
-                (if (> new-time 3.14159)
+                (if (> new-time pi)
                     (make-app-state :time 0.0 :animating-p t)
                     (make-app-state :time new-time :animating-p t)))
               state))
@@ -48,7 +55,7 @@
      (defun get-planetary-shapes (t-val)
        (let* ((omega-e 1.0)
               (omega-m (/ 1.0 1.88))
-              (mars-launch-phase (- 3.14159 (* omega-m 3.14159)))
+              (mars-launch-phase (- pi (* omega-m pi)))
               (ex (cos (* omega-e t-val)))
               (ey (sin (* omega-e t-val)))
               (mx (* 1.524 (cos (+ mars-launch-phase (* omega-m t-val)))))
@@ -58,9 +65,9 @@
               (r-space (/ (* a (- 1 (* ecc ecc))) (+ 1 (* ecc (cos t-val)))))
               (sx (* r-space (cos t-val)))
               (sy (* r-space (sin t-val)))
-              (trace-points (loop for theta from 0.0 to t-val by 0.05
-                                  collect (let ((r (/ (* a (- 1 (* ecc ecc))) (+ 1 (* ecc (cos theta))))))
-                                            (list (* r (cos theta)) (* r (sin theta)))))))
+              (trace-points (loop for (th pt) in *orbit-trace-cache*
+                                  while (<= th t-val)
+                                  collect pt)))
          (list
            (list :disk 0.0 0.0 0.12 :color *gc-sun*)
            (list :circle 0.0 0.0 1.0 :color *gc-shadow*)
@@ -89,7 +96,7 @@
                    :glue (:natural 100 :stretch 1 :shrink 0))
            (button :name :btn-reset :text \"Reset\" :msg (:reset-animation)
                    :glue (:natural 100 :stretch 1 :shrink 0)))
-         (label :name :status-text :text ,(format nil \"Spacecraft flight time: ~,2f years\" (/ t-val (* 2 3.14159)))
+         (label :name :status-text :text ,(format nil \"Spacecraft flight time: ~,2f years\" (/ t-val (* 2 pi)))
                 :glue (:natural 20 :stretch 0 :shrink 0))))))
 ")
 
