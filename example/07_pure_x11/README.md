@@ -40,9 +40,9 @@ X11 requires all requests to be aligned to **4-byte boundaries**. If a string or
 
 ## 3. The Code Generation Architecture
 
-This library is generated from declarative tables in `gen.lisp`:
-*   `*x11-requests*`: Defines requests (opcodes, structures, and parameters).
-*   `*x11-events*`: Defines event specs (opcodes and binary field layouts).
+This library is generated from declarative tables across source templates orchestrated by `generate.lisp`:
+*   `*x11-requests*` (in `02_x11_spec.lisp`): Defines requests (opcodes, structures, parameters, and replies).
+*   `*x11-events*` (in `02_x11_spec.lisp`): Defines event specs (opcodes and binary field layouts).
 
 The transpiler uses generator-time loops like `,@(loop for req in *x11-requests* ...)` to automatically output the functions for serialization and parsing, eliminating hundreds of lines of repetitive, error-prone binary formatting boilerplate.
 
@@ -53,6 +53,8 @@ The transpiler uses generator-time loops like `,@(loop for req in *x11-requests*
 ### Connection & Setup
 *   `connect (&key ip filename port)`: Connects to the X server, negotiates connection handshake, and retrieves server constants.
 *   `big-requests-enable ()`: Enables the X11 extension for sending very large request payloads (e.g., big image uploads).
+*   `intern-atom (name &key only-if-exists)`: Gets or creates an X11 protocol atom ID by name (e.g., `"WM_PROTOCOLS"`, `"WM_DELETE_WINDOW"`).
+*   `change-property (window property type data &key mode format)`: Sets window manager properties on windows.
 
 ### Window & GC Management
 *   `make-window (&key width height x y border)`: Creates a new window, maps it on the screen, and creates 5 Graphics Contexts:
@@ -77,15 +79,19 @@ The transpiler uses generator-time loops like `,@(loop for req in *x11-requests*
 *   `defstruct glue`: Represents layout elasticity (`natural` size, `stretch` factor, and `shrink` factor).
 *   `solve-glue (items available-space)`: Distributes space among a list of glue structures using TeX's layout algorithm.
 *   `compute-box-layout (w-struct axis)`: Lays out children of `hbox` (`axis=:x`) or `vbox` (`axis=:y`) container nodes.
+*   `find-widget-at (layout x y)`: Performs linear tree traversal over widget bounding boxes to locate the target widget under coordinates `(x, y)` (Quadtree indexing is planned as a future optimization).
+*   `find-nearest-widget (layout current-widget direction)`: Spatial keyboard navigation using a 45-degree directional cone search algorithm.
 
 ### Event loop & Parsers
-*   `run-gui (update-fn view-fn initial-state)`: Starts the Elm-style Model-Update-View (MUV) event loop with state dirty-tracking and partial widget redraws.
-*   `parse-expose (reply-buffer)`: Parses Expose events.
-*   `parse-motion-notify (reply-buffer)`: Parses mouse motion coordinates.
-*   `parse-button-press (reply-buffer)`: Parses mouse clicks.
-*   `parse-button-release (reply-buffer)`: Parses mouse releases.
-*   `parse-key-press (reply-buffer)`: Parses key presses.
-*   `parse-configure-notify (reply-buffer)`: Parses window resize notifications.
+*   `run-gui (update-fn view-fn initial-state)`: Starts the Elm-style Model-Update-View (MUV) event loop with state dirty-tracking, partial widget redraws, and ICCCM `WM_DELETE_WINDOW` graceful exit.
+*   `parse-expose (reply-buffer)`: Parses Expose events (code 12).
+*   `parse-motion-notify (reply-buffer)`: Parses mouse motion coordinates (code 6).
+*   `parse-button-press (reply-buffer)`: Parses mouse clicks (code 4).
+*   `parse-button-release (reply-buffer)`: Parses mouse releases (code 5).
+*   `parse-key-press (reply-buffer)`: Parses key presses (code 2).
+*   `parse-configure-notify (reply-buffer)`: Parses window resize notifications (code 22).
+*   `parse-client-message (reply-buffer)`: Parses ClientMessage events (code 33).
+*   `handle-client-message-event (reply-buffer)`: Handles ClientMessage events, returning `:close` when `WM_DELETE_WINDOW` is requested.
 
 ---
 

@@ -15,6 +15,5 @@ SOURCE_DIR="${SCRIPT_DIR}/source/"
 echo "Starting Pure X11 Orbit Demo via SBCL..."
 sbcl --eval "(push \"${SOURCE_DIR}\" asdf:*central-registry*)" \
      --eval '(ql:quickload :pure-x11-gen :force t)' \
-     --load "${SOURCE_DIR}/orbit-demo.lisp" \
      --eval '(pure-x11-gen/orbit-demo:run-orbit-demo)' \
      --eval '(quit)'

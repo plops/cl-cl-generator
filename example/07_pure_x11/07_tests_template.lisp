@@ -135,7 +135,7 @@
                   (p-rect (third packets)))
              (assert-test (= (aref p-fill-rect 0) 70) "poly-fill-rectangle major opcode is 70")
              (assert-test (= (aref p-imagetext 0) 76) "imagetext8 major opcode is 76")
-             (assert-test (= (aref p-rect 0) 74) "poly-rectangle major opcode is 74")))))
+             (assert-test (= (aref p-rect 0) 74) "poly-rectangle major opcode is 74"))))
 
      (defun test-event-handlers ()
        (format t "--- Running test-event-handlers ---~%")
@@ -185,7 +185,107 @@
                               (lambda ()))))
              (assert-test state-updated "ButtonRelease dispatched update-fn with widget :msg")
              (assert-test (eq new-state :new-state) "ButtonRelease returned updated state")
-             (assert-test (null pure-x11-gen::*pressed-widget*) "ButtonRelease cleared pressed widget")))))
+             (assert-test (null pure-x11-gen::*pressed-widget*) "ButtonRelease cleared pressed widget")))
+         ;; Test configure handler (window resize)
+         (let ((reply (make-array 32 :element-type '(unsigned-byte 8) :initial-element 0))
+               (rebuilt nil))
+           (setf (aref reply 0) 22) ; ConfigureNotify
+           (setf (aref reply 20) 100)
+           (setf (aref reply 21) 1)
+           (setf (aref reply 22) 44)
+           (setf (aref reply 23) 1)
+           (pure-x11-gen::handle-configure-event reply layout (lambda () (setf rebuilt t)))
+           (assert-test rebuilt "ConfigureNotify triggers layout rebuild"))
+         ;; Test expose handler (window redraw)
+         (let ((reply (make-array 32 :element-type '(unsigned-byte 8) :initial-element 0)))
+           (setf (aref reply 0) 12) ; Expose
+           (pure-x11-gen::handle-expose-event layout)
+           (assert-test t "Expose event handled cleanly"))
+         ;; Test key press handler
+         (let ((reply (make-array 32 :element-type '(unsigned-byte 8) :initial-element 0))
+               (kb-map (make-array '(256 2) :element-type '(unsigned-byte 32) :initial-element 0)))
+           (setf (aref reply 0) 2) ; KeyPress
+           (setf (aref reply 1) 24) ; Keycode 24
+           (setf (aref kb-map 24 0) #x71) ; 'q'
+           (pure-x11-gen::handle-key-press-event
+             reply layout :state kb-map
+             (lambda (s msg) (declare (ignore s msg)) :new-state)
+             (lambda ()))
+           (assert-test t "KeyPress event handled cleanly"))))
+
+     (defun test-client-message-event ()
+       (format t "--- Running test-client-message-event ---~%")
+       (let ((pure-x11-gen::*wm-protocols-atom* 42)
+             (pure-x11-gen::*wm-delete-window-atom* 99)
+             (buf (make-array 32 :element-type '(unsigned-byte 8) :initial-element 0)))
+         (setf (aref buf 0) 33   ; code = ClientMessage
+               (aref buf 1) 32   ; format = 32
+               (aref buf 2) 1    ; sequence number
+               (aref buf 4) 100  ; window ID
+               (aref buf 8) 42   ; type atom
+               (aref buf 12) 99) ; data0 atom
+         (multiple-value-bind (fmt win type d0 d1 d2 d3 d4) (pure-x11-gen::parse-client-message buf)
+           (declare (ignore fmt win d1 d2 d3 d4))
+           (assert-test (= type 42) "ClientMessage parsed type 42")
+           (assert-test (= d0 99) "ClientMessage parsed data0 99"))
+         (assert-test (eq (pure-x11-gen::handle-client-message-event buf) :close)
+                      "ClientMessage with WM_DELETE_WINDOW returned :close")))
+
+     (defun test-put-image-big-req ()
+       (format t "--- Running test-put-image-big-req ---~%")
+       (let ((pure-x11-gen::*s* (make-broadcast-stream))
+             (pure-x11-gen::*window* 123)
+             (pure-x11-gen::*gc-text* 1)
+             (img (make-array '(10 10 4) :element-type '(unsigned-byte 8) :initial-element 255)))
+         (pure-x11-gen::with-buffered-output
+           (pure-x11-gen::poly-fill-rectangle '((0 0 10 10)))
+           (assert-test (= (length pure-x11-gen::*packet-buffer*) 1) "Initial packet buffered")
+           (pure-x11-gen::put-image-big-req img :dst-x 0 :dst-y 0)
+           (assert-test (zerop (length pure-x11-gen::*packet-buffer*)) "Packet buffer flushed before big request stream write"))))
+
+     (defun test-canvas-pixmap-cleanup ()
+       (format t "--- Running test-canvas-pixmap-cleanup ---~%")
+       (let ((pure-x11-gen::*s* (make-broadcast-stream))
+             (pure-x11-gen::*window* 123)
+             (pure-x11-gen::*gc-face* 1)
+             (pure-x11-gen::*gc-light* 2)
+             (pure-x11-gen::*gc-shadow* 3)
+             (pure-x11-gen::*gc-dark* 4)
+             (pure-x11-gen::*gc-text* 5)
+             (pure-x11-gen::*resource-id-base* #x00000000)
+             (pure-x11-gen::*resource-id-mask* #x000fffff)
+             (pure-x11-gen::*resource-id-counter* 0))
+         (pure-x11-gen::with-buffered-output
+           (let ((w (pure-x11-gen::resolve-layout '(canvas :name :c1 :x 0 :y 0 :w 100 :h 100))))
+             (pure-x11-gen::render-widget w nil nil nil)
+             ;; FreePixmap opcode is 54
+             (let ((free-pixmap-packets (remove-if-not (lambda (p) (= (aref p 0) 54)) pure-x11-gen::*packet-buffer*)))
+               (assert-test (= (length free-pixmap-packets) 1) "FreePixmap opcode 54 emitted during canvas render cleanup"))))))
+
+     (defun test-live-x11-connection ()
+       (format t "--- Running test-live-x11-connection ---~%")
+       (let ((display (uiop:getenv "DISPLAY")))
+         (if (and display (string/= display ""))
+             (handler-case
+                 (let ((s (pure-x11-gen::connect-x11 display)))
+                   (assert-test s "Connected to live X server socket")
+                   (let ((pure-x11-gen::*s* s))
+                     (pure-x11-gen::parse-initial-reply s)
+                     (assert-test pure-x11-gen::*resource-id-base* "Parsed initial reply resource ID base")
+                     (let ((win (pure-x11-gen::next-resource-id))
+                           (wm-protocols (pure-x11-gen::intern-atom "WM_PROTOCOLS"))
+                           (wm-delete (pure-x11-gen::intern-atom "WM_DELETE_WINDOW")))
+                       (assert-test (numberp wm-protocols) "Interned WM_PROTOCOLS atom ID")
+                       (assert-test (numberp wm-delete) "Interned WM_DELETE_WINDOW atom ID")
+                       (pure-x11-gen::make-window win 10 10 300 200)
+                       (pure-x11-gen::change-property win wm-protocols 4 32 (vector wm-delete))
+                       (pure-x11-gen::map-window win)
+                       (assert-test t "Created, configured, and mapped live X11 window")
+                       (close s))))
+               (error (e)
+                 (format t "FAIL: Live X11 connection test failed with error: ~a~%" e)
+                 (incf pure-x11-gen::*test-failures*)))
+             (format t "SKIP: DISPLAY not set, skipping live X11 integration test.~%"))))
 
      (defun run-all-tests ()
        (setf *test-failures* 0)
@@ -199,8 +299,12 @@
        (test-dirty-widgets)
        (test-x11-opcodes)
        (test-event-handlers)
+       (test-client-message-event)
+       (test-put-image-big-req)
+       (test-canvas-pixmap-cleanup)
+       (test-live-x11-connection)
        (if (zerop *test-failures*)
-           (format t "ALL TESTS PASSED!~%")
+           (format t "ALL TESTS PASSED!~%" )
            (progn
              (format t "SOME TESTS FAILED: ~a failures~%" *test-failures*)
-             (sb-ext:exit :code 1))))))
+             (sb-ext:exit :code 1)))))))

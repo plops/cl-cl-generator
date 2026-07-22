@@ -43,6 +43,11 @@ graph TD
     Runner --> T7["7. test-bevel-coordinates"]
     Runner --> T8["8. test-dirty-widgets"]
     Runner --> T9["9. test-x11-opcodes"]
+    Runner --> T10["10. test-event-handlers"]
+    Runner --> T11["11. test-client-message-event"]
+    Runner --> T12["12. test-put-image-big-req"]
+    Runner --> T13["13. test-canvas-pixmap-cleanup"]
+    Runner --> T14["14. test-live-x11-connection"]
 ```
 
 ### 1. `test-parse-node`
@@ -87,6 +92,26 @@ graph TD
   - `poly-fill-rectangle` packet byte 0 equals major opcode `70`
   - `imagetext8` packet byte 0 equals major opcode `76`
   - `poly-rectangle` packet byte 0 equals major opcode `74`
+
+### 10. `test-event-handlers`
+- **Purpose:** Verifies extracted modular event handlers (`handle-motion-event`, `handle-button-press-event`, `handle-button-release-event`, `handle-configure-event`, `handle-expose-event`, `handle-key-press-event`).
+- **Checks:** Hover state updates, button press/release transitions, layout rebuild triggers on `ConfigureNotify`, expose redraws, and key press handling.
+
+### 11. `test-client-message-event`
+- **Purpose:** Verifies binary event parsing for opcode 33 (`ClientMessage`) and ICCCM `WM_DELETE_WINDOW` atom matching.
+- **Checks:** Returns `:close` keyword when receiving window manager close request.
+
+### 12. `test-put-image-big-req`
+- **Purpose:** Verifies socket buffer flushing during big request payload streaming.
+- **Checks:** Pushing requests to `*packet-buffer*` prior to `put-image-big-req` flushes buffered requests to socket stream `*s*` before raw image bytes are written.
+
+### 13. `test-canvas-pixmap-cleanup`
+- **Purpose:** Verifies `unwind-protect` exception safety and server-side pixmap reclamation during canvas widget rendering.
+- **Checks:** Opcode 54 (`FreePixmap`) is guaranteed to be emitted into the request stream after rendering.
+
+### 14. `test-live-x11-connection`
+- **Purpose:** End-to-end integration test against a live X server (e.g. Xvfb on `$DISPLAY`).
+- **Checks:** Connects to `$DISPLAY` Unix domain socket, parses initial setup reply, allocates window/atom resource IDs, creates and maps a live window, sends properties, and cleanly closes the connection.
 
 ---
 

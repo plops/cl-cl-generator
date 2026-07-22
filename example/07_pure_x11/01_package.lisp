@@ -22,8 +22,8 @@
   (handler-case
       (string-trim '(#\Space #\Tab #\Newline #\Return)
                    (with-output-to-string (s)
-                     (sb-ext:run-program "/usr/bin/git" '("rev-parse" "HEAD")
-                                          :output s)))
+                     (sb-ext:run-program "git" '("rev-parse" "HEAD")
+                                          :output s :search t)))
     (error () "unknown")))
 
 (defparameter *generation-time*

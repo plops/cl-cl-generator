@@ -65,6 +65,7 @@
                   #:parse-button-release
                   #:parse-key-press
                   #:parse-configure-notify
+                  #:parse-client-message
 
                   #:handle-expose-event
                   #:handle-configure-event
@@ -72,6 +73,12 @@
                   #:handle-button-press-event
                   #:handle-button-release-event
                   #:handle-key-press-event
+                  #:handle-client-message-event
+
+                  #:intern-atom
+                  #:change-property
+                  #:*wm-protocols-atom*
+                  #:*wm-delete-window-atom*
 
                   #:draw-line
                   #:*s*
@@ -265,24 +272,31 @@
                         (read-reply-wait)
                         nil))))
 
-              (defvar *resource-id-counter* 10)
+              (defvar *resource-id-counter* 0)
               (defun next-resource-id ()
                 "Allocate a new X11 resource ID dynamically."
                 (logior *resource-id-base* (logand *resource-id-mask* (incf *resource-id-counter*))))
 
              (defvar *pending-events* nil)
 
-             (defun read-reply-packet ()
-               "Read packets from *s* until we receive a reply (code 1) or error (code 0). Queue events in *pending-events*."
-               (loop
-                 (multiple-value-bind (buf seq) (read-reply-wait)
-                   (declare (ignore seq))
-                   (let ((code (logand (aref buf 0) #x7f)))
-                     (cond
-                       ((or (= code 0) (= code 1))
-                        (return buf))
-                       (t
-                        (setf *pending-events* (nconc *pending-events* (list buf)))))))))
+              (defun read-reply-packet ()
+                "Read packets from *s* until we receive a reply (code 1). Signal error on X11 error (code 0). Queue events in *pending-events*."
+                (loop
+                  (multiple-value-bind (buf seq) (read-reply-wait)
+                    (declare (ignore seq))
+                    (let ((code (logand (aref buf 0) #x7f)))
+                      (cond
+                        ((= code 0)
+                         (error "X11 Protocol Error: error-code=~a sequence=~a val=~a major=~a minor=~a"
+                                (aref buf 1)
+                                (+ (aref buf 2) (* 256 (aref buf 3)))
+                                (+ (aref buf 4) (* 256 (+ (aref buf 5) (* 256 (+ (aref buf 6) (* 256 (aref buf 7)))))))
+                                (aref buf 10)
+                                (+ (aref buf 8) (* 256 (aref buf 9)))))
+                        ((= code 1)
+                         (return buf))
+                        (t
+                         (setf *pending-events* (nconc *pending-events* (list buf)))))))))
 
              (defun read-connection-response ()
                "Read the initial connection response from X server."

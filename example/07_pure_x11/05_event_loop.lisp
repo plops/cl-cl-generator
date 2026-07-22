@@ -13,6 +13,8 @@
      (defvar *prev-focused* nil)
      (defvar *prev-pressed* nil)
      (defvar *prev-hovered* nil)
+     (defvar *wm-protocols-atom* nil)
+     (defvar *wm-delete-window-atom* nil)
 
      (defun compute-dirty-widgets ()
        "Return list of widget names whose visual state changed since last render."
@@ -194,6 +196,15 @@
                 (full-redraw layout)
                 new-state))))))
 
+     (defun handle-client-message-event (reply)
+       "Handle ClientMessage (code 33) event. Returns :close if WM_DELETE_WINDOW was received."
+       (multiple-value-bind (format win type data0 data1 data2 data3 data4)
+           (parse-client-message reply)
+         (declare (ignorable format win data1 data2 data3 data4))
+         (when (and (numberp type) (numberp *wm-protocols-atom*) (= type *wm-protocols-atom*)
+                    (numberp data0) (numberp *wm-delete-window-atom*) (= data0 *wm-delete-window-atom*))
+           :close)))
+
      (defun run-gui (update-fn view-fn initial-state &key (tick-interval nil) (tick-msg '(:tick)) (init-fn nil))
         "Run the X11 GUI event loop using Model-Update-View (MUV)."
         (format t "Connecting to X server...~%")
@@ -204,6 +215,9 @@
         (format t "Creating window...~%")
         (let ((win (make-window :width *window-width* :height *window-height*)))
           (format t "Window created with ID: ~a~%" win)
+          (setf *wm-protocols-atom* (intern-atom "WM_PROTOCOLS")
+                *wm-delete-window-atom* (intern-atom "WM_DELETE_WINDOW"))
+          (change-property win *wm-protocols-atom* 4 *wm-delete-window-atom*)
           (when init-fn
             (funcall init-fn win))
           (let ((state initial-state)
@@ -263,4 +277,8 @@
                            ((= code 5) ; ButtonRelease
                             (setf state (handle-button-release-event reply layout state update-fn #'rebuild-layout)))
                            ((= code 2) ; KeyPress
-                            (setf state (handle-key-press-event reply layout state keyboard-map update-fn #'rebuild-layout))))))))))))))))
+                            (setf state (handle-key-press-event reply layout state keyboard-map update-fn #'rebuild-layout)))
+                           ((= code 33) ; ClientMessage (WM_DELETE_WINDOW)
+                            (when (eq (handle-client-message-event reply) :close)
+                              (format t "Received WM_DELETE_WINDOW. Exiting event loop...~%")
+                              (return-from run-gui t))))))))))))))))
