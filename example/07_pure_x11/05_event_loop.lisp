@@ -40,10 +40,12 @@
              (win-id *window*))
          (with-buffered-output
            (create-pixmap pix *window-width* *window-height* :depth (or *root-depth* 24))
-           (let ((*window* pix))
-             (render-layout layout *focused-widget* *pressed-widget* *hovered-widget*))
-           (copy-area pix win-id *gc-text* 0 0 0 0 *window-width* *window-height*)
-           (free-pixmap pix)))
+           (unwind-protect
+               (progn
+                 (let ((*window* pix))
+                   (render-layout layout *focused-widget* *pressed-widget* *hovered-widget*))
+                 (copy-area pix win-id *gc-text* 0 0 0 0 *window-width* *window-height*))
+             (free-pixmap pix))))
        (save-visual-state))
 
      (defun partial-redraw (layout dirty-names)
@@ -64,6 +66,133 @@
        (let ((dirty (compute-dirty-widgets)))
          (when dirty
            (partial-redraw layout dirty))))
+
+     (defun handle-expose-event (layout)
+       "Handle Expose event (code 12) by triggering a full redraw."
+       (full-redraw layout))
+
+     (defun handle-configure-event (reply layout rebuild-layout-fn)
+       "Handle ConfigureNotify (window resize, code 22) event."
+       (multiple-value-bind (w h) (parse-configure-notify reply)
+         (when (or (/= w *window-width*) (/= h *window-height*))
+           (setf *window-width* w
+                 *window-height* h)
+           (funcall rebuild-layout-fn)
+           (full-redraw layout))))
+
+     (defun handle-motion-event (reply layout)
+       "Handle MotionNotify (mouse motion, code 6) event."
+       (multiple-value-bind (mx my state-mask time) (parse-motion-notify reply)
+         (declare (ignorable state-mask time))
+         (let* ((hit (find-widget-at layout mx my))
+                (hit-name (when hit (widget-name hit))))
+           (when (not (eq hit-name *hovered-widget*))
+             (setf *hovered-widget* hit-name)
+             (smart-redraw layout)))))
+
+     (defun handle-button-press-event (reply layout)
+       "Handle ButtonPress (code 4) event."
+       (multiple-value-bind (btn mx my state-mask time) (parse-button-press reply)
+         (declare (ignorable state-mask time))
+         (when (= btn 1)
+           (let* ((hit (find-widget-at layout mx my))
+                  (hit-name (when hit (widget-name hit)))
+                  (hit-type (when hit (widget-type hit))))
+             (when hit-name
+               (setf *pressed-widget* hit-name)
+               (if (and hit-type (symbolp hit-type)
+                        (member (symbol-name hit-type) '("BUTTON" "CHECKBOX" "TEXT-INPUT") :test #'string-equal))
+                   (setf *focused-widget* hit-name)
+                   (setf *focused-widget* nil))
+               (smart-redraw layout))))))
+
+     (defun handle-button-release-event (reply layout state update-fn rebuild-layout-fn)
+       "Handle ButtonRelease (code 5) event. Returns updated state."
+       (multiple-value-bind (btn mx my state-mask time) (parse-button-release reply)
+         (declare (ignorable state-mask time))
+         (let ((new-state state))
+           (when (and (= btn 1) *pressed-widget*)
+             (let* ((hit (find-widget-at layout mx my))
+                    (hit-name (when hit (widget-name hit)))
+                    (layout-changed nil))
+               (when (eq hit-name *pressed-widget*)
+                 (let ((w-struct (find-widget-by-name layout *pressed-widget*)))
+                   (when w-struct
+                     (let* ((w-type (widget-type w-struct))
+                            (type-name (and w-type (symbolp w-type) (symbol-name w-type))))
+                       (when (and type-name (member type-name '("BUTTON" "CHECKBOX") :test #'string-equal))
+                         (let ((msg (getf (widget-props w-struct) :msg)))
+                           (when msg
+                             (setf new-state (funcall update-fn state msg))
+                             (funcall rebuild-layout-fn)
+                             (setf layout-changed t))))))))
+               (setf *pressed-widget* nil)
+               (if layout-changed
+                   (full-redraw layout)
+                   (smart-redraw layout))))
+           new-state)))
+
+     (defun handle-key-press-event (reply layout state keyboard-map update-fn rebuild-layout-fn)
+       "Handle KeyPress (code 2) event. Returns updated state."
+       (multiple-value-bind (detail mx my state-mask time) (parse-key-press reply)
+         (declare (ignorable mx my time))
+         (let* ((keysym (translate-keycode keyboard-map detail state-mask))
+                (focused-is-text-input (and *focused-widget*
+                                           (let ((w (find-widget-by-name layout *focused-widget*)))
+                                             (and w (let ((type (widget-type w)))
+                                                      (and type (symbolp type) (string-equal (symbol-name type) "TEXT-INPUT"))))))))
+           (cond
+             ((and (member keysym '(:left :right :up :down))
+                   (not (and focused-is-text-input (member keysym '(:left :right)))))
+              (let ((next-focus (find-nearest-widget layout *focused-widget* keysym)))
+                (when next-focus
+                  (setf *focused-widget* next-focus)
+                  (smart-redraw layout)))
+              state)
+             ((and *focused-widget* focused-is-text-input)
+              (let ((w-struct (find-widget-by-name layout *focused-widget*))
+                    (new-state state))
+                (when w-struct
+                  (let ((current-text (getf (widget-props w-struct) :text ""))
+                        (cursor-pos (getf (widget-props w-struct) :cursor-pos 0))
+                        (msg-change (getf (widget-props w-struct) :msg-change)))
+                    (cond
+                      ((eq keysym :left)
+                       (let ((msg (list :cursor-move *focused-widget* (max 0 (1- cursor-pos)))))
+                         (setf new-state (funcall update-fn state msg))
+                         (funcall rebuild-layout-fn)
+                         (full-redraw layout)))
+                      ((eq keysym :right)
+                       (let ((msg (list :cursor-move *focused-widget* (min (length current-text) (1+ cursor-pos)))))
+                         (setf new-state (funcall update-fn state msg))
+                         (funcall rebuild-layout-fn)
+                         (full-redraw layout)))
+                      ((eq keysym :backspace)
+                       (when (> cursor-pos 0)
+                         (let* ((new-text (concatenate 'string
+                                                       (subseq current-text 0 (1- cursor-pos))
+                                                       (subseq current-text cursor-pos)))
+                                (new-pos (1- cursor-pos))
+                                (msg (append msg-change (list new-text new-pos))))
+                           (setf new-state (funcall update-fn state msg))
+                           (funcall rebuild-layout-fn)
+                           (full-redraw layout))))
+                      ((characterp keysym)
+                       (let* ((new-text (concatenate 'string
+                                                     (subseq current-text 0 cursor-pos)
+                                                     (string keysym)
+                                                     (subseq current-text cursor-pos)))
+                              (new-pos (1+ cursor-pos))
+                              (msg (append msg-change (list new-text new-pos))))
+                         (setf new-state (funcall update-fn state msg))
+                         (funcall rebuild-layout-fn)
+                         (full-redraw layout))))))
+                new-state))
+             (t
+              (let ((new-state (funcall update-fn state (list :key-press keysym))))
+                (funcall rebuild-layout-fn)
+                (full-redraw layout)
+                new-state))))))
 
      (defun run-gui (update-fn view-fn initial-state &key (tick-interval nil) (tick-msg '(:tick)) (init-fn nil))
         "Run the X11 GUI event loop using Model-Update-View (MUV)."
@@ -124,120 +253,14 @@
                        (let ((code (logand (aref reply 0) #x7f)))
                          (cond
                            ((= code 12) ; Expose
-                            (full-redraw layout))
+                            (handle-expose-event layout))
                            ((= code 22) ; ConfigureNotify (Resize)
-                            (multiple-value-bind (w h) (parse-configure-notify reply)
-                              (when (or (/= w *window-width*) (/= h *window-height*))
-                                (setf *window-width* w
-                                      *window-height* h)
-                                (rebuild-layout)
-                                (full-redraw layout))))
+                            (handle-configure-event reply layout #'rebuild-layout))
                            ((= code 6) ; MotionNotify
-                            (multiple-value-bind (mx my state-mask time) (parse-motion-notify reply)
-                              (declare (ignorable state-mask time))
-                              (let* ((hit (find-widget-at layout mx my))
-                                     (hit-name (when hit (widget-name hit))))
-                                (when (not (eq hit-name *hovered-widget*))
-                                  (setf *hovered-widget* hit-name)
-                                  (smart-redraw layout)))))
+                            (handle-motion-event reply layout))
                            ((= code 4) ; ButtonPress
-                            (multiple-value-bind (btn mx my state-mask time) (parse-button-press reply)
-                              (declare (ignorable state-mask time))
-                              (when (= btn 1)
-                                (let* ((hit (find-widget-at layout mx my))
-                                       (hit-name (when hit (widget-name hit)))
-                                       (hit-type (when hit (widget-type hit))))
-                                  (when hit-name
-                                    (setf *pressed-widget* hit-name)
-                                    (if (and hit-type (symbolp hit-type)
-                                           (member (symbol-name hit-type) '("BUTTON" "CHECKBOX" "TEXT-INPUT") :test #'string-equal))
-                                        (setf *focused-widget* hit-name)
-                                        (setf *focused-widget* nil))
-                                    (smart-redraw layout))))))
+                            (handle-button-press-event reply layout))
                            ((= code 5) ; ButtonRelease
-                            (multiple-value-bind (btn mx my state-mask time) (parse-button-release reply)
-                              (declare (ignorable state-mask time))
-                              (when (and (= btn 1) *pressed-widget*)
-                                (let* ((hit (find-widget-at layout mx my))
-                                       (hit-name (when hit (widget-name hit)))
-                                       (layout-changed nil))
-                                  (when (eq hit-name *pressed-widget*)
-                                    (let ((w-struct (find-widget-by-name layout *pressed-widget*)))
-                                      (when w-struct
-                                        (let* ((w-type (widget-type w-struct))
-                                               (type-name (and w-type (symbolp w-type) (symbol-name w-type))))
-                                          (cond
-                                            ((and type-name (string-equal type-name "BUTTON"))
-                                             (let ((msg (getf (widget-props w-struct) :msg)))
-                                               (when msg
-                                                 (setf state (funcall update-fn state msg))
-                                                 (rebuild-layout)
-                                                 (setf layout-changed t))))
-                                            ((and type-name (string-equal type-name "CHECKBOX"))
-                                             (let ((msg (getf (widget-props w-struct) :msg)))
-                                               (when msg
-                                                 (setf state (funcall update-fn state msg))
-                                                 (rebuild-layout)
-                                                 (setf layout-changed t)))))))))
-                                  (setf *pressed-widget* nil)
-                                  (if layout-changed
-                                      (full-redraw layout)
-                                      (smart-redraw layout))))))
+                            (setf state (handle-button-release-event reply layout state update-fn #'rebuild-layout)))
                            ((= code 2) ; KeyPress
-                            (multiple-value-bind (detail mx my state-mask time) (parse-key-press reply)
-                              (declare (ignorable mx my time))
-                              (let ((keysym (translate-keycode keyboard-map detail state-mask))
-                                    (focused-is-text-input (and *focused-widget*
-                                                                (let ((w (find-widget-by-name layout *focused-widget*)))
-                                                                  (and w (let ((type (widget-type w)))
-                                                                           (and type (symbolp type) (string-equal (symbol-name type) "TEXT-INPUT"))))))))
-                                (cond
-                                  ((and (member keysym '(:left :right :up :down))
-                                        (not (and focused-is-text-input (member keysym '(:left :right)))))
-                                   (let ((next-focus (find-nearest-widget layout *focused-widget* keysym)))
-                                     (when next-focus
-                                       (setf *focused-widget* next-focus)
-                                       (smart-redraw layout))))
-                                  ((and *focused-widget* focused-is-text-input)
-                                   (let ((w-struct (find-widget-by-name layout *focused-widget*)))
-                                     (when w-struct
-                                       (let ((current-text (getf (widget-props w-struct) :text ""))
-                                             (cursor-pos (getf (widget-props w-struct) :cursor-pos 0))
-                                             (msg-change (getf (widget-props w-struct) :msg-change)))
-                                         (cond
-                                           ((eq keysym :left)
-                                            (let ((msg (list :cursor-move *focused-widget* (max 0 (1- cursor-pos)))))
-                                              (setf state (funcall update-fn state msg))
-                                              (rebuild-layout)
-                                              (full-redraw layout)))
-                                           ((eq keysym :right)
-                                            (let ((msg (list :cursor-move *focused-widget* (min (length current-text) (1+ cursor-pos)))))
-                                              (setf state (funcall update-fn state msg))
-                                              (rebuild-layout)
-                                              (full-redraw layout)))
-                                           ((eq keysym :backspace)
-                                            (when (> cursor-pos 0)
-                                              (let* ((new-text (concatenate 'string
-                                                                            (subseq current-text 0 (1- cursor-pos))
-                                                                            (subseq current-text cursor-pos)))
-                                                     (new-pos (1- cursor-pos))
-                                                     (msg (append msg-change (list new-text new-pos))))
-                                                (setf state (funcall update-fn state msg))
-                                                (rebuild-layout)
-                                                (full-redraw layout))))
-                                           ((characterp keysym)
-                                            (let* ((new-text (concatenate 'string
-                                                                          (subseq current-text 0 cursor-pos)
-                                                                          (string keysym)
-                                                                          (subseq current-text cursor-pos)))
-                                                   (new-pos (1+ cursor-pos))
-                                                   (msg (append msg-change (list new-text new-pos))))
-                                              (setf state (funcall update-fn state msg))
-                                              (rebuild-layout)
-                                              (full-redraw layout)))))))
-                                  (t
-                                   (setf state (funcall update-fn state (list :key-press keysym)))
-                                   (rebuild-layout)
-                                   (full-redraw layout)))))))))))))))))
-      ))
-)
+                            (setf state (handle-key-press-event reply layout state keyboard-map update-fn #'rebuild-layout))))))))))))))))

@@ -66,6 +66,13 @@
                   #:parse-key-press
                   #:parse-configure-notify
 
+                  #:handle-expose-event
+                  #:handle-configure-event
+                  #:handle-motion-event
+                  #:handle-button-press-event
+                  #:handle-button-release-event
+                  #:handle-key-press-event
+
                   #:draw-line
                   #:*s*
                   #:*root*
@@ -75,6 +82,9 @@
                   #:*gc-shadow*
                   #:*gc-dark*
                   #:*gc-text*
+                  #:*resource-id-base*
+                  #:*resource-id-mask*
+                  #:*resource-id-counter*
                   #:*packet-buffer*
                   #:with-buffered-output
                   #:flush-packets
@@ -125,6 +135,9 @@
              (defparameter *gc-dark* nil)
              (defparameter *gc-text* nil)
              (defparameter *big-request-opcode* nil)
+             (defparameter *resource-id-base* 0)
+             (defparameter *resource-id-mask* #x000fffff)
+             (defparameter *resource-id-counter* 0)
 
              (defun pad (n)
                "Difference to next number that is divisible by 4."

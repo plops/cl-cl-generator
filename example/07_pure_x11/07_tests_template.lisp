@@ -137,6 +137,56 @@
              (assert-test (= (aref p-imagetext 0) 76) "imagetext8 major opcode is 76")
              (assert-test (= (aref p-rect 0) 74) "poly-rectangle major opcode is 74")))))
 
+     (defun test-event-handlers ()
+       (format t "--- Running test-event-handlers ---~%")
+       (let* ((layout (pure-x11-gen::resolve-layout
+                        '(panel :name :main-panel :x 0 :y 0 :w 400 :h 300
+                          (button :name :b1 :x 10 :y 30 :w 100 :h 30 :msg :b1-clicked))))
+              (pure-x11-gen::*window* 123)
+              (pure-x11-gen::*gc-light* 1)
+              (pure-x11-gen::*gc-face* 2)
+              (pure-x11-gen::*gc-shadow* 3)
+              (pure-x11-gen::*gc-dark* 4)
+              (pure-x11-gen::*gc-text* 5)
+              (pure-x11-gen::*resource-id-base* #x00000000)
+              (pure-x11-gen::*resource-id-mask* #x000fffff)
+              (pure-x11-gen::*resource-id-counter* 0)
+              (pure-x11-gen::*hovered-widget* nil)
+              (pure-x11-gen::*pressed-widget* nil)
+              (pure-x11-gen::*focused-widget* nil))
+         ;; Test motion handler (hover state update)
+         (let ((reply (make-array 32 :element-type '(unsigned-byte 8) :initial-element 0)))
+           (setf (aref reply 0) 6) ; MotionNotify
+           (setf (aref reply 24) 15)
+           (setf (aref reply 26) 45)
+           (pure-x11-gen::handle-motion-event reply layout)
+           (assert-test (eq pure-x11-gen::*hovered-widget* :b1) "Motion event updates hovered widget to :b1"))
+         ;; Test button press handler (pressed & focused state update)
+         (let ((reply (make-array 32 :element-type '(unsigned-byte 8) :initial-element 0)))
+           (setf (aref reply 0) 4) ; ButtonPress
+           (setf (aref reply 1) 1) ; Button 1
+           (setf (aref reply 24) 15)
+           (setf (aref reply 26) 45)
+           (pure-x11-gen::handle-button-press-event reply layout)
+           (assert-test (eq pure-x11-gen::*pressed-widget* :b1) "ButtonPress updates pressed widget to :b1")
+           (assert-test (eq pure-x11-gen::*focused-widget* :b1) "ButtonPress updates focused widget to :b1"))
+         ;; Test button release handler (state update & clear pressed)
+         (let ((reply (make-array 32 :element-type '(unsigned-byte 8) :initial-element 0))
+               (state-updated nil))
+           (setf (aref reply 0) 5) ; ButtonRelease
+           (setf (aref reply 1) 1) ; Button 1
+           (setf (aref reply 24) 15)
+           (setf (aref reply 26) 45)
+           (let ((new-state (pure-x11-gen::handle-button-release-event
+                              reply layout :init-state
+                              (lambda (s msg)
+                                (setf state-updated (and (eq s :init-state) (eq msg :b1-clicked)))
+                                :new-state)
+                              (lambda ()))))
+             (assert-test state-updated "ButtonRelease dispatched update-fn with widget :msg")
+             (assert-test (eq new-state :new-state) "ButtonRelease returned updated state")
+             (assert-test (null pure-x11-gen::*pressed-widget*) "ButtonRelease cleared pressed widget")))))
+
      (defun run-all-tests ()
        (setf *test-failures* 0)
        (test-parse-node)
@@ -148,6 +198,7 @@
        (test-bevel-coordinates)
        (test-dirty-widgets)
        (test-x11-opcodes)
+       (test-event-handlers)
        (if (zerop *test-failures*)
            (format t "ALL TESTS PASSED!~%")
            (progn
