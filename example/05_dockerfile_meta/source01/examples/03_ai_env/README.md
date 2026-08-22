@@ -135,3 +135,26 @@ Compressed the image is 1.2G.
 ```
 -rw------- 1 kiel kiel 1.2G Jul  9 05:49 my-ai-env.tar.zst
 ```
+
+# Nvidia Container Toolkit on Pop-OS
+
+
+Make sure the pop-os host has the newest nvidia driver. Install and validate the container toolkit:
+```
+sudo apt install nvidia-docker2
+sudo systemctl restart docker
+docker run --rm --gpus all nvidia/cuda:13.3.1-base-ubuntu26.04 nvidia-smi
+```
+
+NVIDIA's CUDA 13.3.1 (Ubuntu 26.04) Docker images offer varying sizes based on build-time components or runtime-only environments, ranging from 199.7 MB (base) to 4.38 GB (devel). The cudnn-devel image supports heavy development, while the base image provides minimal deployment capabilities.
+
+| Image Tag Variant | Size (amd64) | Size (arm64) | Primary Purpose |
+|---|---|---|---|
+| cudnn-devel | 4.38 GB | 4.58 GB | AI/Deep Learning development (cuDNN + compiler) |
+| devel | 3.86 GB | 3.97 GB | General GPU development (compiler only) |
+| cudnn-runtime | 2.12 GB | 2.51 GB | AI/Deep Learning production (cuDNN) |
+| runtime | 1.6 GB | 1.9 GB | General GPU production |
+| base | 199.7 MB | 345.86 MB | Minimal deployment/driver linking |
+
+For production, prioritize the runtime or cudnn-runtime images, while the devel options are recommended for compilation.
+
