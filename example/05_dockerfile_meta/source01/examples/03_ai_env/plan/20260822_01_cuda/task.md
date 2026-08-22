@@ -1,0 +1,23 @@
+# Task List: NVIDIA CUDA Integration in `cl-dockerfile-generator`
+
+- [ ] 1. Parameter Design and Configuration in `gen_ai_env.lisp`
+  - [ ] Add `*enable-cuda*`, `*cuda-flavor*`, `*cuda-version*`, `*cuda-ubuntu-version*` parameters
+  - [ ] Implement `compute-base-image` helper to dynamically set `*base-image*`
+  - [ ] Add `*builder-base-image*` (`"ubuntu:26.04"`) for lightweight CLI builders
+  - [ ] Export CUDA environment variables in `runner-stage` (`NVIDIA_VISIBLE_DEVICES`, `NVIDIA_DRIVER_CAPABILITIES`, `CUDA_HOME`, `CUDA_PATH`, `CUDACXX`, `PATH`, `LD_LIBRARY_PATH`)
+  - [ ] Add CUDA build-time smoke test to `*smoke-tests*` for `nvcc` compilation
+  - [ ] Add optional GPU/CUDA libraries (e.g. `torch`, `triton`, `cupy`, `polars`) to `*python-libs*` when `*enable-cuda*` is active
+- [ ] 2. Update Run Script `setup02_run.sh`
+  - [ ] Add `--gpus` (with optional specifier, default `all`) and `--gpu` command-line flags
+  - [ ] Document `--gpus` in usage help output
+- [ ] 3. Update `README.md` Documentation
+  - [ ] Add CUDA parameters to configuration table
+  - [ ] Update running instructions with `--gpus all`
+- [ ] 4. Build and Validate Container
+  - [ ] Generate Dockerfile with CUDA support enabled
+  - [ ] Build the Docker image with `setup01_build.sh`
+  - [ ] Run container with GPU passthrough via `setup02_run.sh --gpus all`
+  - [ ] Validate `nvidia-smi` and CUDA compilation (`nvcc`) inside the running container
+  - [ ] Verify backward compatibility by toggling `*enable-cuda*` to `nil`
+- [ ] 5. Write Walkthrough Documentation
+  - [ ] Document changes and validation results in `plan/20260822_01_cuda/walkthrough.md`

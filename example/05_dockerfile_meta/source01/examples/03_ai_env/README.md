@@ -12,7 +12,11 @@ You can easily customize the generated image directly in [gen_ai_env.lisp](file:
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `*base-image*` | String | `"ubuntu:26.04"` | The base OS image to build upon. |
+| `*enable-cuda*` | Boolean | `nil` | Enables NVIDIA CUDA development/runtime support. When `t`, sets `*base-image*` to the official NVIDIA CUDA container and configures CUDA paths/smoke tests. |
+| `*cuda-flavor*` | Keyword | `:devel` | CUDA image variant: `:cudnn-devel` (AI/cuDNN dev), `:devel` (general CUDA dev/compiler), `:cudnn-runtime`, `:runtime`, or `:base`. |
+| `*cuda-version*` | String | `"13.3.1"` | NVIDIA CUDA version tag. |
+| `*cuda-ubuntu-version*` | String | `"ubuntu26.04"` | Ubuntu base release suffix for CUDA images. |
+| `*base-image*` | String | `"ubuntu:26.04"` | The base OS image to build upon (dynamically computed when `*enable-cuda*` is `t`). |
 | `*install-gcc*` | Boolean | `t` | Installs the GCC compiler (`build-essential` and `gcc`). |
 | `*install-sbcl*` | Boolean | `t` | Installs Common Lisp (`sbcl`, `rlwrap`), Quicklisp, and pre-caches systems (`alexandria`, `jonathan`, `cl-ppcre`, etc.). |
 | `*install-emacs*` | Boolean | `t` | Installs terminal Emacs (`emacs-nox`), pre-installs SLIME/magit/gptel, and copies `.emacs`. (Only runs if `*install-sbcl*` is `t`). |
@@ -27,7 +31,7 @@ You can easily customize the generated image directly in [gen_ai_env.lisp](file:
 | `*install-grok*` | Boolean | `nil` | Downloads and installs Grok Build from the official x.ai installer. |
 | `*install-rust*` | Boolean | `t` | Installs the Rust toolchain (via `rustup`) including `rustc`, `cargo`, `clippy`, and `rustfmt`. |
 | `*rust-cache-volume*` | Boolean | `t` | Appends `/root/.cargo` to the list of Docker `VOLUME` mounts to enable Cargo registry caching. |
-| `*enable-tests*` | Boolean | `t` | Runs image smoke tests for GCC, Rust, Python, SBCL, Grok Build, and Emacs/SLIME during `docker build`. |
+| `*enable-tests*` | Boolean | `t` | Runs image smoke tests for GCC, CUDA (if enabled), Rust, Python, SBCL, Grok Build, and Emacs/SLIME during `docker build`. |
 
 ---
 
@@ -101,7 +105,7 @@ Keep the file out of git; `.gitignore` already excludes `.env` and `.env.*` file
 
 - `setup00_generate_dockerfile.sh` regenerates `Dockerfile` from `gen_ai_env.lisp`. It is the only script that needs SBCL and is mainly for maintainers.
 - `setup01_build.sh` builds the image from the checked-in `Dockerfile`. It only needs Docker and a shell, and it creates a temporary `.emacs` if needed for the build context.
-- `setup02_run.sh` starts the image with portable defaults. Override `ENV_FILE`, `HOST_SRC_ROOT`, or `IMAGE_NAME` if you need a different env file, source mount, or tag. Pass `--docker-sock` to mount the host Docker socket; this grants the container root-equivalent control of the host Docker daemon.
+- `setup02_run.sh` starts the image with portable defaults. Override `ENV_FILE`, `HOST_SRC_ROOT`, or `IMAGE_NAME` if you need a different env file, source mount, or tag. Pass `--gpus all` (or `--gpu`) to enable NVIDIA GPU passthrough, and `--docker-sock` to mount the host Docker socket.
 - `setup03_save.sh` exports the image with `docker save`. It writes a tar file next to the script by default and also creates a `.zst` copy when `zstd` is installed.
 - `setup04_cleanup.sh` performs targeted cleanup for this example: it stops and removes containers created from `IMAGE_NAME`, removes that image tag, can optionally remove the Cargo cache volume or prune dangling images, can suggest cleanup command variants with estimated reclaimable space, and can list or remove other local images sorted by size or age.
 
@@ -117,7 +121,7 @@ If you changed `gen_ai_env.lisp`, regenerate the Dockerfile with:
 
 Most users do not need this step because the generated `Dockerfile` is already committed.
 
-When `*enable-tests*` is `t`, the generated image also runs small build-time checks for the installed tools, including Grok Build, and a SLIME workflow test that opens and loads a Lisp file.
+When `*enable-tests*` is `t`, the generated image also runs small build-time checks for the installed tools, including Grok Build, CUDA compiler verification (when `*enable-cuda*` is `t`), and a SLIME workflow test that opens and loads a Lisp file.
 
 
 ## Example Docker Image
@@ -138,13 +142,26 @@ Compressed the image is 1.2G.
 
 # Nvidia Container Toolkit on Pop-OS
 
-
 Make sure the pop-os host has the newest nvidia driver. Install and validate the container toolkit:
-```
+```bash
 sudo apt install nvidia-docker2
 sudo systemctl restart docker
 docker run --rm --gpus all nvidia/cuda:13.3.1-base-ubuntu26.04 nvidia-smi
 ```
+
+### Enabling CUDA in this Environment
+
+To build an image with NVIDIA GPU and CUDA support:
+1. In `gen_ai_env.lisp`, set `(defparameter *enable-cuda* t)`. Optionally select your flavor (e.g. `(defparameter *cuda-flavor* :devel)` or `:cudnn-devel`).
+2. Regenerate the Dockerfile and build the image:
+   ```bash
+   ./setup00_generate_dockerfile.sh
+   ./setup01_build.sh
+   ```
+3. Run the container with GPU passthrough enabled:
+   ```bash
+   ./setup02_run.sh --gpus all
+   ```
 
 NVIDIA's CUDA 13.3.1 (Ubuntu 26.04) Docker images offer varying sizes based on build-time components or runtime-only environments, ranging from 199.7 MB (base) to 4.38 GB (devel). The cudnn-devel image supports heavy development, while the base image provides minimal deployment capabilities.
 

@@ -6,8 +6,36 @@
 
 (in-package :cl-dockerfile-generator)
 
+;; Toggle NVIDIA / CUDA GPU Support
+(defparameter *enable-cuda* t
+  "When true, configure the image with NVIDIA CUDA and cuDNN support.")
+
+(defparameter *cuda-flavor* :devel
+  "CUDA image variant:
+   - :cudnn-devel   : AI / Deep Learning development (NVCC compiler, CUDA headers, cuDNN headers & libs)
+   - :devel         : General GPU development (NVCC compiler, CUDA headers, no cuDNN)
+   - :cudnn-runtime : AI / Deep Learning production execution (CUDA runtime + cuDNN)
+   - :runtime       : General GPU production execution (CUDA runtime)
+   - :base          : Minimal deployment / driver linking")
+
+(defparameter *cuda-version* "13.3.1"
+  "NVIDIA CUDA version tag.")
+
+(defparameter *cuda-ubuntu-version* "ubuntu26.04"
+  "Ubuntu base release for CUDA images.")
+
+(defun compute-base-image ()
+  (if *enable-cuda*
+      (format nil "nvidia/cuda:~a-~(~a~)-~a"
+              *cuda-version*
+              *cuda-flavor*
+              *cuda-ubuntu-version*)
+      "ubuntu:26.04"))
+
 ;; Define parameters to toggle features
-(defparameter *base-image* "ubuntu:26.04")
+(defparameter *base-image* (compute-base-image))
+(defparameter *builder-base-image* "ubuntu:26.04"
+  "Minimal base image for CLI builder stages to save build time and memory.")
 
 ;; Enable or disable components to build minimal images
 (defparameter *install-gcc* t)
@@ -18,21 +46,26 @@
 (defparameter *install-docker-cli* t
   "Install the Docker CLI for use with an optionally mounted host Docker socket.")
 (defparameter *enable-tests* t)
-(defparameter *python-libs* `(google-antigravity
-			      azure-cognitiveservices-speech
-			      openai
-			      matplotlib
-			      numpy
-			      pandas
-			      scipy
-			      tqdm
-			      xarray
-			      loguru
-			      nbdev
-			      requests
-			      ruff
-			      scikit-learn
-			      seaborn))
+(defparameter *python-libs*
+  (append
+   '(google-antigravity
+     azure-cognitiveservices-speech
+     openai
+     matplotlib
+     numpy
+     pandas
+     scipy
+     tqdm
+     xarray
+     loguru
+     nbdev
+     requests
+     ruff
+     scikit-learn
+     seaborn)
+   (when *enable-cuda*
+     '(polars
+       pyarrow))))
 ;; Extra Ubuntu packages that are handy in an interactive shell.
 ;; Add or remove entries here to customize the final image.
 (defparameter *ubuntu-packages*
@@ -155,6 +188,26 @@ teamcity --version > /tmp/teamcity-version.txt
 [ -s /tmp/teamcity-version.txt ]
 grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
 ))
+    (*enable-cuda* "CUDA nvcc compiler by compiling and verifying a test CUDA kernel"
+                   #r(set -eu
+if command -v nvcc >/dev/null 2>&1; then
+  nvcc --version
+  tmpdir="$(mktemp -d /tmp/ai-env-cuda.XXXXXX)"
+  cat > "$tmpdir/test.cu" <<'CU_EOF'
+#include <stdio.h>
+
+__global__ void test_kernel(void) {}
+
+int main(void) {
+  test_kernel<<<1, 1>>>();
+  puts("cuda-build-ok");
+  return 0;
+}
+CU_EOF
+  nvcc "$tmpdir/test.cu" -o "$tmpdir/test"
+  rm -rf "$tmpdir"
+fi
+))
     (*install-gcc* "GCC by compiling and running a tiny C program"
                    #r(set -eu
 tmpdir="$(mktemp -d /tmp/ai-env-gcc.XXXXXX)"
@@ -261,7 +314,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     `((comment "====================================================================" )
       (comment "Stage: Antigravity CLI Download")
       (comment "====================================================================" )
-      (from ,*base-image* :as builder-agy)
+      (from ,*builder-base-image* :as builder-agy)
       (env DEBIAN_FRONTEND "noninteractive")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
            (and "apt-get update"
@@ -277,7 +330,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     `((comment "====================================================================" )
       (comment "Stage: GitHub Copilot CLI Download")
       (comment "====================================================================" )
-      (from ,*base-image* :as builder-copilot)
+      (from ,*builder-base-image* :as builder-copilot)
       (env DEBIAN_FRONTEND "noninteractive")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
            (and "apt-get update"
@@ -293,7 +346,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     `((comment "====================================================================" )
       (comment "Stage: Kiro CLI Download")
       (comment "====================================================================" )
-      (from ,*base-image* :as builder-kiro)
+      (from ,*builder-base-image* :as builder-kiro)
       (env DEBIAN_FRONTEND "noninteractive")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
            (and "apt-get update"
@@ -311,7 +364,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     `((comment "====================================================================" )
       (comment "Stage: TeamCity CLI Download")
       (comment "====================================================================" )
-      (from ,*base-image* :as builder-teamcity)
+      (from ,*builder-base-image* :as builder-teamcity)
       (env DEBIAN_FRONTEND "noninteractive")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
            (and "apt-get update"
@@ -338,6 +391,15 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     (comment "=====================================================================")
     (from ,*base-image* :as runner)
     (env DEBIAN_FRONTEND "noninteractive")
+    ,@(when *enable-cuda*
+        `((comment "Configure NVIDIA Container Toolkit runtime and CUDA development paths")
+          (env NVIDIA_VISIBLE_DEVICES "all"
+               NVIDIA_DRIVER_CAPABILITIES "compute,utility"
+               CUDA_HOME "/usr/local/cuda"
+               CUDA_PATH "/usr/local/cuda"
+               CUDACXX "/usr/local/cuda/bin/nvcc"
+               PATH "/usr/local/cuda/bin:$PATH"
+               LD_LIBRARY_PATH "/usr/local/cuda/lib64:$LD_LIBRARY_PATH")))
     (workdir "/workspace")
     
     (comment "Copy the modern uv binary directly from Astral's official release container")

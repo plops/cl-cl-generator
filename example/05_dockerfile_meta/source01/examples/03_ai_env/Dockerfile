@@ -1,7 +1,7 @@
 # ====================================================================
 # Stage: Python Dependencies (runs in parallel with other builders)
 # ====================================================================
-FROM ubuntu:26.04 AS builder-python
+FROM nvidia/cuda:13.3.1-devel-ubuntu26.04 AS builder-python
 ENV DEBIAN_FRONTEND=noninteractive
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
@@ -13,7 +13,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
 WORKDIR /workspace
 # Install the programmatic Python SDK using uv
 RUN --mount=type=cache,target=/root/.cache/uv uv venv .venv \
- && uv pip install google-antigravity azure-cognitiveservices-speech openai matplotlib numpy pandas scipy tqdm xarray loguru nbdev requests ruff scikit-learn seaborn
+ && uv pip install google-antigravity azure-cognitiveservices-speech openai matplotlib numpy pandas scipy tqdm xarray loguru nbdev requests ruff scikit-learn seaborn polars pyarrow
 # ====================================================================
 # Stage: Antigravity CLI Download
 # ====================================================================
@@ -68,8 +68,16 @@ RUN curl -fsSL https://jb.gg/tc/install -o /tmp/teamcity-install.sh \
 # =====================================================================
 # Stage 2: Insulated Runtime Runner
 # =====================================================================
-FROM ubuntu:26.04 AS runner
+FROM nvidia/cuda:13.3.1-devel-ubuntu26.04 AS runner
 ENV DEBIAN_FRONTEND=noninteractive
+# Configure NVIDIA Container Toolkit runtime and CUDA development paths
+ENV NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    CUDA_HOME=/usr/local/cuda \
+    CUDA_PATH=/usr/local/cuda \
+    CUDACXX=/usr/local/cuda/bin/nvcc \
+    PATH=/usr/local/cuda/bin:$PATH \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 WORKDIR /workspace
 # Copy the modern uv binary directly from Astral's official release container
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -264,6 +272,28 @@ set -eu
 teamcity --version > /tmp/teamcity-version.txt
 [ -s /tmp/teamcity-version.txt ]
 grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
+
+EOF
+# Smoke test CUDA nvcc compiler by compiling and verifying a test CUDA kernel
+RUN <<'EOF'
+set -eu
+if command -v nvcc >/dev/null 2>&1; then
+  nvcc --version
+  tmpdir="$(mktemp -d /tmp/ai-env-cuda.XXXXXX)"
+  cat > "$tmpdir/test.cu" <<'CU_EOF'
+#include <stdio.h>
+
+__global__ void test_kernel(void) {}
+
+int main(void) {
+  test_kernel<<<1, 1>>>();
+  puts("cuda-build-ok");
+  return 0;
+}
+CU_EOF
+  nvcc "$tmpdir/test.cu" -o "$tmpdir/test"
+  rm -rf "$tmpdir"
+fi
 
 EOF
 # Smoke test GCC by compiling and running a tiny C program

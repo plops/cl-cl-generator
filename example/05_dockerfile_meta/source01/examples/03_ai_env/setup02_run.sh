@@ -5,6 +5,8 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 enable_host_kmsg=0
 enable_host_opt=0
 enable_docker_sock=0
+enable_gpus=0
+gpus_spec="all"
 verbose=0
 
 usage() {
@@ -14,6 +16,8 @@ Usage: $(basename "$0") [OPTIONS]
 Run the AI environment container with the project source mounted in.
 
 Options:
+  --gpus [SPEC]  Pass through GPUs to the container via NVIDIA Container Toolkit (default: all).
+  --gpu          Alias for --gpus all.
   --host-kmsg    Run the container privileged and bind /dev/kmsg so host kernel
                  messages can be read from inside the container.
   --host-opt     Bind mount host /opt to /opt inside the container.
@@ -32,6 +36,16 @@ EOF
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --gpus)
+      enable_gpus=1
+      if [ "$#" -gt 1 ] && [ "$(printf '%s' "$2" | cut -c1-2)" != "--" ]; then
+        gpus_spec="$2"
+        shift
+      fi
+      ;;
+    --gpu)
+      enable_gpus=1
+      ;;
     --host-kmsg)
       enable_host_kmsg=1
       ;;
@@ -117,6 +131,10 @@ fi
 
 if [ "$enable_host_opt" -eq 1 ]; then
   set -- "$@" -v /opt:/opt
+fi
+
+if [ "$enable_gpus" -eq 1 ]; then
+  set -- "$@" --gpus "$gpus_spec"
 fi
 
 if [ "$enable_docker_sock" -eq 1 ]; then
