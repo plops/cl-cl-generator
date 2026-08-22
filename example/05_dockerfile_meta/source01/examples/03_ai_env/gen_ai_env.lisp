@@ -550,7 +550,7 @@ exec /usr/local/bin/agent.real "$@"
     ;; 6. Setup Emacs if Emacs is enabled
     ,@(when (and *install-sbcl* *install-emacs*)
         `((comment "Pre-install Emacs packages")
-          (run #r#emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(dolist (pkg '(compat cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (package-install pkg))"#)
+          (run #r#emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(setq custom-file null-device)" --eval "(dolist (pkg '(compat cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (setq package-selected-packages nil) (package-install pkg))"#)
           (comment "Recompile installed Emacs packages with their dependencies available")
           (run #r#emacs --batch --eval "(require 'package)" --eval "(package-initialize)" --eval "(byte-recompile-directory package-user-dir 0 t)"#)
           (comment "Copy the modified .emacs configuration from the build context if present")
