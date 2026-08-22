@@ -1,0 +1,4 @@
+i appended a section on the nvidia container toolkit to the README.md. i just tried to run nvidia-smi in the container on
+  this pop-os system using docker. consider how i can introduce an optional flag to gen_ai_env.lisp so that i can create a
+  docker file with the nvidia support. i want to be able to develop (and later just execute) cuda based code using docker
+  images created with this docker file. e.g. training neural networks or developing dataprocessing software
