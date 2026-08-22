@@ -140,13 +140,21 @@ Compressed the image is 1.2G.
 -rw------- 1 kiel kiel 1.2G Jul  9 05:49 my-ai-env.tar.zst
 ```
 
-# Nvidia Container Toolkit on Pop-OS
+# Nvidia Container Toolkit 
+
+# Installation On Pop-OS
 
 Make sure the pop-os host has the newest nvidia driver. Install and validate the container toolkit:
 ```bash
 sudo apt install nvidia-docker2
 sudo systemctl restart docker
 docker run --rm --gpus all nvidia/cuda:13.3.1-base-ubuntu26.04 nvidia-smi
+```
+
+# Installation on Gentoo
+
+```
+sudo emerge -av app-containers/nvidia-container-toolkit
 ```
 
 ### Enabling CUDA in this Environment
