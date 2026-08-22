@@ -92,6 +92,7 @@
     "shellcheck"
     "fzf"
     "cmake"
+    "pkg-config"
     "ninja-build"
     "bat"
     "git-lfs"
