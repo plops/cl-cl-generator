@@ -13,7 +13,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
 WORKDIR /workspace
 # Install the programmatic Python SDK using uv
 RUN --mount=type=cache,target=/root/.cache/uv uv venv .venv \
- && uv pip install google-antigravity azure-cognitiveservices-speech openai matplotlib numpy pandas scipy tqdm xarray loguru nbdev requests ruff scikit-learn seaborn polars pyarrow
+ && uv pip install google-antigravity azure-cognitiveservices-speech huggingface_hub openai matplotlib numpy pandas scipy tqdm xarray loguru nbdev requests ruff scikit-learn seaborn polars pyarrow
 # ====================================================================
 # Stage: Antigravity CLI Download
 # ====================================================================

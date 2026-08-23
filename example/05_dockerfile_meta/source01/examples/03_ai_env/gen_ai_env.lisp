@@ -50,6 +50,7 @@
   (append
    '(google-antigravity
      azure-cognitiveservices-speech
+     huggingface_hub
      openai
      matplotlib
      numpy
