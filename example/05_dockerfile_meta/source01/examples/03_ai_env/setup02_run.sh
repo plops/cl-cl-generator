@@ -122,6 +122,7 @@ set -- docker run -it \
   -v "$HOME/.config/github-copilot:/root/.config/github-copilot" \
   -v "$HOME/.config/openai:/root/.config/openai" \
   -v "$HOME/.config/codex:/root/.config/codex" \
+  -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
   -v "$host_src_root:/workspace/src" \
   -v my-ai-env-cargo-cache:/root/.cargo
 
