@@ -23,6 +23,8 @@ You can easily customize the generated image directly in [gen_ai_env.lisp](file:
 | `*install-python*` | Boolean | `t` | Installs Python 3 runtime. |
 | `*install-python-libs*` | Boolean | `t` | Installs Python libraries (like `google-antigravity` SDK) using a cache-mounted multi-stage builder. |
 | `*install-docker-cli*` | Boolean | `t` | Installs Docker CLI and Buildx. Set to `nil` to omit both; use with `setup02_run.sh --docker-sock` when access to the host Docker daemon is needed. |
+| `*install-arm-none-eabi*` | Boolean | `t` | Installs Arm GNU Toolchain `14.3.rel1` for `arm-none-eabi` firmware builds. |
+| `*install-jlink*` | Boolean | `t` | Installs the SEGGER J-Link `9.30` command-line tools for firmware flashing and debugging. Building this feature accepts SEGGER's download license terms. |
 | `*ubuntu-packages*` | List of strings | `("less" "file" "findutils" "tree" "man-db" "procps" "psmisc" "iproute2" "iputils-ping" "dnsutils" "ripgrep" "fd-find" "yq" "lsof" "strace" "moreutils" "tmux" "shellcheck" "fzf" "bat" "git-lfs" "openssh-client" "dos2unix" "parallel" "unzip" "zip" "xz-utils" "rsync")` | Extra Ubuntu utilities installed into the final runtime image. |
 | `*install-agy*` | Boolean | `t` | Fetches, compiles, and installs the Google Antigravity CLI tool (`agy`). |
 | `*install-codex*` | Boolean | `t` | Downloads and installs the official OpenAI Codex CLI installer. |
@@ -45,6 +47,8 @@ This makes the example reproducible on any machine with Docker and network acces
 - `copilot`: `https://gh.io/copilot-install`
 - `kiro-cli`: `https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip`
 - `grok`: `https://x.ai/cli/install.sh`
+- Arm GNU Toolchain: `https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads`
+- SEGGER J-Link: `https://www.segger.com/downloads/jlink/`
 
 The generated image also wraps `agy`, `copilot`, `codex`, and `grok` so they launch with permissive agent flags by default (`--dangerously-skip-permissions`, `--allow-all`, `--dangerously-bypass-approvals-and-sandbox`, and `--always-approve`), `kiro-cli` so `init` skips confirmation by default with `--force`, while still keeping the original binaries available as `*.real`.
 
@@ -105,7 +109,7 @@ Keep the file out of git; `.gitignore` already excludes `.env` and `.env.*` file
 
 - `setup00_generate_dockerfile.sh` regenerates `Dockerfile` from `gen_ai_env.lisp`. It is the only script that needs SBCL and is mainly for maintainers.
 - `setup01_build.sh` builds the image from the checked-in `Dockerfile`. It only needs Docker and a shell, and it creates a temporary `.emacs` if needed for the build context.
-- `setup02_run.sh` starts the image with portable defaults. Override `ENV_FILE`, `HOST_SRC_ROOT`, or `IMAGE_NAME` if you need a different env file, source mount, or tag. Pass `--gpus all` (or `--gpu`) to enable NVIDIA GPU passthrough, and `--docker-sock` to mount the host Docker socket.
+- `setup02_run.sh` starts the image with portable defaults. Override `ENV_FILE`, `HOST_SRC_ROOT`, or `IMAGE_NAME` if you need a different env file, source mount, or tag. Pass `--gpus all` (or `--gpu`) to enable NVIDIA GPU passthrough, `--usb` for privileged J-Link USB access, and `--docker-sock` to mount the host Docker socket. `--host-opt` exposes host `/opt` read-only at `/host/opt`; it deliberately does not replace the image's `/opt` because CUDA's entrypoint lives there.
 - `setup03_save.sh` exports the image with `docker save`. It writes a tar file next to the script by default and also creates a `.zst` copy when `zstd` is installed.
 - `setup04_cleanup.sh` performs targeted cleanup for this example: it stops and removes containers created from `IMAGE_NAME`, removes that image tag, can optionally remove the Cargo cache volume or prune dangling images, can suggest cleanup command variants with estimated reclaimable space, and can list or remove other local images sorted by size or age.
 
@@ -121,7 +125,18 @@ If you changed `gen_ai_env.lisp`, regenerate the Dockerfile with:
 
 Most users do not need this step because the generated `Dockerfile` is already committed.
 
-When `*enable-tests*` is `t`, the generated image also runs small build-time checks for the installed tools, including Grok Build, CUDA compiler verification (when `*enable-cuda*` is `t`), and a SLIME workflow test that opens and loads a Lisp file.
+When `*enable-tests*` is `t`, the generated image also runs small build-time checks for the installed tools, including a Cortex-M7 cross-compilation, the J-Link CLI version, Grok Build, CUDA compiler verification (when `*enable-cuda*` is `t`), and a SLIME workflow test that opens and loads a Lisp file.
+
+## Fountain firmware development
+
+The image contains the tool versions expected by `~/stage/fountain/sensor/vscode/wsl/setup.sh`, so mounting the host's `/opt` is not required. Build and start a firmware-development shell with:
+
+```bash
+./setup01_build.sh
+./setup02_run.sh --usb
+```
+
+Add `--gpus all` when the same session also needs CUDA. Use `--host-opt` only when unrelated host-installed software must be inspected under `/host/opt`.
 
 
 ## Example Docker Image
@@ -182,4 +197,3 @@ NVIDIA's CUDA 13.3.1 (Ubuntu 26.04) Docker images offer varying sizes based on b
 | base | 199.7 MB | 345.86 MB | Minimal deployment/driver linking |
 
 For production, prioritize the runtime or cudnn-runtime images, while the devel options are recommended for compilation.
-

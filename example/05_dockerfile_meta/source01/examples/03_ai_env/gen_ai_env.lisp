@@ -45,6 +45,19 @@
 (defparameter *install-python-libs* t) ; google-antigravity SDK
 (defparameter *install-docker-cli* t
   "Install the Docker CLI for use with an optionally mounted host Docker socket.")
+(defparameter *install-arm-none-eabi* t
+  "Install the Arm GNU bare-metal toolchain used by the fountain firmware.")
+(defparameter *arm-none-eabi-version* "14.3.rel1")
+(defparameter *arm-none-eabi-toolchain*
+  (format nil "arm-gnu-toolchain-~a-x86_64-arm-none-eabi"
+          *arm-none-eabi-version*))
+(defparameter *install-jlink* t
+  "Install the SEGGER J-Link command-line tools used to flash and debug firmware.")
+(defparameter *jlink-version* "9.30")
+(defparameter *jlink-version-code*
+  (format nil "V~a" (remove #\. *jlink-version*)))
+(defparameter *jlink-directory*
+  (format nil "JLink_Linux_~a_x86_64" *jlink-version-code*))
 (defparameter *enable-tests* t)
 (defparameter *python-libs*
   (append
@@ -184,6 +197,23 @@ grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
 docker buildx version > /tmp/docker-buildx-version.txt
 grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
 ))
+    (*install-arm-none-eabi* "Arm GNU bare-metal toolchain by compiling a Cortex-M7 object"
+                             #r(set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)"
+cat > "$tmpdir/test.c" <<'C_EOF'
+void Reset_Handler(void) {}
+C_EOF
+arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c "$tmpdir/test.c" -o "$tmpdir/test.o"
+arm-none-eabi-readelf -h "$tmpdir/test.o" > "$tmpdir/readelf.txt"
+grep -Eq 'Machine:[[:space:]]+ARM' "$tmpdir/readelf.txt"
+rm -rf "$tmpdir"
+))
+    (*install-jlink* "SEGGER J-Link command-line tools by checking their pinned version"
+                     ,(format nil #r(set -eu
+JLinkGDBServerCLExe -version > /tmp/jlink-version.txt
+grep -F 'V~a ' /tmp/jlink-version.txt
+command -v JLinkExe >/dev/null
+) *jlink-version*))
     (*install-teamcity-cli* "TeamCity CLI by checking the installed version"
                             #r(set -eu
 teamcity --version > /tmp/teamcity-version.txt
@@ -507,6 +537,24 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                     "printf '%s\\n' 'Types: deb' 'URIs: https://download.docker.com/linux/ubuntu' \"Suites: ${suite}\" 'Components: stable' 'Signed-By: /etc/apt/keyrings/docker.gpg' > /etc/apt/sources.list.d/docker.sources"
                     "apt-get update"
                     "apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin"))))
+
+    ,@(when *install-arm-none-eabi*
+        `((comment "Install the Arm GNU bare-metal toolchain used by fountain firmware")
+          (run (and
+                ,(format nil "curl -fL https://developer.arm.com/-/media/Files/downloads/gnu/~a/binrel/~a.tar.xz -o /tmp/arm-none-eabi.tar.xz"
+                         *arm-none-eabi-version* *arm-none-eabi-toolchain*)
+                "tar -xJf /tmp/arm-none-eabi.tar.xz -C /opt"
+                "rm /tmp/arm-none-eabi.tar.xz"))
+          (env PATH ,(format nil "/opt/~a/bin:$PATH" *arm-none-eabi-toolchain*))))
+
+    ,@(when *install-jlink*
+        `((comment "Install SEGGER J-Link tools (the download accepts SEGGER's license terms)")
+          (run (and
+                ,(format nil "curl -fL --data 'accept_license_agreement=accepted&non_eu_market=true' https://www.segger.com/downloads/jlink/~a.tgz -o /tmp/jlink.tgz"
+                         *jlink-directory*)
+                "tar -xzf /tmp/jlink.tgz -C /opt"
+                "rm /tmp/jlink.tgz"))
+          (env PATH ,(format nil "/opt/~a:$PATH" *jlink-directory*))))
 
     ;; 4. Setup Quicklisp and Lisp dependencies if SBCL is enabled
     ,@(when *install-sbcl*

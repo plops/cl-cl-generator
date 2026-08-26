@@ -197,6 +197,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
  && printf '%s\n' 'Types: deb' 'URIs: https://download.docker.com/linux/ubuntu' "Suites: ${suite}" 'Components: stable' 'Signed-By: /etc/apt/keyrings/docker.gpg' > /etc/apt/sources.list.d/docker.sources \
  && apt-get update \
  && apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin
+# Install the Arm GNU bare-metal toolchain used by fountain firmware
+RUN curl -fL https://developer.arm.com/-/media/Files/downloads/gnu/14.3.rel1/binrel/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi.tar.xz -o /tmp/arm-none-eabi.tar.xz \
+ && tar -xJf /tmp/arm-none-eabi.tar.xz -C /opt \
+ && rm /tmp/arm-none-eabi.tar.xz
+ENV PATH=/opt/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi/bin:$PATH
+# Install SEGGER J-Link tools (the download accepts SEGGER's license terms)
+RUN curl -fL --data 'accept_license_agreement=accepted&non_eu_market=true' https://www.segger.com/downloads/jlink/JLink_Linux_V930_x86_64.tgz -o /tmp/jlink.tgz \
+ && tar -xzf /tmp/jlink.tgz -C /opt \
+ && rm /tmp/jlink.tgz
+ENV PATH=/opt/JLink_Linux_V930_x86_64:$PATH
 # Download and install Quicklisp
 RUN curl -O https://beta.quicklisp.org/quicklisp.lisp \
  && sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)" \
@@ -264,6 +274,27 @@ docker --version > /tmp/docker-version.txt
 grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
 docker buildx version > /tmp/docker-buildx-version.txt
 grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
+
+EOF
+# Smoke test Arm GNU bare-metal toolchain by compiling a Cortex-M7 object
+RUN <<'EOF'
+set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)"
+cat > "$tmpdir/test.c" <<'C_EOF'
+void Reset_Handler(void) {}
+C_EOF
+arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c "$tmpdir/test.c" -o "$tmpdir/test.o"
+arm-none-eabi-readelf -h "$tmpdir/test.o" > "$tmpdir/readelf.txt"
+grep -Eq 'Machine:[[:space:]]+ARM' "$tmpdir/readelf.txt"
+rm -rf "$tmpdir"
+
+EOF
+# Smoke test SEGGER J-Link command-line tools by checking their pinned version
+RUN <<'EOF'
+set -eu
+JLinkGDBServerCLExe -version > /tmp/jlink-version.txt
+grep -F 'V9.30 ' /tmp/jlink-version.txt
+command -v JLinkExe >/dev/null
 
 EOF
 # Smoke test TeamCity CLI by checking the installed version

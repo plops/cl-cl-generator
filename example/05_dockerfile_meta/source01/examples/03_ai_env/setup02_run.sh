@@ -6,6 +6,7 @@ enable_host_kmsg=0
 enable_host_opt=0
 enable_docker_sock=0
 enable_gpus=0
+enable_usb=0
 gpus_spec="all"
 verbose=0
 
@@ -20,7 +21,10 @@ Options:
   --gpu          Alias for --gpus all.
   --host-kmsg    Run the container privileged and bind /dev/kmsg so host kernel
                  messages can be read from inside the container.
-  --host-opt     Bind mount host /opt to /opt inside the container.
+  --host-opt     Bind mount host /opt read-only at /host/opt. The container's
+                 /opt must remain intact for the NVIDIA CUDA entrypoint.
+  --usb          Pass through the host USB bus in privileged mode (needed for
+                 J-Link probes; grants broad access to host devices).
   --docker-sock  Bind mount the host Docker socket. This grants the container
                  root-equivalent control over the host Docker daemon.
   -v, --verbose  Print the executed commands.
@@ -51,6 +55,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --host-opt)
       enable_host_opt=1
+      ;;
+    --usb)
+      enable_usb=1
       ;;
     --docker-sock)
       enable_docker_sock=1
@@ -131,7 +138,15 @@ if [ "$enable_host_kmsg" -eq 1 ]; then
 fi
 
 if [ "$enable_host_opt" -eq 1 ]; then
-  set -- "$@" -v /opt:/opt
+  set -- "$@" -v /opt:/host/opt:ro
+fi
+
+if [ "$enable_usb" -eq 1 ]; then
+  if [ ! -d /dev/bus/usb ]; then
+    echo "USB bus is not available at /dev/bus/usb" >&2
+    exit 1
+  fi
+  set -- "$@" --privileged -v /dev/bus/usb:/dev/bus/usb
 fi
 
 if [ "$enable_gpus" -eq 1 ]; then
