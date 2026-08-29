@@ -1,0 +1,4 @@
+schau dir an wie ich archify und die notwendigen dependencies mittels  gen_ai_env.lisp in das Docker image einbinden kann. So wie die anderen teile moechte ich einen flag haben um die funktionalitaet ausschalten zu koennen. und ein smoke test ist auch nuetzlich. mittlerweile gibt es so viele optionen, dass es wichtig ist das gut dokumentiert wird, was die optionen erlauben. 
+
+lies dir /workspace/src/fountain/sensor/boards/LaserBoardGen25/plan/20260829_01_archify/walkthrough.md durch 
+da steht drin was der ai agent machen musste um archify im laufenden docker container zu installieren
