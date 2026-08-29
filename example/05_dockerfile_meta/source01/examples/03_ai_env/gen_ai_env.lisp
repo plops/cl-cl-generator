@@ -129,6 +129,11 @@
 (defparameter *install-teamcity-cli* t)
 (defparameter *install-grok* nil)
 
+;; Toggle code-quality tools used by Habit Hooks.
+(defparameter *install-habit-hooks* t)
+(defparameter *install-deptry* t)
+(defparameter *install-jscpd* t)
+
 ;; Toggle Rust support
 (defparameter *install-rust* t)
 (defparameter *rust-cache-volume* t)
@@ -222,6 +227,19 @@ command -v JLinkExe >/dev/null
 teamcity --version > /tmp/teamcity-version.txt
 [ -s /tmp/teamcity-version.txt ]
 grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
+))
+    (*install-habit-hooks* "Habit Hooks by checking the CLI help"
+                           #r(set -eu
+habit-hooks --help > /tmp/habit-hooks-help.txt
+[ -s /tmp/habit-hooks-help.txt ]
+))
+    (*install-deptry* "Deptry by checking the CLI version"
+                      #r(set -eu
+deptry --version
+))
+    (*install-jscpd* "JSCPD by checking the CLI version"
+                     #r(set -eu
+jscpd --version
 ))
     (*enable-cuda* "CUDA nvcc compiler by compiling and verifying a test CUDA kernel"
                    #r(set -eu
@@ -416,7 +434,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     (*install-sbcl* "sbcl" "rlwrap")
     (*install-emacs* "emacs-nox")
     ((or *install-python* *install-python-libs*) "python3-full")
-    (*install-codex* "nodejs" "npm")
+    ((or *install-codex* *install-jscpd*) "nodejs" "npm")
     ((or *install-azure-cli* *install-docker-cli*) "gnupg")
     (*install-azure-cli* "lsb-release")))
 
@@ -439,6 +457,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     
     (comment "Copy the modern uv binary directly from Astral's official release container")
     ,(uv-copy-stage)
+    (env UV_TOOL_BIN_DIR "/usr/local/bin")
     
     (comment "Install the essential tool belt for agents")
     (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
@@ -450,6 +469,20 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
             when (eval cond-expr)
             collect `(run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
                           ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" pkgs)))
+
+    ;; Install code-quality CLIs independently of any mounted project's manifests.
+    ,@(when *install-habit-hooks*
+        `((comment "Install Habit Hooks with all optional integrations")
+          (run :mount "type=cache,target=/root/.cache/uv"
+               "uv tool install 'habit-hooks[all]'")))
+    ,@(when *install-deptry*
+        `((comment "Install Deptry as an isolated CLI tool")
+          (run :mount "type=cache,target=/root/.cache/uv"
+               "uv tool install deptry")))
+    ,@(when *install-jscpd*
+        `((comment "Install JSCPD globally so it is available in every mounted project")
+          (run :mount "type=cache,target=/root/.npm"
+               "npm install -g jscpd")))
     
     ;; Install Rustup and the stable Rust toolchain if enabled
     ,@(when *install-rust*

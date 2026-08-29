@@ -81,6 +81,7 @@ ENV NVIDIA_VISIBLE_DEVICES=all \
 WORKDIR /workspace
 # Copy the modern uv binary directly from Astral's official release container
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+ENV UV_TOOL_BIN_DIR=/usr/local/bin
 # Install the essential tool belt for agents
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates git jq less file findutils tree man-db procps psmisc iproute2 iputils-ping dnsutils ripgrep fd-find yq picocom usbutils libusb-1.0-0-dev lsof strace moreutils tmux shellcheck fzf cmake pkg-config clang-format clang-tidy clangd ninja-build bat git-lfs openssh-client dos2unix parallel unzip zip xz-utils rsync
@@ -92,6 +93,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends nodejs npm
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends gnupg
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends lsb-release
+# Install Habit Hooks with all optional integrations
+RUN --mount=type=cache,target=/root/.cache/uv uv tool install 'habit-hooks[all]'
+# Install Deptry as an isolated CLI tool
+RUN --mount=type=cache,target=/root/.cache/uv uv tool install deptry
+# Install JSCPD globally so it is available in every mounted project
+RUN --mount=type=cache,target=/root/.npm npm install -g jscpd
 # Install rustup and stable Rust toolchain
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
  && chmod -R a+w /root/.rustup
@@ -303,6 +310,25 @@ set -eu
 teamcity --version > /tmp/teamcity-version.txt
 [ -s /tmp/teamcity-version.txt ]
 grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
+
+EOF
+# Smoke test Habit Hooks by checking the CLI help
+RUN <<'EOF'
+set -eu
+habit-hooks --help > /tmp/habit-hooks-help.txt
+[ -s /tmp/habit-hooks-help.txt ]
+
+EOF
+# Smoke test Deptry by checking the CLI version
+RUN <<'EOF'
+set -eu
+deptry --version
+
+EOF
+# Smoke test JSCPD by checking the CLI version
+RUN <<'EOF'
+set -eu
+jscpd --version
 
 EOF
 # Smoke test CUDA nvcc compiler by compiling and verifying a test CUDA kernel
