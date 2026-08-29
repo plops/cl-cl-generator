@@ -15,18 +15,6 @@ WORKDIR /workspace
 RUN --mount=type=cache,target=/root/.cache/uv uv venv .venv \
  && uv pip install google-antigravity azure-cognitiveservices-speech huggingface_hub openai matplotlib numpy pandas scipy tqdm xarray loguru nbdev requests ruff scikit-learn seaborn polars pyarrow
 # ====================================================================
-# Stage: Antigravity CLI Download
-# ====================================================================
-FROM ubuntu:26.04 AS builder-agy
-ENV DEBIAN_FRONTEND=noninteractive
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl
-WORKDIR /workspace
-# Download, decompress, and run the Antigravity installation script
-RUN curl -fsSL --compressed https://antigravity.google/cli/install.sh -o install.sh \
- && chmod +x install.sh \
- && ./install.sh
-# ====================================================================
 # Stage: GitHub Copilot CLI Download
 # ====================================================================
 FROM ubuntu:26.04 AS builder-copilot
@@ -52,19 +40,6 @@ RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-
  && chmod +x /tmp/kirocli-extracted/kirocli/install.sh \
  && KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh \
  && rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted
-# ====================================================================
-# Stage: TeamCity CLI Download
-# ====================================================================
-FROM ubuntu:26.04 AS builder-teamcity
-ENV DEBIAN_FRONTEND=noninteractive
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl
-WORKDIR /workspace
-# Install TeamCity CLI from the official JetBrains installer
-RUN curl -fsSL https://jb.gg/tc/install -o /tmp/teamcity-install.sh \
- && bash /tmp/teamcity-install.sh \
- && rm -f /tmp/teamcity-install.sh \
- && command -v teamcity >/dev/null
 # =====================================================================
 # Stage 2: Insulated Runtime Runner
 # =====================================================================
@@ -91,14 +66,22 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends emacs-nox
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends python3-full
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends nodejs npm
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends gnupg
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends lsb-release
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends fonts-liberation libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 libatspi2.0-0t64 libcairo2 libcups2t64 libdbus-1-3 libdrm2 libexpat1 libfontconfig1 libgbm1 libglib2.0-0t64 libnspr4 libnss3 libpango-1.0-0 libudev1 libx11-6 libxcb1 libxcomposite1 libxdamage1 libxext6 libxfixes3 libxkbcommon0 libxrandr2
 # Install Habit Hooks with all optional integrations
 RUN --mount=type=cache,target=/root/.cache/uv uv tool install 'habit-hooks[all]'
 # Install Deptry as an isolated CLI tool
 RUN --mount=type=cache,target=/root/.cache/uv uv tool install deptry
 # Install JSCPD globally so it is available in every mounted project
 RUN --mount=type=cache,target=/root/.npm npm install -g jscpd
+# Install Archify for Codex and provision Chrome for visual checks
+ARG ARCHIFY_CHROME_BUILD=stable
+RUN --mount=type=cache,target=/root/.npm npx -y skills add tt-a1i/archify --skill archify --agent codex --global --copy --yes \
+ && npx -y @puppeteer/browsers install "chrome@${ARCHIFY_CHROME_BUILD}" --path /opt/archify-browser \
+ && chrome_path="$(find /opt/archify-browser -type f -path '*/chrome-linux*/chrome' -perm -111 -print -quit)" \
+ && test -n "$chrome_path" \
+ && ln -s "$chrome_path" /usr/local/bin/archify-chrome
+ENV ARCHIFY_CHROME=/usr/local/bin/archify-chrome \
+    ARCHIFY_CHROME_NO_SANDBOX=1
 # Install rustup and stable Rust toolchain
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
  && chmod -R a+w /root/.rustup
@@ -111,22 +94,6 @@ RUN git config --global diff.external difft
 # Copy the isolated Python environment
 COPY --from=builder-python --link /workspace/.venv /workspace/.venv
 ENV PATH=/workspace/.venv/bin:$PATH
-# Copy the actual agy CLI tool from the builder's local path to system binaries
-COPY --from=builder-agy --link --chmod=755 /root/.local/bin/agy /usr/local/bin/agy
-# Rename the original binary and install a wrapper that skips permissions by default
-RUN mv /usr/local/bin/agy /usr/local/bin/agy.real
-COPY <<'EOF' /usr/local/bin/agy
-#!/usr/bin/env bash
-set -euo pipefail
-case " $* " in
-  *" --dangerously-skip-permissions "*) exec /usr/local/bin/agy.real "$@" ;;
-  *) exec /usr/local/bin/agy.real --dangerously-skip-permissions "$@" ;;
-esac
-EOF
-RUN chmod +x /usr/local/bin/agy
-# Add the Antigravity clean environment tweaks to .bashrc
-RUN echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1="\$ "; fi' >> /root/.bashrc \
- && echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc
 # Install or copy other AI CLI tools
 # Install the newest Codex release directly in the runner image
 RUN --mount=type=cache,target=/root/.npm npm install -g @openai/codex@$(npm view @openai/codex version)
@@ -183,27 +150,6 @@ case "$subcommand" in
 esac
 EOF
 RUN chmod +x /usr/local/bin/kiro-cli
-# Copy TeamCity CLI from the builder image
-COPY --from=builder-teamcity --link --chmod=755 /usr/local/bin/teamcity /usr/local/bin/teamcity
-# Install Azure CLI from Microsoft's official apt repository
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked mkdir -p /etc/apt/keyrings \
- && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg \
- && chmod go+r /etc/apt/keyrings/microsoft.gpg \
- && arch="$(dpkg --print-architecture)" \
- && suite="$(. /etc/os-release && printf '%s' "${UBUNTU_CODENAME:-$VERSION_CODENAME}")" \
- && repo_suite="$suite" \
- && if ! curl -fsI "https://packages.microsoft.com/repos/azure-cli/dists/${repo_suite}/Release" >/dev/null; then repo_suite="noble"; fi \
- && printf '%s\n' 'Types: deb' 'URIs: https://packages.microsoft.com/repos/azure-cli/' "Suites: ${repo_suite}" 'Components: main' "Architectures: ${arch}" 'Signed-By: /etc/apt/keyrings/microsoft.gpg' > /etc/apt/sources.list.d/azure-cli.sources \
- && apt-get update \
- && apt-get install -y --no-install-recommends azure-cli
-# Install Docker CLI for an optionally mounted host Docker socket
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked install -m 0755 -d /etc/apt/keyrings \
- && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
- && chmod a+r /etc/apt/keyrings/docker.gpg \
- && suite="$(. /etc/os-release && printf '%s' "${UBUNTU_CODENAME:-$VERSION_CODENAME}")" \
- && printf '%s\n' 'Types: deb' 'URIs: https://download.docker.com/linux/ubuntu' "Suites: ${suite}" 'Components: stable' 'Signed-By: /etc/apt/keyrings/docker.gpg' > /etc/apt/sources.list.d/docker.sources \
- && apt-get update \
- && apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin
 # Install the Arm GNU bare-metal toolchain used by fountain firmware
 RUN curl -fL https://developer.arm.com/-/media/Files/downloads/gnu/14.3.rel1/binrel/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi.tar.xz -o /tmp/arm-none-eabi.tar.xz \
  && tar -xJf /tmp/arm-none-eabi.tar.xz -C /opt \
@@ -267,22 +213,6 @@ kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
 grep -qi "kiro" /tmp/kiro-cli-term-help.txt
 
 EOF
-# Smoke test Azure CLI by checking the installed version
-RUN <<'EOF'
-set -eu
-az version > /tmp/az-version.json
-grep -q '"azure-cli"' /tmp/az-version.json
-
-EOF
-# Smoke test Docker CLI and Buildx by checking their client versions
-RUN <<'EOF'
-set -eu
-docker --version > /tmp/docker-version.txt
-grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
-docker buildx version > /tmp/docker-buildx-version.txt
-grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
-
-EOF
 # Smoke test Arm GNU bare-metal toolchain by compiling a Cortex-M7 object
 RUN <<'EOF'
 set -eu
@@ -304,14 +234,6 @@ grep -F 'V9.30 ' /tmp/jlink-version.txt
 command -v JLinkExe >/dev/null
 
 EOF
-# Smoke test TeamCity CLI by checking the installed version
-RUN <<'EOF'
-set -eu
-teamcity --version > /tmp/teamcity-version.txt
-[ -s /tmp/teamcity-version.txt ]
-grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
-
-EOF
 # Smoke test Habit Hooks by checking the CLI help
 RUN <<'EOF'
 set -eu
@@ -329,6 +251,22 @@ EOF
 RUN <<'EOF'
 set -eu
 jscpd --version
+
+EOF
+# Smoke test Archify and its headless Chrome runtime
+RUN <<'EOF'
+set -eu
+archify_dir=/root/.agents/skills/archify
+test -f "$archify_dir/SKILL.md"
+test -f "$archify_dir/bin/archify.mjs"
+node "$archify_dir/bin/archify.mjs" doctor
+test -x "$ARCHIFY_CHROME"
+"$ARCHIFY_CHROME" --headless --no-sandbox --disable-gpu --dump-dom about:blank > /tmp/archify-chrome.html
+grep -qi '<html' /tmp/archify-chrome.html
+tmpdir="$(mktemp -d /tmp/ai-env-archify.XXXXXX)"
+node "$archify_dir/bin/archify.mjs" demo "$tmpdir"
+test -s "$tmpdir/archify-demo.html"
+rm -rf "$tmpdir"
 
 EOF
 # Smoke test CUDA nvcc compiler by compiling and verifying a test CUDA kernel

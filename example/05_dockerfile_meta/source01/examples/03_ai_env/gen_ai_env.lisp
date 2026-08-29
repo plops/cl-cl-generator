@@ -43,7 +43,7 @@
 (defparameter *install-emacs* t)
 (defparameter *install-python* t)
 (defparameter *install-python-libs* t) ; google-antigravity SDK
-(defparameter *install-docker-cli* t
+(defparameter *install-docker-cli* nil
   "Install the Docker CLI for use with an optionally mounted host Docker socket.")
 (defparameter *install-arm-none-eabi* t
   "Install the Arm GNU bare-metal toolchain used by the fountain firmware.")
@@ -58,7 +58,12 @@
   (format nil "V~a" (remove #\. *jlink-version*)))
 (defparameter *jlink-directory*
   (format nil "JLink_Linux_~a_x86_64" *jlink-version-code*))
-(defparameter *enable-tests* t)
+(defparameter *install-archify* t
+  "Install the Archify Codex skill and a Chrome for Testing browser for visual checks.")
+(defparameter *archify-chrome-build* "stable"
+  "Chrome for Testing channel or exact version used by Archify (for example, stable or 140.0.7339.80).")
+(defparameter *enable-tests* t
+  "Run build-time smoke tests for every enabled component that has a test entry.")
 (defparameter *python-libs*
   (append
    '(google-antigravity
@@ -121,12 +126,12 @@
     "xz-utils"
     "rsync"))
 ;; Toggle AI CLI tools
-(defparameter *install-agy* t)
+(defparameter *install-agy* nil)
 (defparameter *install-codex* t)
 (defparameter *install-copilot* t)
 (defparameter *install-kiro-cli* t)
-(defparameter *install-azure-cli* t)
-(defparameter *install-teamcity-cli* t)
+(defparameter *install-azure-cli* nil)
+(defparameter *install-teamcity-cli* nil)
 (defparameter *install-grok* nil)
 
 ;; Toggle code-quality tools used by Habit Hooks.
@@ -139,6 +144,35 @@
 (defparameter *rust-cache-volume* t)
 (defparameter *install-difftastic* t
   "Requires *install-rust* to be true.")
+
+;; Shared libraries needed by the Chrome for Testing binary used by Archify.
+;; Keep this list conditional: it is a significant part of the Archify opt-out.
+(defparameter *archify-browser-packages*
+  '("fonts-liberation"
+    "libasound2t64"
+    "libatk-bridge2.0-0t64"
+    "libatk1.0-0t64"
+    "libatspi2.0-0t64"
+    "libcairo2"
+    "libcups2t64"
+    "libdbus-1-3"
+    "libdrm2"
+    "libexpat1"
+    "libfontconfig1"
+    "libgbm1"
+    "libglib2.0-0t64"
+    "libnspr4"
+    "libnss3"
+    "libpango-1.0-0"
+    "libudev1"
+    "libx11-6"
+    "libxcb1"
+    "libxcomposite1"
+    "libxdamage1"
+    "libxext6"
+    "libxfixes3"
+    "libxkbcommon0"
+    "libxrandr2"))
 
 
 ;; Helper function to copy Astral's uv
@@ -240,6 +274,20 @@ deptry --version
     (*install-jscpd* "JSCPD by checking the CLI version"
                      #r(set -eu
 jscpd --version
+))
+    (*install-archify* "Archify and its headless Chrome runtime"
+                       #r(set -eu
+archify_dir=/root/.agents/skills/archify
+test -f "$archify_dir/SKILL.md"
+test -f "$archify_dir/bin/archify.mjs"
+node "$archify_dir/bin/archify.mjs" doctor
+test -x "$ARCHIFY_CHROME"
+"$ARCHIFY_CHROME" --headless --no-sandbox --disable-gpu --dump-dom about:blank > /tmp/archify-chrome.html
+grep -qi '<html' /tmp/archify-chrome.html
+tmpdir="$(mktemp -d /tmp/ai-env-archify.XXXXXX)"
+node "$archify_dir/bin/archify.mjs" demo "$tmpdir"
+test -s "$tmpdir/archify-demo.html"
+rm -rf "$tmpdir"
 ))
     (*enable-cuda* "CUDA nvcc compiler by compiling and verifying a test CUDA kernel"
                    #r(set -eu
@@ -434,9 +482,10 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     (*install-sbcl* "sbcl" "rlwrap")
     (*install-emacs* "emacs-nox")
     ((or *install-python* *install-python-libs*) "python3-full")
-    ((or *install-codex* *install-jscpd*) "nodejs" "npm")
+    ((or *install-codex* *install-jscpd* *install-archify*) "nodejs" "npm")
     ((or *install-azure-cli* *install-docker-cli*) "gnupg")
-    (*install-azure-cli* "lsb-release")))
+    (*install-azure-cli* "lsb-release")
+    (*install-archify* ,@*archify-browser-packages*)))
 
 (defun runner-stage ()
   `((comment "=====================================================================")
@@ -483,6 +532,18 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
         `((comment "Install JSCPD globally so it is available in every mounted project")
           (run :mount "type=cache,target=/root/.npm"
                "npm install -g jscpd")))
+
+    ,@(when *install-archify*
+        `((comment "Install Archify for Codex and provision Chrome for visual checks")
+          (arg ARCHIFY_CHROME_BUILD ,*archify-chrome-build*)
+          (run :mount "type=cache,target=/root/.npm"
+               (and "npx -y skills add tt-a1i/archify --skill archify --agent codex --global --copy --yes"
+                    "npx -y @puppeteer/browsers install \"chrome@${ARCHIFY_CHROME_BUILD}\" --path /opt/archify-browser"
+                    "chrome_path=\"$(find /opt/archify-browser -type f -path '*/chrome-linux*/chrome' -perm -111 -print -quit)\""
+                    "test -n \"$chrome_path\""
+                    "ln -s \"$chrome_path\" /usr/local/bin/archify-chrome"))
+          (env ARCHIFY_CHROME "/usr/local/bin/archify-chrome"
+               ARCHIFY_CHROME_NO_SANDBOX "1")))
     
     ;; Install Rustup and the stable Rust toolchain if enabled
     ,@(when *install-rust*
