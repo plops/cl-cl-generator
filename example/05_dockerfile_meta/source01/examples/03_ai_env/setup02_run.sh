@@ -6,6 +6,8 @@ enable_host_kmsg=0
 enable_host_opt=0
 enable_docker_sock=0
 enable_gpus=0
+enable_graphics=0
+enable_display=0
 enable_usb=0
 gpus_spec="all"
 verbose=0
@@ -19,6 +21,9 @@ Run the AI environment container with the project source mounted in.
 Options:
   --gpus [SPEC]  Pass through GPUs to the container via NVIDIA Container Toolkit (default: all).
   --gpu          Alias for --gpus all.
+  --graphics     Enable GPU graphics/display capabilities (OpenGL, Vulkan, EGL, display, video)
+                 and pass through /dev/dri and X11/display if available (works headless and over SSH).
+  --display      Pass through host X11 display, .Xauthority, and sockets (supports SSH X11 forwarding).
   --host-kmsg    Run the container privileged and bind /dev/kmsg so host kernel
                  messages can be read from inside the container.
   --host-opt     Bind mount host /opt read-only at /host/opt. The container's
@@ -49,6 +54,13 @@ while [ "$#" -gt 0 ]; do
       ;;
     --gpu)
       enable_gpus=1
+      ;;
+    --graphics|--gpu-graphics)
+      enable_graphics=1
+      enable_gpus=1
+      ;;
+    --display|--x11)
+      enable_display=1
       ;;
     --host-kmsg)
       enable_host_kmsg=1
@@ -149,8 +161,42 @@ if [ "$enable_usb" -eq 1 ]; then
   set -- "$@" --privileged -v /dev/bus/usb:/dev/bus/usb
 fi
 
-if [ "$enable_gpus" -eq 1 ]; then
+if [ "$enable_graphics" -eq 1 ]; then
+  # Request full NVIDIA driver capabilities (compute, utility, graphics, display, video)
+  set -- "$@" -e NVIDIA_DRIVER_CAPABILITIES=all
+  if [ "$enable_gpus" -eq 1 ]; then
+    if [ "$gpus_spec" = "all" ]; then
+      set -- "$@" --gpus 'all,"capabilities=compute,utility,graphics,display,video"'
+    else
+      set -- "$@" --gpus "$gpus_spec"
+    fi
+  fi
+  # Mount DRM render nodes if present on host for direct/headless rendering
+  if [ -d /dev/dri ]; then
+    set -- "$@" --device /dev/dri:/dev/dri
+  fi
+  # Enable host IPC for shared memory performance (MIT-SHM / X11 / Vulkan)
+  set -- "$@" --ipc=host
+elif [ "$enable_gpus" -eq 1 ]; then
   set -- "$@" --gpus "$gpus_spec"
+fi
+
+if [ "$enable_display" -eq 1 ] || [ "$enable_graphics" -eq 1 ]; then
+  # Forward DISPLAY if set in host/SSH environment
+  if [ -n "${DISPLAY:-}" ]; then
+    set -- "$@" -e DISPLAY="$DISPLAY"
+  fi
+
+  # Mount X11 socket directory if present (supports local X11 and SSH X11 forwarding)
+  if [ -d /tmp/.X11-unix ]; then
+    set -- "$@" -v /tmp/.X11-unix:/tmp/.X11-unix:rw
+  fi
+
+  # Forward Xauthority for X11 authentication over SSH or local session
+  xauth_file="${XAUTHORITY:-${HOME:-/root}/.Xauthority}"
+  if [ -f "$xauth_file" ]; then
+    set -- "$@" -v "$xauth_file:/root/.Xauthority:ro" -e XAUTHORITY=/root/.Xauthority
+  fi
 fi
 
 if [ "$enable_docker_sock" -eq 1 ]; then
