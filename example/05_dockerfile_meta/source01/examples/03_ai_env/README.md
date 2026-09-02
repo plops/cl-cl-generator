@@ -53,6 +53,7 @@ Customize the generated image by changing the parameters near the top of [`gen_a
 | `*install-azure-cli*` | `nil` | Azure CLI from Microsoft's apt repository. |
 | `*install-teamcity-cli*` | `nil` | TeamCity CLI from JetBrains' installer. |
 | `*install-grok*` | `nil` | Grok Build and its permissive wrapper. |
+| `*install-muse*` | `t` | Meta Muse Code CLI, installed with Meta's official installer. |
 | `*install-habit-hooks*` | `t` | Habit Hooks with all optional integrations, installed as an isolated uv tool. |
 | `*install-deptry*` | `t` | Deptry installed as an isolated uv tool. |
 | `*install-jscpd*` | `t` | JSCPD installed globally with npm. |
@@ -73,6 +74,7 @@ This makes the example reproducible on any machine with Docker and network acces
 - `copilot`: `https://gh.io/copilot-install`
 - `kiro-cli`: `https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip`
 - `grok`: `https://x.ai/cli/install.sh`
+- `muse`: `https://dev.meta.ai/install.sh`
 - Archify: `npx skills add tt-a1i/archify` from `https://github.com/tt-a1i/archify`
 - Chrome for Testing: `npx @puppeteer/browsers install chrome@<build>`
 - Arm GNU Toolchain: `https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads`

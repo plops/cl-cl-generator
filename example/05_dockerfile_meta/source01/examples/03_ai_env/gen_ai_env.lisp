@@ -43,7 +43,7 @@
 (defparameter *install-emacs* t)
 (defparameter *install-python* t)
 (defparameter *install-python-libs* t) ; google-antigravity SDK
-(defparameter *install-docker-cli* nil
+(defparameter *install-docker-cli* t
   "Install the Docker CLI for use with an optionally mounted host Docker socket.")
 (defparameter *install-arm-none-eabi* t
   "Install the Arm GNU bare-metal toolchain used by the fountain firmware.")
@@ -131,8 +131,10 @@
 (defparameter *install-copilot* t)
 (defparameter *install-kiro-cli* t)
 (defparameter *install-azure-cli* nil)
-(defparameter *install-teamcity-cli* nil)
+(defparameter *install-teamcity-cli* t)
 (defparameter *install-grok* nil)
+(defparameter *install-muse* t
+  "Install Meta's Muse Code CLI.")
 
 ;; Toggle code-quality tools used by Habit Hooks.
 (defparameter *install-habit-hooks* t)
@@ -226,6 +228,12 @@ grep -qi "kiro" /tmp/kiro-cli-term-help.txt
                     #r(set -eu
 grok --version
 agent --version
+))
+    (*install-muse* "Meta Muse Code by checking the CLI version"
+                    #r(set -eu
+muse --version > /tmp/muse-version.txt
+[ -s /tmp/muse-version.txt ]
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/muse-version.txt
 ))
     (*install-azure-cli* "Azure CLI by checking the installed version"
                         #r(set -eu
@@ -693,6 +701,11 @@ set -euo pipefail
 exec /usr/local/bin/agent.real "$@"
 ))
           (run "chmod +x /usr/local/bin/grok /usr/local/bin/grok.real /usr/local/bin/agent /usr/local/bin/agent.real")))
+
+    ,@(when *install-muse*
+        `((comment "Install Meta Muse Code from the official installer")
+          (run (and "curl -fsSL https://dev.meta.ai/install.sh | MUSE_INSTALL_DIR=/usr/local/bin bash"
+                    "command -v muse"))))
 
     ;; 6. Setup Emacs if Emacs is enabled
     ,@(when (and *install-sbcl* *install-emacs*)

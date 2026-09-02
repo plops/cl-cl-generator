@@ -40,6 +40,19 @@ RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-
  && chmod +x /tmp/kirocli-extracted/kirocli/install.sh \
  && KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh \
  && rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted
+# ====================================================================
+# Stage: TeamCity CLI Download
+# ====================================================================
+FROM ubuntu:26.04 AS builder-teamcity
+ENV DEBIAN_FRONTEND=noninteractive
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl
+WORKDIR /workspace
+# Install TeamCity CLI from the official JetBrains installer
+RUN curl -fsSL https://jb.gg/tc/install -o /tmp/teamcity-install.sh \
+ && bash /tmp/teamcity-install.sh \
+ && rm -f /tmp/teamcity-install.sh \
+ && command -v teamcity >/dev/null
 # =====================================================================
 # Stage 2: Insulated Runtime Runner
 # =====================================================================
@@ -66,6 +79,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends emacs-nox
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends python3-full
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends nodejs npm
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends gnupg
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends fonts-liberation libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 libatspi2.0-0t64 libcairo2 libcups2t64 libdbus-1-3 libdrm2 libexpat1 libfontconfig1 libgbm1 libglib2.0-0t64 libnspr4 libnss3 libpango-1.0-0 libudev1 libx11-6 libxcb1 libxcomposite1 libxdamage1 libxext6 libxfixes3 libxkbcommon0 libxrandr2
 # Install Habit Hooks with all optional integrations
 RUN --mount=type=cache,target=/root/.cache/uv uv tool install 'habit-hooks[all]'
@@ -150,6 +164,16 @@ case "$subcommand" in
 esac
 EOF
 RUN chmod +x /usr/local/bin/kiro-cli
+# Copy TeamCity CLI from the builder image
+COPY --from=builder-teamcity --link --chmod=755 /usr/local/bin/teamcity /usr/local/bin/teamcity
+# Install Docker CLI for an optionally mounted host Docker socket
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked install -m 0755 -d /etc/apt/keyrings \
+ && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+ && chmod a+r /etc/apt/keyrings/docker.gpg \
+ && suite="$(. /etc/os-release && printf '%s' "${UBUNTU_CODENAME:-$VERSION_CODENAME}")" \
+ && printf '%s\n' 'Types: deb' 'URIs: https://download.docker.com/linux/ubuntu' "Suites: ${suite}" 'Components: stable' 'Signed-By: /etc/apt/keyrings/docker.gpg' > /etc/apt/sources.list.d/docker.sources \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin
 # Install the Arm GNU bare-metal toolchain used by fountain firmware
 RUN curl -fL https://developer.arm.com/-/media/Files/downloads/gnu/14.3.rel1/binrel/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi.tar.xz -o /tmp/arm-none-eabi.tar.xz \
  && tar -xJf /tmp/arm-none-eabi.tar.xz -C /opt \
@@ -179,6 +203,9 @@ RUN mkdir -p /root/quicklisp/local-projects \
  && ln -s /workspace/src/cl-rust-generator /root/quicklisp/local-projects/cl-rust-generator
 # Pre-fetch and cache Quicklisp systems and common dependencies
 RUN sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quickload "quicklisp-slime-helper")' --eval '(ql:quickload "alexandria")' --eval '(ql:quickload "jonathan")' --eval '(ql:quickload "external-program")' --eval '(ql:quickload "cl-ppcre")'
+# Install Meta Muse Code from the official installer
+RUN curl -fsSL https://dev.meta.ai/install.sh | MUSE_INSTALL_DIR=/usr/local/bin bash \
+ && command -v muse
 # Pre-install Emacs packages
 RUN emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(setq custom-file null-device)" --eval "(dolist (pkg '(compat cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (setq package-selected-packages nil) (package-install pkg))"
 # Recompile installed Emacs packages with their dependencies available
@@ -213,6 +240,23 @@ kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
 grep -qi "kiro" /tmp/kiro-cli-term-help.txt
 
 EOF
+# Smoke test Meta Muse Code by checking the CLI version
+RUN <<'EOF'
+set -eu
+muse --version > /tmp/muse-version.txt
+[ -s /tmp/muse-version.txt ]
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/muse-version.txt
+
+EOF
+# Smoke test Docker CLI and Buildx by checking their client versions
+RUN <<'EOF'
+set -eu
+docker --version > /tmp/docker-version.txt
+grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
+docker buildx version > /tmp/docker-buildx-version.txt
+grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
+
+EOF
 # Smoke test Arm GNU bare-metal toolchain by compiling a Cortex-M7 object
 RUN <<'EOF'
 set -eu
@@ -232,6 +276,14 @@ set -eu
 JLinkGDBServerCLExe -version > /tmp/jlink-version.txt
 grep -F 'V9.30 ' /tmp/jlink-version.txt
 command -v JLinkExe >/dev/null
+
+EOF
+# Smoke test TeamCity CLI by checking the installed version
+RUN <<'EOF'
+set -eu
+teamcity --version > /tmp/teamcity-version.txt
+[ -s /tmp/teamcity-version.txt ]
+grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
 
 EOF
 # Smoke test Habit Hooks by checking the CLI help
