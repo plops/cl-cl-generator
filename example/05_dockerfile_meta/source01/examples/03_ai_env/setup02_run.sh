@@ -154,6 +154,7 @@ set -- docker run -it \
   -v "/home/kiel/stage/cl-py-generator:/workspace/src/cl-py-generator" \
   -v "/home/kiel/stage/cl-cl-generator:/workspace/src/cl-cl-generator" \
   -v "/home/kiel/stage/cl-cpp-generator2:/workspace/src/cl-cpp-generator2" \
+  -v "/home/kiel/stage/cl-rust-generator:/workspace/src/cl-rust-generator" \
   -v my-ai-env-cargo-cache:/root/.cargo
 
 #   -v "$host_src_root:/workspace/src"
