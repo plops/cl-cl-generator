@@ -114,10 +114,15 @@ mkdir -p "$HOME/.azure"
 mkdir -p "$HOME/.copilot"
 mkdir -p "$HOME/.openai"
 mkdir -p "$HOME/.codex"
+mkdir -p "$HOME/.conan2"
+mkdir -p "$HOME/.ssh"
 mkdir -p "$HOME/.config/tc"
 mkdir -p "$HOME/.config/github-copilot"
 mkdir -p "$HOME/.config/openai"
 mkdir -p "$HOME/.config/codex"
+mkdir -p "/workspace/src/cl-py-generator"
+mkdir -p "/workspace/src/cl-cpp-generator2"
+mkdir -p "/workspace/src/cl-cl-generator"
 
 if [ ! -f "$env_file" ]; then
   echo "Missing env file: $env_file" >&2
@@ -137,13 +142,19 @@ set -- docker run -it \
   -v "$HOME/.copilot:/root/.copilot" \
   -v "$HOME/.openai:/root/.openai" \
   -v "$HOME/.codex:/root/.codex" \
+  -v "$HOME/.conan2:/root/.conan2" \
+  -v "$HOME/.ssh:/root/.ssh" \
   -v "$HOME/.config/tc:/root/.config/tc" \
   -v "$HOME/.config/github-copilot:/root/.config/github-copilot" \
   -v "$HOME/.config/openai:/root/.config/openai" \
   -v "$HOME/.config/codex:/root/.config/codex" \
   -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
-  -v "$host_src_root:/workspace/src" \
+  -v "/home/kiel/stage/cl-py-generator:/workspace/src/cl-py-generator" \
+  -v "/home/kiel/stage/cl-cl-generator:/workspace/src/cl-cl-generator" \
+  -v "/home/kiel/stage/cl-cpp-generator2:/workspace/src/cl-cpp-generator2" \
   -v my-ai-env-cargo-cache:/root/.cargo
+
+#   -v "$host_src_root:/workspace/src"
 
 if [ "$enable_host_kmsg" -eq 1 ]; then
   set -- "$@" --privileged -v /dev/kmsg:/dev/kmsg
