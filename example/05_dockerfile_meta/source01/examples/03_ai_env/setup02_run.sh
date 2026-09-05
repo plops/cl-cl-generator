@@ -120,9 +120,10 @@ mkdir -p "$HOME/.config/tc"
 mkdir -p "$HOME/.config/github-copilot"
 mkdir -p "$HOME/.config/openai"
 mkdir -p "$HOME/.config/codex"
-mkdir -p "/workspace/src/cl-py-generator"
-mkdir -p "/workspace/src/cl-cpp-generator2"
-mkdir -p "/workspace/src/cl-cl-generator"
+mkdir -p "$HOME/.config/muse"
+#mkdir -p "/workspace/src/cl-py-generator"
+#mkdir -p "/workspace/src/cl-cpp-generator2"
+#mkdir -p "/workspace/src/cl-cl-generator"
 
 if [ ! -f "$env_file" ]; then
   echo "Missing env file: $env_file" >&2
@@ -148,6 +149,7 @@ set -- docker run -it \
   -v "$HOME/.config/github-copilot:/root/.config/github-copilot" \
   -v "$HOME/.config/openai:/root/.config/openai" \
   -v "$HOME/.config/codex:/root/.config/codex" \
+  -v "$HOME/.config/muse:/root/.config/muse" \
   -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
   -v "/home/kiel/stage/cl-py-generator:/workspace/src/cl-py-generator" \
   -v "/home/kiel/stage/cl-cl-generator:/workspace/src/cl-cl-generator" \

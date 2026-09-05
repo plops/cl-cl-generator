@@ -126,7 +126,7 @@
     "xz-utils"
     "rsync"))
 ;; Toggle AI CLI tools
-(defparameter *install-agy* nil)
+(defparameter *install-agy* t)
 (defparameter *install-codex* t)
 (defparameter *install-copilot* t)
 (defparameter *install-kiro-cli* t)
