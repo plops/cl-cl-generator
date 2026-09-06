@@ -121,9 +121,7 @@ mkdir -p "$HOME/.config/github-copilot"
 mkdir -p "$HOME/.config/openai"
 mkdir -p "$HOME/.config/codex"
 mkdir -p "$HOME/.config/muse"
-#mkdir -p "/workspace/src/cl-py-generator"
-#mkdir -p "/workspace/src/cl-cpp-generator2"
-#mkdir -p "/workspace/src/cl-cl-generator"
+
 
 if [ ! -f "$env_file" ]; then
   echo "Missing env file: $env_file" >&2
@@ -155,6 +153,7 @@ set -- docker run -it \
   -v "/home/kiel/stage/cl-cl-generator:/workspace/src/cl-cl-generator" \
   -v "/home/kiel/stage/cl-cpp-generator2:/workspace/src/cl-cpp-generator2" \
   -v "/home/kiel/stage/cl-rust-generator:/workspace/src/cl-rust-generator" \
+  -v "/home/kiel/stage/rs-summarizer:/workspace/src/rs-summarizer" \
   -v my-ai-env-cargo-cache:/root/.cargo
 
 #   -v "$host_src_root:/workspace/src"
