@@ -121,6 +121,8 @@ To avoid authenticating every time you run a new container and to persist chat h
 - `/root/.grok` (holds Grok auth, downloads, and completions)
 - `/root/.cargo` (holds Cargo's downloaded crates, indexes, and git repositories, preventing re-downloads)
 
+`setup02_run.sh` starts the container with the invoking host user's numeric UID and GID. This is important for bind mounts: files created or modified below `/workspace/src` are therefore owned by the host user instead of container `root`. The generator also makes `/root` traversable so the existing credential mounts below `/root` remain usable by that numeric user. Run the container through `setup02_run.sh` rather than calling `docker run` without `--user`.
+
 ### How to Run
 
 Mount your host's home directories and the cargo cache volume when running the container:

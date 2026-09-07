@@ -45,6 +45,9 @@ Environment:
   IMAGE_NAME          Override the image name. Default: my-ai-env:latest
   HOST_SRC_ROOT       Override the mounted source root.
   WORKSPACE_SRC_ROOT  Fallback source root override.
+
+Example:
+  ./setup02_run.sh --gpu --host-kmsg --usb --no-source-isolation --docker-sock
 EOF
 }
 
@@ -116,6 +119,8 @@ else
 fi
 
 image_name=${IMAGE_NAME:-my-ai-env:latest}
+host_uid=$(id -u)
+host_gid=$(id -g)
 
 mkdir -p "$HOME/.gemini"
 mkdir -p "$HOME/.kiro"
@@ -141,6 +146,7 @@ if [ ! -f "$env_file" ]; then
 fi
 
 set -- docker run -it \
+  --user "$host_uid:$host_gid" \
   --env-file "$env_file" \
   -e ANTIGRAVITY_PLAINTEXT_AUTH=1 \
   -e AZURE_CONFIG_DIR=/root/.azure \

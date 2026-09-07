@@ -511,6 +511,10 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                PATH "/usr/local/cuda/bin:$PATH"
                LD_LIBRARY_PATH "/usr/local/cuda/lib64:$LD_LIBRARY_PATH")))
     (workdir "/workspace")
+
+    ;; The run script supplies the host UID/GID. Keep /root traversable so
+    ;; bind-mounted credential directories remain usable by that user.
+    (run "chmod 755 /root")
     
     (comment "Copy the modern uv binary directly from Astral's official release container")
     ,(uv-copy-stage)
