@@ -9,6 +9,7 @@ enable_gpus=0
 enable_graphics=0
 enable_display=0
 enable_usb=0
+enable_source_isolation=1
 gpus_spec="all"
 verbose=0
 
@@ -30,6 +31,10 @@ Options:
                  /opt must remain intact for the NVIDIA CUDA entrypoint.
   --usb          Pass through the host USB bus in privileged mode (needed for
                  J-Link probes; grants broad access to host devices).
+  --source-isolation
+                 Mount only the configured project sources (default).
+  --no-source-isolation
+                 Mount the complete source root at /workspace/src.
   --docker-sock  Bind mount the host Docker socket. This grants the container
                  root-equivalent control over the host Docker daemon.
   -v, --verbose  Print the executed commands.
@@ -70,6 +75,12 @@ while [ "$#" -gt 0 ]; do
       ;;
     --usb)
       enable_usb=1
+      ;;
+    --source-isolation)
+      enable_source_isolation=1
+      ;;
+    --no-source-isolation)
+      enable_source_isolation=0
       ;;
     --docker-sock)
       enable_docker_sock=1
@@ -149,14 +160,18 @@ set -- docker run -it \
   -v "$HOME/.config/codex:/root/.config/codex" \
   -v "$HOME/.config/muse:/root/.config/muse" \
   -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
-  -v "/home/kiel/stage/cl-py-generator:/workspace/src/cl-py-generator" \
-  -v "/home/kiel/stage/cl-cl-generator:/workspace/src/cl-cl-generator" \
-  -v "/home/kiel/stage/cl-cpp-generator2:/workspace/src/cl-cpp-generator2" \
-  -v "/home/kiel/stage/cl-rust-generator:/workspace/src/cl-rust-generator" \
-  -v "/home/kiel/stage/rs-summarizer:/workspace/src/rs-summarizer" \
   -v my-ai-env-cargo-cache:/root/.cargo
 
-#   -v "$host_src_root:/workspace/src"
+if [ "$enable_source_isolation" -eq 1 ]; then
+  set -- "$@" \
+    -v "/home/kiel/stage/cl-py-generator:/workspace/src/cl-py-generator" \
+    -v "/home/kiel/stage/cl-cl-generator:/workspace/src/cl-cl-generator" \
+    -v "/home/kiel/stage/cl-cpp-generator2:/workspace/src/cl-cpp-generator2" \
+    -v "/home/kiel/stage/cl-rust-generator:/workspace/src/cl-rust-generator" \
+    -v "/home/kiel/stage/rs-summarizer:/workspace/src/rs-summarizer"
+else
+  set -- "$@" -v "$host_src_root:/workspace/src"
+fi
 
 if [ "$enable_host_kmsg" -eq 1 ]; then
   set -- "$@" --privileged -v /dev/kmsg:/dev/kmsg
