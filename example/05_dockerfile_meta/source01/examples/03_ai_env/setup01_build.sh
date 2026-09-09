@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 set -eu
-
+export BUILDKIT_LOCAL_SKIP_SET_FLAGS=1
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 dockerfile="$script_dir/Dockerfile"
 emacs_file="$script_dir/.emacs"

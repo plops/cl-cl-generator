@@ -7,7 +7,7 @@
 (in-package :cl-dockerfile-generator)
 
 ;; Toggle NVIDIA / CUDA GPU Support
-(defparameter *enable-cuda* t
+(defparameter *enable-cuda* nil
   "When true, configure the image with NVIDIA CUDA and cuDNN support.")
 
 (defparameter *cuda-flavor* :devel
@@ -38,27 +38,27 @@
   "Minimal base image for CLI builder stages to save build time and memory.")
 
 ;; Enable or disable components to build minimal images
-(defparameter *install-gcc* t)
+(defparameter *install-gcc* nil)
 (defparameter *install-sbcl* t)
-(defparameter *install-emacs* t)
-(defparameter *install-python* t)
-(defparameter *install-python-libs* t) ; google-antigravity SDK
+(defparameter *install-emacs* nil)
+(defparameter *install-python* nil)
+(defparameter *install-python-libs* nil) ; google-antigravity SDK
 (defparameter *install-docker-cli* t
   "Install the Docker CLI for use with an optionally mounted host Docker socket.")
-(defparameter *install-arm-none-eabi* t
+(defparameter *install-arm-none-eabi* nil
   "Install the Arm GNU bare-metal toolchain used by the fountain firmware.")
 (defparameter *arm-none-eabi-version* "14.3.rel1")
 (defparameter *arm-none-eabi-toolchain*
   (format nil "arm-gnu-toolchain-~a-x86_64-arm-none-eabi"
           *arm-none-eabi-version*))
-(defparameter *install-jlink* t
+(defparameter *install-jlink* nil
   "Install the SEGGER J-Link command-line tools used to flash and debug firmware.")
 (defparameter *jlink-version* "9.30")
 (defparameter *jlink-version-code*
   (format nil "V~a" (remove #\. *jlink-version*)))
 (defparameter *jlink-directory*
   (format nil "JLink_Linux_~a_x86_64" *jlink-version-code*))
-(defparameter *install-archify* t
+(defparameter *install-archify* nil
   "Install the Archify Codex skill and a Chrome for Testing browser for visual checks.")
 (defparameter *archify-chrome-build* "stable"
   "Chrome for Testing channel or exact version used by Archify (for example, stable or 140.0.7339.80).")
@@ -102,6 +102,19 @@
     "fd-find"
     "yq"
     "picocom"
+    ;"picotool"
+    "cmake"
+    "gcc-arm-none-eabi"
+    "libnewlib-arm-none-eabi"
+    "build-essential"
+    "libstdc++-arm-none-eabi-newlib"
+    "binutils-multiarch"
+    ;"gdb-multiarch"
+    "git"
+    "python3"
+    "pkg-config"
+    
+    ;"pico-sdk"
     "usbutils"
     "libusb-1.0-0-dev"
     "lsof"
@@ -127,19 +140,19 @@
     "rsync"))
 ;; Toggle AI CLI tools
 (defparameter *install-agy* t)
-(defparameter *install-codex* t)
-(defparameter *install-copilot* t)
-(defparameter *install-kiro-cli* t)
+(defparameter *install-codex* nil)
+(defparameter *install-copilot* nil)
+(defparameter *install-kiro-cli* nil)
 (defparameter *install-azure-cli* nil)
-(defparameter *install-teamcity-cli* t)
+(defparameter *install-teamcity-cli* nil)
 (defparameter *install-grok* nil)
 (defparameter *install-muse* t
   "Install Meta's Muse Code CLI.")
 
 ;; Toggle code-quality tools used by Habit Hooks.
-(defparameter *install-habit-hooks* t)
-(defparameter *install-deptry* t)
-(defparameter *install-jscpd* t)
+(defparameter *install-habit-hooks* nil)
+(defparameter *install-deptry* nil)
+(defparameter *install-jscpd* nil)
 
 ;; Toggle Rust support
 (defparameter *install-rust* t)
