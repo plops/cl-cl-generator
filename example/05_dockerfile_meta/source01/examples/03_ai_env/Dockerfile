@@ -15,6 +15,18 @@ WORKDIR /workspace
 RUN --mount=type=cache,target=/root/.cache/uv uv venv .venv \
  && uv pip install google-antigravity azure-cognitiveservices-speech huggingface_hub openai matplotlib numpy pandas scipy tqdm xarray loguru nbdev requests ruff scikit-learn seaborn polars pyarrow
 # ====================================================================
+# Stage: Antigravity CLI Download
+# ====================================================================
+FROM ubuntu:26.04 AS builder-agy
+ENV DEBIAN_FRONTEND=noninteractive
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl
+WORKDIR /workspace
+# Download, decompress, and run the Antigravity installation script
+RUN curl -fsSL --compressed https://antigravity.google/cli/install.sh -o install.sh \
+ && chmod +x install.sh \
+ && ./install.sh
+# ====================================================================
 # Stage: GitHub Copilot CLI Download
 # ====================================================================
 FROM ubuntu:26.04 AS builder-copilot
@@ -67,6 +79,7 @@ ENV NVIDIA_VISIBLE_DEVICES=all \
     PATH=/usr/local/cuda/bin:$PATH \
     LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 WORKDIR /workspace
+RUN chmod 755 /root
 # Copy the modern uv binary directly from Astral's official release container
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV UV_TOOL_BIN_DIR=/usr/local/bin
@@ -108,6 +121,22 @@ RUN git config --global diff.external difft
 # Copy the isolated Python environment
 COPY --from=builder-python --link /workspace/.venv /workspace/.venv
 ENV PATH=/workspace/.venv/bin:$PATH
+# Copy the actual agy CLI tool from the builder's local path to system binaries
+COPY --from=builder-agy --link --chmod=755 /root/.local/bin/agy /usr/local/bin/agy
+# Rename the original binary and install a wrapper that skips permissions by default
+RUN mv /usr/local/bin/agy /usr/local/bin/agy.real
+COPY <<'EOF' /usr/local/bin/agy
+#!/usr/bin/env bash
+set -euo pipefail
+case " $* " in
+  *" --dangerously-skip-permissions "*) exec /usr/local/bin/agy.real "$@" ;;
+  *) exec /usr/local/bin/agy.real --dangerously-skip-permissions "$@" ;;
+esac
+EOF
+RUN chmod +x /usr/local/bin/agy
+# Add the Antigravity clean environment tweaks to .bashrc
+RUN echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1="\$ "; fi' >> /root/.bashrc \
+ && echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc
 # Install or copy other AI CLI tools
 # Install the newest Codex release directly in the runner image
 RUN --mount=type=cache,target=/root/.npm npm install -g @openai/codex@$(npm view @openai/codex version)

@@ -9,6 +9,7 @@ enable_gpus=0
 enable_graphics=0
 enable_display=0
 enable_usb=0
+enable_source_isolation=1
 gpus_spec="all"
 verbose=0
 
@@ -30,6 +31,10 @@ Options:
                  /opt must remain intact for the NVIDIA CUDA entrypoint.
   --usb          Pass through the host USB bus in privileged mode (needed for
                  J-Link probes; grants broad access to host devices).
+  --source-isolation
+                 Mount only the configured project sources (default).
+  --no-source-isolation
+                 Mount the complete source root at /workspace/src.
   --docker-sock  Bind mount the host Docker socket. This grants the container
                  root-equivalent control over the host Docker daemon.
   -v, --verbose  Print the executed commands.
@@ -40,6 +45,9 @@ Environment:
   IMAGE_NAME          Override the image name. Default: my-ai-env:latest
   HOST_SRC_ROOT       Override the mounted source root.
   WORKSPACE_SRC_ROOT  Fallback source root override.
+
+Example:
+  ./setup02_run.sh --gpu --host-kmsg --usb --no-source-isolation --docker-sock
 EOF
 }
 
@@ -70,6 +78,12 @@ while [ "$#" -gt 0 ]; do
       ;;
     --usb)
       enable_usb=1
+      ;;
+    --source-isolation)
+      enable_source_isolation=1
+      ;;
+    --no-source-isolation)
+      enable_source_isolation=0
       ;;
     --docker-sock)
       enable_docker_sock=1
@@ -105,6 +119,8 @@ else
 fi
 
 image_name=${IMAGE_NAME:-my-ai-env:latest}
+host_uid=$(id -u)
+host_gid=$(id -g)
 
 mkdir -p "$HOME/.gemini"
 mkdir -p "$HOME/.kiro"
@@ -121,9 +137,7 @@ mkdir -p "$HOME/.config/github-copilot"
 mkdir -p "$HOME/.config/openai"
 mkdir -p "$HOME/.config/codex"
 mkdir -p "$HOME/.config/muse"
-#mkdir -p "/workspace/src/cl-py-generator"
-#mkdir -p "/workspace/src/cl-cpp-generator2"
-#mkdir -p "/workspace/src/cl-cl-generator"
+
 
 if [ ! -f "$env_file" ]; then
   echo "Missing env file: $env_file" >&2
@@ -132,6 +146,7 @@ if [ ! -f "$env_file" ]; then
 fi
 
 set -- docker run -it \
+  --user "$host_uid:$host_gid" \
   --env-file "$env_file" \
   -e ANTIGRAVITY_PLAINTEXT_AUTH=1 \
   -e AZURE_CONFIG_DIR=/root/.azure \
@@ -151,12 +166,18 @@ set -- docker run -it \
   -v "$HOME/.config/codex:/root/.config/codex" \
   -v "$HOME/.config/muse:/root/.config/muse" \
   -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
-  -v "/home/kiel/stage/cl-py-generator:/workspace/src/cl-py-generator" \
-  -v "/home/kiel/stage/cl-cl-generator:/workspace/src/cl-cl-generator" \
-  -v "/home/kiel/stage/cl-cpp-generator2:/workspace/src/cl-cpp-generator2" \
   -v my-ai-env-cargo-cache:/root/.cargo
 
-#   -v "$host_src_root:/workspace/src"
+if [ "$enable_source_isolation" -eq 1 ]; then
+  set -- "$@" \
+    -v "/home/kiel/stage/cl-py-generator:/workspace/src/cl-py-generator" \
+    -v "/home/kiel/stage/cl-cl-generator:/workspace/src/cl-cl-generator" \
+    -v "/home/kiel/stage/cl-cpp-generator2:/workspace/src/cl-cpp-generator2" \
+    -v "/home/kiel/stage/cl-rust-generator:/workspace/src/cl-rust-generator" \
+    -v "/home/kiel/stage/rs-summarizer:/workspace/src/rs-summarizer"
+else
+  set -- "$@" -v "$host_src_root:/workspace/src"
+fi
 
 if [ "$enable_host_kmsg" -eq 1 ]; then
   set -- "$@" --privileged -v /dev/kmsg:/dev/kmsg
