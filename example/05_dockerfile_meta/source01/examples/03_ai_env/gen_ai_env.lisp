@@ -38,20 +38,20 @@
   "Minimal base image for CLI builder stages to save build time and memory.")
 
 ;; Enable or disable components to build minimal images
-(defparameter *install-gcc* nil)
+(defparameter *install-gcc* t)
 (defparameter *install-sbcl* t)
 (defparameter *install-emacs* nil)
-(defparameter *install-python* nil)
-(defparameter *install-python-libs* nil) ; google-antigravity SDK
-(defparameter *install-docker-cli* t
+(defparameter *install-python* t)
+(defparameter *install-python-libs* t) ; google-antigravity SDK
+(defparameter *install-docker-cli* nil
   "Install the Docker CLI for use with an optionally mounted host Docker socket.")
-(defparameter *install-arm-none-eabi* nil
+(defparameter *install-arm-none-eabi* t
   "Install the Arm GNU bare-metal toolchain used by the fountain firmware.")
 (defparameter *arm-none-eabi-version* "14.3.rel1")
 (defparameter *arm-none-eabi-toolchain*
   (format nil "arm-gnu-toolchain-~a-x86_64-arm-none-eabi"
           *arm-none-eabi-version*))
-(defparameter *install-jlink* nil
+(defparameter *install-jlink* t
   "Install the SEGGER J-Link command-line tools used to flash and debug firmware.")
 (defparameter *jlink-version* "9.30")
 (defparameter *jlink-version-code*
@@ -102,19 +102,19 @@
     "fd-find"
     "yq"
     "picocom"
-    ;"picotool"
+					;"picotool"
     "cmake"
     "gcc-arm-none-eabi"
     "libnewlib-arm-none-eabi"
     "build-essential"
     "libstdc++-arm-none-eabi-newlib"
     "binutils-multiarch"
-    ;"gdb-multiarch"
+					;"gdb-multiarch"
     "git"
-    "python3"
+					; "python3"
     "pkg-config"
     
-    ;"pico-sdk"
+					;"pico-sdk"
     "usbutils"
     "libusb-1.0-0-dev"
     "lsof"
@@ -139,10 +139,10 @@
     "xz-utils"
     "rsync"))
 ;; Toggle AI CLI tools
-(defparameter *install-agy* t)
-(defparameter *install-codex* nil)
-(defparameter *install-copilot* nil)
-(defparameter *install-kiro-cli* nil)
+(defparameter *install-agy* nil)
+(defparameter *install-codex* t)
+(defparameter *install-copilot* t)
+(defparameter *install-kiro-cli* t)
 (defparameter *install-azure-cli* nil)
 (defparameter *install-teamcity-cli* nil)
 (defparameter *install-grok* nil)
@@ -423,7 +423,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       ,(uv-copy-stage)
       (comment "Install base toolsets required to compile Python extensions")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-           (and "apt-get update"
+           (and 
                 "apt-get install -y --no-install-recommends python3-pip python3-venv python3-dev build-essential ca-certificates"))
       (workdir "/workspace")
       (comment "Install the programmatic Python SDK using uv")
@@ -439,7 +439,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       (from ,*builder-base-image* :as builder-agy)
       (env DEBIAN_FRONTEND "noninteractive")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-           (and "apt-get update"
+           (and 
                 "apt-get install -y --no-install-recommends ca-certificates curl"))
       (workdir "/workspace")
       (comment "Download, decompress, and run the Antigravity installation script")
@@ -455,7 +455,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       (from ,*builder-base-image* :as builder-copilot)
       (env DEBIAN_FRONTEND "noninteractive")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-           (and "apt-get update"
+           (and 
                 "apt-get install -y --no-install-recommends ca-certificates curl"))
       (workdir "/workspace")
       (comment "Download and install GitHub Copilot CLI from the official installer")
@@ -471,7 +471,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       (from ,*builder-base-image* :as builder-kiro)
       (env DEBIAN_FRONTEND "noninteractive")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-           (and "apt-get update"
+           (and 
                 "apt-get install -y --no-install-recommends ca-certificates curl unzip"))
       (workdir "/workspace")
       (comment "Install kiro-cli from Amazon using the official zip package")
@@ -489,7 +489,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       (from ,*builder-base-image* :as builder-teamcity)
       (env DEBIAN_FRONTEND "noninteractive")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-           (and "apt-get update"
+           (and 
                 "apt-get install -y --no-install-recommends ca-certificates curl"))
       (workdir "/workspace")
       (comment "Install TeamCity CLI from the official JetBrains installer")
@@ -535,7 +535,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     
     (comment "Install the essential tool belt for agents")
     (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-         (and "apt-get update"
+         (and 
               ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" (append '("curl" "ca-certificates" "git" "jq") *ubuntu-packages*))))
     
     (comment "Install component dependencies in separate layers for caching")
@@ -646,7 +646,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                     "repo_suite=\"$suite\""
                     "if ! curl -fsI \"https://packages.microsoft.com/repos/azure-cli/dists/${repo_suite}/Release\" >/dev/null; then repo_suite=\"noble\"; fi"
                     "printf '%s\\n' 'Types: deb' 'URIs: https://packages.microsoft.com/repos/azure-cli/' \"Suites: ${repo_suite}\" 'Components: main' \"Architectures: ${arch}\" 'Signed-By: /etc/apt/keyrings/microsoft.gpg' > /etc/apt/sources.list.d/azure-cli.sources"
-                    "apt-get update"
+                    
                     "apt-get install -y --no-install-recommends azure-cli"))))
 
     ,@(when *install-docker-cli*
@@ -657,7 +657,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                     "chmod a+r /etc/apt/keyrings/docker.gpg"
                     "suite=\"$(. /etc/os-release && printf '%s' \"${UBUNTU_CODENAME:-$VERSION_CODENAME}\")\""
                     "printf '%s\\n' 'Types: deb' 'URIs: https://download.docker.com/linux/ubuntu' \"Suites: ${suite}\" 'Components: stable' 'Signed-By: /etc/apt/keyrings/docker.gpg' > /etc/apt/sources.list.d/docker.sources"
-                    "apt-get update"
+                    
                     "apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin"))))
 
     ,@(when *install-arm-none-eabi*

@@ -6,3 +6,6 @@ codex
 grok
 
 start
+
+clang-format
+clang-d

@@ -125,6 +125,7 @@ host_gid=$(id -g)
 mkdir -p "$HOME/.gemini"
 mkdir -p "$HOME/.kiro"
 mkdir -p "$HOME/.local/share/kiro-cli"
+mkdir -p "$HOME/.local/share/muse"
 mkdir -p "$HOME/.aws"
 mkdir -p "$HOME/.azure"
 mkdir -p "$HOME/.copilot"
@@ -146,13 +147,13 @@ if [ ! -f "$env_file" ]; then
 fi
 
 set -- docker run -it \
-  --user "$host_uid:$host_gid" \
   --env-file "$env_file" \
   -e ANTIGRAVITY_PLAINTEXT_AUTH=1 \
   -e AZURE_CONFIG_DIR=/root/.azure \
   -v "$HOME/.gemini:/root/.gemini" \
   -v "$HOME/.kiro:/root/.kiro" \
   -v "$HOME/.local/share/kiro-cli:/root/.local/share/kiro-cli" \
+  -v "$HOME/.local/share/muse:/root/.local/share/muse" \
   -v "$HOME/.aws:/root/.aws" \
   -v "$HOME/.azure:/root/.azure" \
   -v "$HOME/.copilot:/root/.copilot" \
@@ -168,13 +169,16 @@ set -- docker run -it \
   -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
   -v my-ai-env-cargo-cache:/root/.cargo
 
+#set -- "$@" --user "$host_uid:$host_gid" 
+
 if [ "$enable_source_isolation" -eq 1 ]; then
   set -- "$@" \
     -v "/home/kiel/stage/cl-py-generator:/workspace/src/cl-py-generator" \
     -v "/home/kiel/stage/cl-cl-generator:/workspace/src/cl-cl-generator" \
     -v "/home/kiel/stage/cl-cpp-generator2:/workspace/src/cl-cpp-generator2" \
     -v "/home/kiel/stage/cl-rust-generator:/workspace/src/cl-rust-generator" \
-    -v "/home/kiel/stage/rs-summarizer:/workspace/src/rs-summarizer"
+    -v "/home/kiel/stage/rs-summarizer:/workspace/src/rs-summarizer" \
+    -v "/home/kiel/stage/mosh-tcp:/workspace/src/mosh-tcp"
 else
   set -- "$@" -v "$host_src_root:/workspace/src"
 fi

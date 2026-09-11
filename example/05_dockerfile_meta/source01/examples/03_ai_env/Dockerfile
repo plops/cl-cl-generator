@@ -1,15 +1,42 @@
 # ====================================================================
-# Stage: Antigravity CLI Download
+# Stage: Python Dependencies (runs in parallel with other builders)
 # ====================================================================
-FROM ubuntu:26.04 AS builder-agy
+FROM ubuntu:26.04 AS builder-python
 ENV DEBIAN_FRONTEND=noninteractive
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+# Grab the modern uv binary directly from Astral's official release container
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Install base toolsets required to compile Python extensions
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends python3-pip python3-venv python3-dev build-essential ca-certificates
 WORKDIR /workspace
-# Download, decompress, and run the Antigravity installation script
-RUN curl -fsSL --compressed https://antigravity.google/cli/install.sh -o install.sh \
- && chmod +x install.sh \
- && ./install.sh
+# Install the programmatic Python SDK using uv
+RUN --mount=type=cache,target=/root/.cache/uv uv venv .venv \
+ && uv pip install google-antigravity azure-cognitiveservices-speech huggingface_hub openai matplotlib numpy pandas scipy tqdm xarray loguru nbdev requests ruff scikit-learn seaborn
+# ====================================================================
+# Stage: GitHub Copilot CLI Download
+# ====================================================================
+FROM ubuntu:26.04 AS builder-copilot
+ENV DEBIAN_FRONTEND=noninteractive
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends ca-certificates curl
+WORKDIR /workspace
+# Download and install GitHub Copilot CLI from the official installer
+RUN curl -fsSL https://gh.io/copilot-install -o copilot-install.sh \
+ && PREFIX=/usr/local VERSION=latest bash copilot-install.sh \
+ && rm copilot-install.sh
+# ====================================================================
+# Stage: Kiro CLI Download
+# ====================================================================
+FROM ubuntu:26.04 AS builder-kiro
+ENV DEBIAN_FRONTEND=noninteractive
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends ca-certificates curl unzip
+WORKDIR /workspace
+# Install kiro-cli from Amazon using the official zip package
+RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip -o /tmp/kirocli.zip \
+ && unzip -q /tmp/kirocli.zip -d /tmp/kirocli-extracted \
+ && chmod +x /tmp/kirocli-extracted/kirocli/install.sh \
+ && KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh \
+ && rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted
 # =====================================================================
 # Stage 2: Insulated Runtime Runner
 # =====================================================================
@@ -21,12 +48,12 @@ RUN chmod 755 /root
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV UV_TOOL_BIN_DIR=/usr/local/bin
 # Install the essential tool belt for agents
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates git jq less file findutils tree man-db procps psmisc iproute2 iputils-ping dnsutils ripgrep fd-find yq picocom cmake gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential libstdc++-arm-none-eabi-newlib binutils-multiarch git python3 pkg-config usbutils libusb-1.0-0-dev lsof strace moreutils tmux shellcheck fzf cmake pkg-config clang-format clang-tidy clangd ninja-build bat git-lfs openssh-client dos2unix parallel unzip zip xz-utils rsync
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends curl ca-certificates git jq less file findutils tree man-db procps psmisc iproute2 iputils-ping dnsutils ripgrep fd-find yq picocom cmake gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential libstdc++-arm-none-eabi-newlib binutils-multiarch git pkg-config usbutils libusb-1.0-0-dev lsof strace moreutils tmux shellcheck fzf cmake pkg-config clang-format clang-tidy clangd ninja-build bat git-lfs openssh-client dos2unix parallel unzip zip xz-utils rsync
 # Install component dependencies in separate layers for caching
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends build-essential gcc
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends sbcl rlwrap
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends gnupg
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends python3-full
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get install -y --no-install-recommends nodejs npm
 # Install rustup and stable Rust toolchain
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
  && chmod -R a+w /root/.rustup
@@ -36,30 +63,75 @@ RUN --mount=type=cache,target=/root/.cargo/registry --mount=type=cache,target=/r
  && ln -sf /root/.cargo/bin/difft /usr/local/bin/difft
 # Configure Git to use difftastic as default diff tool
 RUN git config --global diff.external difft
-# Copy the actual agy CLI tool from the builder's local path to system binaries
-COPY --from=builder-agy --link --chmod=755 /root/.local/bin/agy /usr/local/bin/agy
-# Rename the original binary and install a wrapper that skips permissions by default
-RUN mv /usr/local/bin/agy /usr/local/bin/agy.real
-COPY <<'EOF' /usr/local/bin/agy
+# Copy the isolated Python environment
+COPY --from=builder-python --link /workspace/.venv /workspace/.venv
+ENV PATH=/workspace/.venv/bin:$PATH
+# Install or copy other AI CLI tools
+# Install the newest Codex release directly in the runner image
+RUN --mount=type=cache,target=/root/.npm npm install -g @openai/codex@$(npm view @openai/codex version)
+# Rename the original binary and install a wrapper that bypasses approvals and sandboxing by default
+RUN mv /usr/local/bin/codex /usr/local/bin/codex.real
+COPY <<'EOF' /usr/local/bin/codex
 #!/usr/bin/env bash
 set -euo pipefail
 case " $* " in
-  *" --dangerously-skip-permissions "*) exec /usr/local/bin/agy.real "$@" ;;
-  *) exec /usr/local/bin/agy.real --dangerously-skip-permissions "$@" ;;
+  *" --dangerously-bypass-approvals-and-sandbox "*) exec /usr/local/bin/codex.real "$@" ;;
+  *) exec /usr/local/bin/codex.real --dangerously-bypass-approvals-and-sandbox "$@" ;;
 esac
 EOF
-RUN chmod +x /usr/local/bin/agy
-# Add the Antigravity clean environment tweaks to .bashrc
-RUN echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1="\$ "; fi' >> /root/.bashrc \
- && echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc
-# Install Docker CLI for an optionally mounted host Docker socket
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked install -m 0755 -d /etc/apt/keyrings \
- && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
- && chmod a+r /etc/apt/keyrings/docker.gpg \
- && suite="$(. /etc/os-release && printf '%s' "${UBUNTU_CODENAME:-$VERSION_CODENAME}")" \
- && printf '%s\n' 'Types: deb' 'URIs: https://download.docker.com/linux/ubuntu' "Suites: ${suite}" 'Components: stable' 'Signed-By: /etc/apt/keyrings/docker.gpg' > /etc/apt/sources.list.d/docker.sources \
- && apt-get update \
- && apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin
+RUN chmod +x /usr/local/bin/codex
+COPY --from=builder-copilot --link --chmod=755 /usr/local/bin/copilot /usr/local/bin/copilot
+# Rename the original binary and install a wrapper that allows all actions by default
+RUN mv /usr/local/bin/copilot /usr/local/bin/copilot.real
+COPY <<'EOF' /usr/local/bin/copilot
+#!/usr/bin/env bash
+set -euo pipefail
+case " $* " in
+  *" --allow-all "*) exec /usr/local/bin/copilot.real "$@" ;;
+  *) exec /usr/local/bin/copilot.real --allow-all "$@" ;;
+esac
+EOF
+RUN chmod +x /usr/local/bin/copilot
+COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli
+COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-chat
+COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli-term /usr/local/bin/kiro-cli-term
+# Rename the original binary and install a wrapper that skips confirmation for init
+RUN mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real
+COPY <<'EOF' /usr/local/bin/kiro-cli
+#!/usr/bin/env bash
+set -euo pipefail
+subcommand="${1:-}"
+case "$subcommand" in
+  init)
+    for arg in "$@"; do
+      if [[ $arg == --force ]]; then
+        exec /usr/local/bin/kiro-cli.real --v3 "$@"
+      fi
+    done
+    exec /usr/local/bin/kiro-cli.real --v3 init --force "${@:2}"
+    ;;
+  whoami|settings|version|help|--help|-h|--version)
+    exec /usr/local/bin/kiro-cli.real "$@"
+    ;;
+  chat)
+    exec /usr/local/bin/kiro-cli.real chat --v3 --trust-all-tools "${@:2}"
+    ;;
+  *)
+    exec /usr/local/bin/kiro-cli.real chat --v3 --trust-all-tools "$@"
+    ;;
+esac
+EOF
+RUN chmod +x /usr/local/bin/kiro-cli
+# Install the Arm GNU bare-metal toolchain used by fountain firmware
+RUN curl -fL https://developer.arm.com/-/media/Files/downloads/gnu/14.3.rel1/binrel/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi.tar.xz -o /tmp/arm-none-eabi.tar.xz \
+ && tar -xJf /tmp/arm-none-eabi.tar.xz -C /opt \
+ && rm /tmp/arm-none-eabi.tar.xz
+ENV PATH=/opt/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi/bin:$PATH
+# Install SEGGER J-Link tools (the download accepts SEGGER's license terms)
+RUN curl -fL --data 'accept_license_agreement=accepted&non_eu_market=true' https://www.segger.com/downloads/jlink/JLink_Linux_V930_x86_64.tgz -o /tmp/jlink.tgz \
+ && tar -xzf /tmp/jlink.tgz -C /opt \
+ && rm /tmp/jlink.tgz
+ENV PATH=/opt/JLink_Linux_V930_x86_64:$PATH
 # Download and install Quicklisp
 RUN curl -O https://beta.quicklisp.org/quicklisp.lisp \
  && sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)" \
@@ -82,6 +154,33 @@ RUN sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quicklo
 # Install Meta Muse Code from the official installer
 RUN curl -fsSL https://dev.meta.ai/install.sh | MUSE_INSTALL_DIR=/usr/local/bin bash \
  && command -v muse
+# Smoke test Codex by running the CLI and asserting it matches the latest npm release
+RUN <<'EOF'
+set -eu
+codex --version > /tmp/codex-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/codex-version.txt
+installed_version="$(node -p "require(require('path').join(process.argv[1], '@openai/codex/package.json')).version" "$(npm root -g)" | tr -d '[:space:]')"
+latest_version="$(npm view @openai/codex version | tr -d '[:space:]')"
+[ -n "$installed_version" ]
+[ "$installed_version" = "$latest_version" ]
+
+EOF
+# Smoke test kiro-cli by invoking the wrapped CLI and helpers
+RUN <<'EOF'
+set -eu
+kiro-cli --help > /tmp/kiro-cli-help.txt
+[ -s /tmp/kiro-cli-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-help.txt
+
+kiro-cli-chat --help > /tmp/kiro-cli-chat-help.txt
+[ -s /tmp/kiro-cli-chat-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-chat-help.txt
+
+kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
+[ -s /tmp/kiro-cli-term-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-term-help.txt
+
+EOF
 # Smoke test Meta Muse Code by checking the CLI version
 RUN <<'EOF'
 set -eu
@@ -90,13 +189,41 @@ muse --version > /tmp/muse-version.txt
 grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/muse-version.txt
 
 EOF
-# Smoke test Docker CLI and Buildx by checking their client versions
+# Smoke test Arm GNU bare-metal toolchain by compiling a Cortex-M7 object
 RUN <<'EOF'
 set -eu
-docker --version > /tmp/docker-version.txt
-grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
-docker buildx version > /tmp/docker-buildx-version.txt
-grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
+tmpdir="$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)"
+cat > "$tmpdir/test.c" <<'C_EOF'
+void Reset_Handler(void) {}
+C_EOF
+arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c "$tmpdir/test.c" -o "$tmpdir/test.o"
+arm-none-eabi-readelf -h "$tmpdir/test.o" > "$tmpdir/readelf.txt"
+grep -Eq 'Machine:[[:space:]]+ARM' "$tmpdir/readelf.txt"
+rm -rf "$tmpdir"
+
+EOF
+# Smoke test SEGGER J-Link command-line tools by checking their pinned version
+RUN <<'EOF'
+set -eu
+JLinkGDBServerCLExe -version > /tmp/jlink-version.txt
+grep -F 'V9.30 ' /tmp/jlink-version.txt
+command -v JLinkExe >/dev/null
+
+EOF
+# Smoke test GCC by compiling and running a tiny C program
+RUN <<'EOF'
+set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-gcc.XXXXXX)"
+cat > "$tmpdir/test.c" <<'C_EOF'
+#include <stdio.h>
+
+int main(void) {
+  puts("gcc-ok");
+  return 0;
+}
+C_EOF
+gcc "$tmpdir/test.c" -o "$tmpdir/test"
+"$tmpdir/test"
 
 EOF
 # Smoke test Rust by compiling and running a tiny program
@@ -110,6 +237,14 @@ fn main() {
 R_EOF
 rustc "$tmpdir/test.rs" -o "$tmpdir/test"
 "$tmpdir/test"
+
+EOF
+# Smoke test Python by running a tiny script
+RUN <<'EOF'
+set -eu
+python3 - <<'PY_EOF'
+print("python-ok")
+PY_EOF
 
 EOF
 # Smoke test SBCL by evaluating a simple expression
