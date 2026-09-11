@@ -213,16 +213,21 @@
    (format nil "case \" $* \" in~%  *\" --always-approve \"*) exec ~a \"$@\" ;;~%  *) exec ~a --always-approve \"$@\" ;;~%esac"
            real-binary real-binary)))
 
+(defun muse-wrapper-script (real-binary)
+  (make-bash-script
+   (format nil "case \" $* \" in~%  *\" --yolo \"*) exec ~a \"$@\" ;;~%  *) exec ~a --yolo \"$@\" ;;~%esac"
+           real-binary real-binary)))
 (defparameter *smoke-tests*
-  `((*install-codex* "Codex by running the CLI and asserting it matches the latest npm release"
-                     #r(set -eu
+  `((*install-codex*
+     "Codex by running the CLI and asserting it matches the latest npm release"
+     #r(set -eu
 codex --version > /tmp/codex-version.txt
 grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/codex-version.txt
 installed_version="$(node -p "require(require('path').join(process.argv[1], '@openai/codex/package.json')).version" "$(npm root -g)" | tr -d '[:space:]')"
 latest_version="$(npm view @openai/codex version | tr -d '[:space:]')"
 [ -n "$installed_version" ]
 [ "$installed_version" = "$latest_version" ]
-))
+	    ))
     (*install-kiro-cli* "kiro-cli by invoking the wrapped CLI and helpers"
                         #r(set -eu
 kiro-cli --help > /tmp/kiro-cli-help.txt
@@ -236,32 +241,34 @@ grep -qi "kiro" /tmp/kiro-cli-chat-help.txt
 kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
 [ -s /tmp/kiro-cli-term-help.txt ]
 grep -qi "kiro" /tmp/kiro-cli-term-help.txt
-))
+			       ))
     (*install-grok* "Grok Build by checking the CLI version"
                     #r(set -eu
-grok --version
-agent --version
-))
-    (*install-muse* "Meta Muse Code by checking the CLI version"
-                    #r(set -eu
+			   grok --version
+			   agent --version
+			   ))
+    (*install-muse*
+     "Meta Muse Code by checking the CLI version"
+     #r(set -eu
 muse --version > /tmp/muse-version.txt
 [ -s /tmp/muse-version.txt ]
 grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/muse-version.txt
-))
+	    ))
     (*install-azure-cli* "Azure CLI by checking the installed version"
-                        #r(set -eu
-az version > /tmp/az-version.json
-grep -q '"azure-cli"' /tmp/az-version.json
-))
+                         #r(set -eu
+				az version > /tmp/az-version.json
+				grep -q '"azure-cli"' /tmp/az-version.json
+				))
     (*install-docker-cli* "Docker CLI and Buildx by checking their client versions"
                           #r(set -eu
-docker --version > /tmp/docker-version.txt
-grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
-docker buildx version > /tmp/docker-buildx-version.txt
-grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
-))
-    (*install-arm-none-eabi* "Arm GNU bare-metal toolchain by compiling a Cortex-M7 object"
-                             #r(set -eu
+				 docker --version > /tmp/docker-version.txt
+				 grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
+				 docker buildx version > /tmp/docker-buildx-version.txt
+				 grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
+				 ))
+    (*install-arm-none-eabi*
+     "Arm GNU bare-metal toolchain by compiling a Cortex-M7 object"
+     #r(set -eu
 tmpdir="$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)"
 cat > "$tmpdir/test.c" <<'C_EOF'
 void Reset_Handler(void) {}
@@ -270,66 +277,66 @@ arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c "$tmpdir/test.c" -o 
 arm-none-eabi-readelf -h "$tmpdir/test.o" > "$tmpdir/readelf.txt"
 grep -Eq 'Machine:[[:space:]]+ARM' "$tmpdir/readelf.txt"
 rm -rf "$tmpdir"
-))
+	    ))
     (*install-jlink* "SEGGER J-Link command-line tools by checking their pinned version"
                      ,(format nil #r(set -eu
-JLinkGDBServerCLExe -version > /tmp/jlink-version.txt
-grep -F 'V~a ' /tmp/jlink-version.txt
-command -v JLinkExe >/dev/null
-) *jlink-version*))
+					 JLinkGDBServerCLExe -version > /tmp/jlink-version.txt
+					 grep -F 'V~a ' /tmp/jlink-version.txt
+					 command -v JLinkExe >/dev/null
+					 ) *jlink-version*))
     (*install-teamcity-cli* "TeamCity CLI by checking the installed version"
                             #r(set -eu
-teamcity --version > /tmp/teamcity-version.txt
-[ -s /tmp/teamcity-version.txt ]
-grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
-))
+				   teamcity --version > /tmp/teamcity-version.txt
+				   [ -s /tmp/teamcity-version.txt ]
+				   grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
+				   ))
     (*install-habit-hooks* "Habit Hooks by checking the CLI help"
                            #r(set -eu
-habit-hooks --help > /tmp/habit-hooks-help.txt
-[ -s /tmp/habit-hooks-help.txt ]
-))
+				  habit-hooks --help > /tmp/habit-hooks-help.txt
+				  [ -s /tmp/habit-hooks-help.txt ]
+				  ))
     (*install-deptry* "Deptry by checking the CLI version"
                       #r(set -eu
-deptry --version
-))
+			     deptry --version
+			     ))
     (*install-jscpd* "JSCPD by checking the CLI version"
                      #r(set -eu
-jscpd --version
-))
+			    jscpd --version
+			    ))
     (*install-archify* "Archify and its headless Chrome runtime"
-                       #r(set -eu
-archify_dir=/root/.agents/skills/archify
-test -f "$archify_dir/SKILL.md"
-test -f "$archify_dir/bin/archify.mjs"
-node "$archify_dir/bin/archify.mjs" doctor
-test -x "$ARCHIFY_CHROME"
-"$ARCHIFY_CHROME" --headless --no-sandbox --disable-gpu --dump-dom about:blank > /tmp/archify-chrome.html
-grep -qi '<html' /tmp/archify-chrome.html
-tmpdir="$(mktemp -d /tmp/ai-env-archify.XXXXXX)"
-node "$archify_dir/bin/archify.mjs" demo "$tmpdir"
-test -s "$tmpdir/archify-demo.html"
-rm -rf "$tmpdir"
-))
+		       #r(set -eu
+			      archify_dir=/root/.agents/skills/archify
+			      test -f "$archify_dir/SKILL.md"
+			      test -f "$archify_dir/bin/archify.mjs"
+			      node "$archify_dir/bin/archify.mjs" doctor
+			      test -x "$ARCHIFY_CHROME"
+			      "$ARCHIFY_CHROME" --headless --no-sandbox --disable-gpu --dump-dom about:blank > /tmp/archify-chrome.html
+			      grep -qi '<html' /tmp/archify-chrome.html
+			      tmpdir="$(mktemp -d /tmp/ai-env-archify.XXXXXX)"
+			      node "$archify_dir/bin/archify.mjs" demo "$tmpdir"
+			      test -s "$tmpdir/archify-demo.html"
+			      rm -rf "$tmpdir"
+			      ))
     (*enable-cuda* "CUDA nvcc compiler by compiling and verifying a test CUDA kernel"
                    #r(set -eu
-if command -v nvcc >/dev/null 2>&1; then
-  nvcc --version
-  tmpdir="$(mktemp -d /tmp/ai-env-cuda.XXXXXX)"
-  cat > "$tmpdir/test.cu" <<'CU_EOF'
-#include <stdio.h>
+			  if command -v nvcc >/dev/null 2>&1 ; then
+			  nvcc --version
+			  tmpdir="$(mktemp -d /tmp/ai-env-cuda.XXXXXX)"
+			  cat > "$tmpdir/test.cu" <<'CU_EOF'
+			  #include <stdio.h>
 
-__global__ void test_kernel(void) {}
+			  __global__ void test_kernel(void) {}
 
-int main(void) {
-  test_kernel<<<1, 1>>>();
-  puts("cuda-build-ok");
-  return 0;
-}
-CU_EOF
-  nvcc "$tmpdir/test.cu" -o "$tmpdir/test"
-  rm -rf "$tmpdir"
-fi
-))
+			  int main(void) {
+			  test_kernel<<<1, 1>>>() ;
+			  puts("cuda-build-ok")   ;
+			  return 0		   ;
+			  }
+			  CU_EOF
+			  nvcc "$tmpdir/test.cu" -o "$tmpdir/test"
+			  rm -rf "$tmpdir"
+			  fi
+			  ))
     (*install-gcc* "GCC by compiling and running a tiny C program"
                    #r(set -eu
 tmpdir="$(mktemp -d /tmp/ai-env-gcc.XXXXXX)"
@@ -337,34 +344,34 @@ cat > "$tmpdir/test.c" <<'C_EOF'
 #include <stdio.h>
 
 int main(void) {
-  puts("gcc-ok");
-  return 0;
+puts("gcc-ok") ;
+return 0	  ;
 }
 C_EOF
 gcc "$tmpdir/test.c" -o "$tmpdir/test"
 "$tmpdir/test"
-))
+			  ))
     (*install-rust* "Rust by compiling and running a tiny program"
                     #r(set -eu
 tmpdir="$(mktemp -d /tmp/ai-env-rust.XXXXXX)"
 cat > "$tmpdir/test.rs" <<'R_EOF'
 fn main() {
-    println!("rust-ok");
+println!("rust-ok") ;
 }
 R_EOF
 rustc "$tmpdir/test.rs" -o "$tmpdir/test"
 "$tmpdir/test"
-))
+			   ))
     ((or *install-python* *install-python-libs*) "Python by running a tiny script"
-                                                 #r(set -eu
+     #r(set -eu
 python3 - <<'PY_EOF'
 print("python-ok")
 PY_EOF
-))
+	    ))
     (*install-sbcl* "SBCL by evaluating a simple expression"
                     #r(set -eu
 sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'
-))
+			   ))
     (*install-emacs* "Emacs by opening a file with the configured init"
                      #r(set -eu
 tmpdir="$(mktemp -d /tmp/ai-env-emacs-open.XXXXXX)"
@@ -378,31 +385,31 @@ cat > "$tmpdir/check.el" <<'EMACS_EOF'
 EMACS_EOF
 sed -i "s#/tmp/ai-env-emacs-open.XXXXXX#$tmpdir#g" "$tmpdir/check.el"
 emacs --batch -l /root/.emacs -l "$tmpdir/check.el"
-))
+			    ))
     ((and *install-emacs* *install-sbcl*) "Emacs + SLIME by opening and loading a Lisp file"
-                                          #r(set -eu
-tmpdir="$(mktemp -d /tmp/ai-env-slime.XXXXXX)"
-cat > "$tmpdir/example.lisp" <<'LISP_EOF'
-(+ 1 2)
-LISP_EOF
-cat > "$tmpdir/slime-check.el" <<'SLIME_EOF'
-(require 'slime)
-(setq inferior-lisp-program "sbcl")
-(slime-setup '(slime-repl))
-(slime)
-(let ((deadline (+ (float-time) 120)))
-  (while (and (not (slime-connected-p)) (< (float-time) deadline))
-    (sleep-for 0.2))
-  (unless (slime-connected-p)
-    (error "SLIME connection timed out")))
-(find-file "/tmp/ai-env-slime.XXXXXX/example.lisp")
-(slime-load-file "/tmp/ai-env-slime.XXXXXX/example.lisp")
-(unless (= 3 (slime-eval '(cl:+ 1 2)))
-  (error "SLIME evaluation returned the wrong value"))
-SLIME_EOF
-sed -i "s#/tmp/ai-env-slime.XXXXXX#$tmpdir#g" "$tmpdir/slime-check.el"
-emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
-))))
+     #r(set -eu
+	    tmpdir="$(mktemp -d /tmp/ai-env-slime.XXXXXX)"
+	    cat > "$tmpdir/example.lisp" <<'LISP_EOF'
+	    (+ 1 2)
+	    LISP_EOF
+	    cat > "$tmpdir/slime-check.el" <<'SLIME_EOF'
+	    (require 'slime)
+	    (setq inferior-lisp-program "sbcl")
+	    (slime-setup '(slime-repl))
+	    (slime)
+	    (let ((deadline (+ (float-time) 120)))
+	      (while (and (not (slime-connected-p)) (< (float-time) deadline))
+		     (sleep-for 0.2))
+	      (unless (slime-connected-p)
+		(error "SLIME connection timed out")))
+	    (find-file "/tmp/ai-env-slime.XXXXXX/example.lisp")
+	    (slime-load-file "/tmp/ai-env-slime.XXXXXX/example.lisp")
+	    (unless (= 3 (slime-eval '(cl:+ 1 2)))
+	      (error "SLIME evaluation returned the wrong value"))
+	    SLIME_EOF
+	    sed -i "s#/tmp/ai-env-slime.XXXXXX#$tmpdir#g" "$tmpdir/slime-check.el"
+	    emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
+	    ))))
 
 (defun test-stage ()
   (loop for (cond-expr desc script) in *smoke-tests*
@@ -724,7 +731,11 @@ exec /usr/local/bin/agent.real "$@"
     ,@(when *install-muse*
         `((comment "Install Meta Muse Code from the official installer")
           (run (and "curl -fsSL https://dev.meta.ai/install.sh | MUSE_INSTALL_DIR=/usr/local/bin bash"
-                    "command -v muse"))))
+                    "command -v muse"))
+	  (run "cp /usr/local/bin/muse /usr/local/bin/muse.real")
+	  (copy :heredoc "/usr/local/bin/muse"
+                ,(muse-wrapper-script "/usr/local/bin/muse.real"))
+	  (run "chmod +x /usr/local/bin/muse /usr/local/bin/muse.real")))
 
     ;; 6. Setup Emacs if Emacs is enabled
     ,@(when (and *install-sbcl* *install-emacs*)
