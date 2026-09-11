@@ -47,7 +47,8 @@ Environment:
   WORKSPACE_SRC_ROOT  Fallback source root override.
 
 Example:
-  ./setup02_run.sh --gpu --host-kmsg --usb --no-source-isolation --docker-sock
+  ./setup02_run.sh --host-kmsg --usb --docker-sock --no-source-isolation --gpu
+  ./setup02_run.sh --host-kmsg --usb --no-source-isolation
 EOF
 }
 

@@ -47,11 +47,11 @@
   "Install the Docker CLI for use with an optionally mounted host Docker socket.")
 (defparameter *install-arm-none-eabi* t
   "Install the Arm GNU bare-metal toolchain used by the fountain firmware.")
-(defparameter *arm-none-eabi-version* "14.3.rel1")
+(defparameter *arm-none-eabi-version* "15.3.rel1")
 (defparameter *arm-none-eabi-toolchain*
   (format nil "arm-gnu-toolchain-~a-x86_64-arm-none-eabi"
           *arm-none-eabi-version*))
-(defparameter *install-jlink* t
+(defparameter *install-jlink* nil
   "Install the SEGGER J-Link command-line tools used to flash and debug firmware.")
 (defparameter *jlink-version* "9.30")
 (defparameter *jlink-version-code*
@@ -104,11 +104,11 @@
     "picocom"
 					;"picotool"
     "cmake"
-    "gcc-arm-none-eabi"
-    "libnewlib-arm-none-eabi"
+    ;"gcc-arm-none-eabi"
+    ;"libnewlib-arm-none-eabi"
     "build-essential"
-    "libstdc++-arm-none-eabi-newlib"
-    "binutils-multiarch"
+    ;"libstdc++-arm-none-eabi-newlib"
+    ;"binutils-multiarch"
 					;"gdb-multiarch"
     "git"
 					; "python3"
@@ -140,9 +140,9 @@
     "rsync"))
 ;; Toggle AI CLI tools
 (defparameter *install-agy* nil)
-(defparameter *install-codex* t)
-(defparameter *install-copilot* t)
-(defparameter *install-kiro-cli* t)
+(defparameter *install-codex* nil)
+(defparameter *install-copilot* nil)
+(defparameter *install-kiro-cli* nil)
 (defparameter *install-azure-cli* nil)
 (defparameter *install-teamcity-cli* nil)
 (defparameter *install-grok* nil)
@@ -662,8 +662,10 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
 
     ,@(when *install-arm-none-eabi*
         `((comment "Install the Arm GNU bare-metal toolchain used by fountain firmware")
-          (run (and
-                ,(format nil "curl -fL https://developer.arm.com/-/media/Files/downloads/gnu/~a/binrel/~a.tar.xz -o /tmp/arm-none-eabi.tar.xz"
+          (run (and	
+                ,(format nil
+			 "curl -fL https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/~a/~a.tar.xz -o /tmp/arm-none-eabi.tar.xz"
+			 ;"curl -fL https://developer.arm.com/-/media/Files/downloads/gnu/~a/binrel/~a.tar.xz -o /tmp/arm-none-eabi.tar.xz"
                          *arm-none-eabi-version* *arm-none-eabi-toolchain*)
                 "tar -xJf /tmp/arm-none-eabi.tar.xz -C /opt"
                 "rm /tmp/arm-none-eabi.tar.xz"))
