@@ -156,6 +156,7 @@
 
 ;; Toggle Rust support
 (defparameter *install-rust* t)
+(defparameter *install-probe-rs* t)
 (defparameter *rust-cache-volume* t)
 (defparameter *install-difftastic* t
   "Requires *install-rust* to be true.")
@@ -589,7 +590,12 @@ emacs --batch -l /root/.emacs -l "$tmpdir/check.el"
                      (and "cargo install difftastic"
                           "ln -sf /root/.cargo/bin/difft /usr/local/bin/difft"))
                 (comment "Configure Git to use difftastic as default diff tool")
-                (run "git config --global diff.external difft")))))
+                (run "git config --global diff.external difft")))
+	  ,@(when *install-probe-rs*
+	      `((comment "Install probe-rs")
+		(run (and "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-installer.sh | sh"
+			  "chmod -R a+w /root/.cargo/bin/probe-rs"))
+		))))
     
     ;; 1. Copy Python virtualenv if python libs are enabled
     ,@(when *install-python-libs*
