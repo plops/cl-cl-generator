@@ -760,9 +760,9 @@ exec /usr/local/bin/agent.real "$@"
 
     ,@(when *install-devin-cli*
         `((comment "Install Devin CLI from the official installer")
-          (run "curl -fsSL https://cli.devin.ai/install.sh | bash || true # tries to run `devin setup` which fails"
+          (run "curl -fsSL https://cli.devin.ai/install.sh | XDG_DATA_HOME=/usr/local/share bash || true # tries to run `devin setup` which fails"
 	                           )
-	  (run "mv /root/.local/bin/devin /usr/local/bin/devin.real")
+	  (run "mv /usr/local/share/devin/cli/_versions/current/bin/devin /usr/local/bin/devin.real")
 	  (copy :heredoc "/usr/local/bin/devin"
                 ,(devin-wrapper-script "/usr/local/bin/devin.real"))
 	  (run "chmod +x /usr/local/bin/devin /usr/local/bin/devin.real")))

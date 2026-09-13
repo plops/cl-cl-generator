@@ -82,8 +82,8 @@ esac
 EOF
 RUN chmod +x /usr/local/bin/muse /usr/local/bin/muse.real
 # Install Devin CLI from the official installer
-RUN curl -fsSL https://cli.devin.ai/install.sh | bash || true # tries to run `devin setup` which fails
-RUN mv /root/.local/bin/devin /usr/local/bin/devin.real
+RUN curl -fsSL https://cli.devin.ai/install.sh | XDG_DATA_HOME=/usr/local/share bash || true # tries to run `devin setup` which fails
+RUN mv /usr/local/share/devin/cli/_versions/current/bin/devin /usr/local/bin/devin.real
 COPY <<'EOF' /usr/local/bin/devin
 #!/usr/bin/env bash
 set -euo pipefail
