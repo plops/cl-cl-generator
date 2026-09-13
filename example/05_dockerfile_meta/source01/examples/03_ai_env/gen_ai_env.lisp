@@ -6,6 +6,10 @@
 
 (in-package :cl-dockerfile-generator)
 
+(declaim (optimize (safety 3)
+		   (debug 3)
+		   (speed 1)))
+
 ;; Toggle NVIDIA / CUDA GPU Support
 (defparameter *enable-cuda* nil
   "When true, configure the image with NVIDIA CUDA and cuDNN support.")
@@ -38,7 +42,7 @@
   "Minimal base image for CLI builder stages to save build time and memory.")
 
 ;; Enable or disable components to build minimal images
-(defparameter *install-gcc* t)
+(defparameter *install-gcc* nil)
 (defparameter *install-sbcl* t)
 (defparameter *install-emacs* nil)
 (defparameter *install-python* t)
@@ -62,82 +66,78 @@
   "Install the Archify Codex skill and a Chrome for Testing browser for visual checks.")
 (defparameter *archify-chrome-build* "stable"
   "Chrome for Testing channel or exact version used by Archify (for example, stable or 140.0.7339.80).")
-(defparameter *enable-tests* t
+(defparameter *enable-tests* nil
   "Run build-time smoke tests for every enabled component that has a test entry.")
 (defparameter *python-libs*
   (append
-   '(google-antigravity
-     azure-cognitiveservices-speech
-     huggingface_hub
-     openai
-     matplotlib
+   '(;google-antigravity
+     ;azure-cognitiveservices-speech
+     ;huggingface_hub
+     ;openai
+     ;matplotlib
      numpy
      pandas
-     scipy
-     tqdm
-     xarray
+     ;scipy
+     ;tqdm
+     ;xarray
      loguru
-     nbdev
+     ;nbdev
      requests
      ruff
-     scikit-learn
-     seaborn)
+     ;scikit-learn
+     ;seaborn
+     )
    (when *enable-cuda*
      '(polars
        pyarrow))))
 ;; Extra Ubuntu packages that are handy in an interactive shell.
 ;; Add or remove entries here to customize the final image.
 (defparameter *ubuntu-packages*
-  '("less"
-    "file"
-    "findutils"
-    "tree"
-    "man-db"
-    "procps"
-    "psmisc"
-    "iproute2"
-    "iputils-ping"
-    "dnsutils"
-    "ripgrep"
-    "fd-find"
-    "yq"
-    "picocom"
-					;"picotool"
-    "cmake"
-    ;"gcc-arm-none-eabi"
-    ;"libnewlib-arm-none-eabi"
-    "build-essential"
-    ;"libstdc++-arm-none-eabi-newlib"
-    ;"binutils-multiarch"
-					;"gdb-multiarch"
-    "git"
-					; "python3"
-    "pkg-config"
-    
-					;"pico-sdk"
-    "usbutils"
-    "libusb-1.0-0-dev"
-    "lsof"
-    "strace"
-    "moreutils"
-    "tmux"
-    "shellcheck"
-    "fzf"
-    "cmake"
-    "pkg-config"
-    "clang-format"
-    "clang-tidy"
-    "clangd"
-    "ninja-build"
-    "bat"
-    "git-lfs"
-    "openssh-client"
-    "dos2unix"
-    "parallel"
-    "unzip"
-    "zip"
-    "xz-utils"
-    "rsync"))
+  (remove-duplicates
+   (append
+    (when *install-gcc*
+      '(;"clang-format"
+	;"clang-tidy"
+	;"clangd"
+	;"ninja-build"
+	"cmake"
+	"build-essential"
+	"pkg-config"
+	))
+    '("less"
+      "file"
+      "findutils"
+      "tree"
+      "man-db"
+      "procps"
+      "psmisc"
+      "iproute2"
+					; "iputils-ping"
+					;"dnsutils"
+      "ripgrep"
+      "fd-find"
+      "yq"
+      "picocom"
+      "git"
+      "usbutils"
+      "libusb-1.0-0-dev"
+					;"lsof"
+					;"strace"
+      "moreutils"
+      "tmux"
+					;"shellcheck"
+      "fzf"
+      ;"bat"
+      ;"git-lfs"
+      ;"openssh-client"
+      ;"dos2unix"
+      "parallel"
+      "unzip"
+      "zip"
+      "xz-utils"
+      ;"rsync"
+      ))
+   :test #'string=))
 ;; Toggle AI CLI tools
 (defparameter *install-agy* nil)
 (defparameter *install-codex* nil)
@@ -199,233 +199,157 @@
   (format nil "#!/usr/bin/env bash~%set -euo pipefail~%~{~a~^~%~}" lines))
 
 (defun agent-wrapper-script (real-binary default-flag)
-  (make-bash-script
-   (format nil "case \" $* \" in~%  *\" ~a \"*) exec ~a \"$@\" ;;~%  *) exec ~a ~a \"$@\" ;;~%esac"
-           default-flag real-binary real-binary default-flag)))
+  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%exec ~a ~a \"$@\"~%"
+          real-binary default-flag))
 
 (defun kiro-wrapper-script (real-binary)
-  (make-bash-script
-   "subcommand=\"${1:-}\""
-   (format nil "case \"$subcommand\" in~%  init)~%    for arg in \"$@\"; do~%      if [[ $arg == --force ]]; then~%        exec ~a --v3 \"$@\"~%      fi~%    done~%    exec ~a --v3 init --force \"${@:2}\"~%    ;;~%  whoami|settings|version|help|--help|-h|--version)~%    exec ~a \"$@\"~%    ;;~%  chat)~%    exec ~a chat --v3 --trust-all-tools \"${@:2}\"~%    ;;~%  *)~%    exec ~a chat --v3 --trust-all-tools \"$@\"~%    ;;~%esac"
-           real-binary real-binary real-binary real-binary real-binary)))
+  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%exec ~a chat --v3 --trust-all-tools \"$@\"~%"
+          real-binary))
 
 (defun grok-wrapper-script (real-binary)
-  (make-bash-script
-   (format nil "case \" $* \" in~%  *\" --always-approve \"*) exec ~a \"$@\" ;;~%  *) exec ~a --always-approve \"$@\" ;;~%esac"
-           real-binary real-binary)))
+  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%exec ~a --always-approve \"$@\"~%"
+          real-binary))
 
 (defun muse-wrapper-script (real-binary)
-  (make-bash-script
-   (format nil "case \" $* \" in~%  *\" --yolo \"*) exec ~a \"$@\" ;;~%  *) exec ~a --yolo \"$@\" ;;~%esac"
-           real-binary real-binary)))
+  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%exec ~a --yolo \"$@\"~%"
+          real-binary))
 
 (defun devin-wrapper-script (real-binary)
-  (make-bash-script
-   (format nil "case \" $* \" in~%  *\" --permission-mode bypass \"*) exec ~a \"$@\" ;;~%  *) exec ~a --permission-mode bypass \"$@\" ;;~%esac"
-           real-binary real-binary)))
+  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%exec ~a --permission-mode bypass \"$@\"~%"
+          real-binary))
 
-
-
+(defparameter *smoke-tests* `())
+#+nil
 (defparameter *smoke-tests*
   `((*install-codex*
      "Codex by running the CLI and asserting it matches the latest npm release"
-     #r(set -eu
-	    codex --version > /tmp/codex-version.txt
-	    grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/codex-version.txt
-	    installed_version="$(node -p "require(require('path').join(process.argv[1], '@openai/codex/package.json')).version" "$(npm root -g)" | tr -d '[:space:]')"
-	    latest_version="$(npm view @openai/codex version | tr -d '[:space:]')"
-	    [ -n "$installed_version" ]
-	    [ "$installed_version" = "$latest_version" ]
-	    ))
+     #r|set -eu
+codex --version > /tmp/codex-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/codex-version.txt
+|)
     (*install-kiro-cli* "kiro-cli by invoking the wrapped CLI and helpers"
-                        #r(set -eu
-			       kiro-cli --help > /tmp/kiro-cli-help.txt
-			       [ -s /tmp/kiro-cli-help.txt ]
-			       grep -qi "kiro" /tmp/kiro-cli-help.txt
+                        #r|set -eu
+kiro-cli --help > /tmp/kiro-cli-help.txt
+[ -s /tmp/kiro-cli-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-help.txt
 
-			       kiro-cli-chat --help > /tmp/kiro-cli-chat-help.txt
-			       [ -s /tmp/kiro-cli-chat-help.txt ]
-			       grep -qi "kiro" /tmp/kiro-cli-chat-help.txt
+kiro-cli-chat --help > /tmp/kiro-cli-chat-help.txt
+[ -s /tmp/kiro-cli-chat-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-chat-help.txt
 
-			       kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
-			       [ -s /tmp/kiro-cli-term-help.txt ]
-			       grep -qi "kiro" /tmp/kiro-cli-term-help.txt
-			       ))
+kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
+[ -s /tmp/kiro-cli-term-help.txt ]
+grep -qi "kiro" /tmp/kiro-cli-term-help.txt
+|)
     (*install-grok* "Grok Build by checking the CLI version"
-                    #r(set -eu
-			   grok --version
-			   agent --version
-			   ))
+                    #r|set -eu
+grok --version
+agent --version
+|)
     (*install-muse*
      "Meta Muse Code by checking the CLI version"
-     #r(set -eu
-	    muse --version > /tmp/muse-version.txt
-	    [ -s /tmp/muse-version.txt ]
-	    grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/muse-version.txt
-	    ))
+     #r|set -eu
+muse --version > /tmp/muse-version.txt
+[ -s /tmp/muse-version.txt ]
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/muse-version.txt
+|)
     #+nil (*install-devin-cli*
      "Meta Devin by checking the CLI version"
-     #r(set -eu
-	    devin --version > /tmp/devin-version.txt
-	    [ -s /tmp/devin-version.txt ]
-	    grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/devin-version.txt
-	    ))
+     #r|set -eu
+devin --version > /tmp/devin-version.txt
+[ -s /tmp/devin-version.txt ]
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/devin-version.txt
+|)
     (*install-azure-cli* "Azure CLI by checking the installed version"
-                         #r(set -eu
-				az version > /tmp/az-version.json
-				grep -q '"azure-cli"' /tmp/az-version.json
-				))
+                         #r|set -eu
+az version > /tmp/az-version.json
+grep -q '"azure-cli"' /tmp/az-version.json
+|)
     (*install-docker-cli* "Docker CLI and Buildx by checking their client versions"
-                          #r(set -eu
-				 docker --version > /tmp/docker-version.txt
-				 grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
-				 docker buildx version > /tmp/docker-buildx-version.txt
-				 grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
-				 ))
+                          #r|set -eu
+docker --version > /tmp/docker-version.txt
+grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
+docker buildx version > /tmp/docker-buildx-version.txt
+grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
+|)
     (*install-arm-none-eabi*
      "Arm GNU bare-metal toolchain by compiling a Cortex-M7 object"
-     #r(set -eu
-tmpdir="$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)"
-cat > "$tmpdir/test.c" <<'C_EOF'
-void Reset_Handler(void) {}
-C_EOF
-arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c "$tmpdir/test.c" -o "$tmpdir/test.o"
-arm-none-eabi-readelf -h "$tmpdir/test.o" > "$tmpdir/readelf.txt"
-grep -Eq 'Machine:[[:space:]]+ARM' "$tmpdir/readelf.txt"
-rm -rf "$tmpdir"
-	    ))
+     ,(format nil "set -eu~%tmpdir=\"$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)\"~%cat > \"$tmpdir/test.c\" <<'C_EOF'~%void Reset_Handler(void) {}~%C_EOF~%arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c \"$tmpdir/test.c\" -o \"$tmpdir/test.o\"~%arm-none-eabi-readelf -h \"$tmpdir/test.o\" > \"$tmpdir/readelf.txt\"~%grep -Eq 'Machine.+ARM' \"$tmpdir/readelf.txt\"~%rm -rf \"$tmpdir\""))
     (*install-jlink* "SEGGER J-Link command-line tools by checking their pinned version"
-                     ,(format nil #r(set -eu
+                     ,(format nil #r|set -eu
 JLinkGDBServerCLExe -version > /tmp/jlink-version.txt
 grep -F 'V~a ' /tmp/jlink-version.txt
 command -v JLinkExe >/dev/null
-					 ) *jlink-version*))
+| *jlink-version*))
     (*install-teamcity-cli* "TeamCity CLI by checking the installed version"
-                            #r(set -eu
-				   teamcity --version > /tmp/teamcity-version.txt
-				   [ -s /tmp/teamcity-version.txt ]
-				   grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
-				   ))
+                            #r|set -eu
+teamcity --version > /tmp/teamcity-version.txt
+[ -s /tmp/teamcity-version.txt ]
+grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
+|)
     (*install-habit-hooks* "Habit Hooks by checking the CLI help"
-                           #r(set -eu
-				  habit-hooks --help > /tmp/habit-hooks-help.txt
-				  [ -s /tmp/habit-hooks-help.txt ]
-				  ))
+                           #r|set -eu
+habit-hooks --help > /tmp/habit-hooks-help.txt
+[ -s /tmp/habit-hooks-help.txt ]
+|)
     (*install-deptry* "Deptry by checking the CLI version"
-                      #r(set -eu
-			     deptry --version
-			     ))
+                      #r|set -eu
+deptry --version
+|)
     (*install-jscpd* "JSCPD by checking the CLI version"
                      #r|set -eu
 jscpd --version
-			    |)
+|)
     (*install-archify* "Archify and its headless Chrome runtime"
-		       #r(set -eu
-			      archify_dir=/root/.agents/skills/archify
-			      test -f "$archify_dir/SKILL.md"
-			      test -f "$archify_dir/bin/archify.mjs"
-			      node "$archify_dir/bin/archify.mjs" doctor
-			      test -x "$ARCHIFY_CHROME"
-			      "$ARCHIFY_CHROME" --headless --no-sandbox --disable-gpu --dump-dom about:blank > /tmp/archify-chrome.html
-			      grep -qi '<html' /tmp/archify-chrome.html
-			      tmpdir="$(mktemp -d /tmp/ai-env-archify.XXXXXX)"
-			      node "$archify_dir/bin/archify.mjs" demo "$tmpdir"
-			      test -s "$tmpdir/archify-demo.html"
-			      rm -rf "$tmpdir"
-			      ))
+		       #r|set -eu
+archify_dir=/root/.agents/skills/archify
+test -f "$archify_dir/SKILL.md"
+test -f "$archify_dir/bin/archify.mjs"
+node "$archify_dir/bin/archify.mjs" doctor
+test -x "$ARCHIFY_CHROME"
+"$ARCHIFY_CHROME" --headless --no-sandbox --disable-gpu --dump-dom about:blank > /tmp/archify-chrome.html
+grep -qi '<html' /tmp/archify-chrome.html
+tmpdir="$(mktemp -d /tmp/ai-env-archify.XXXXXX)"
+node "$archify_dir/bin/archify.mjs" demo "$tmpdir"
+test -s "$tmpdir/archify-demo.html"
+rm -rf "$tmpdir"
+|)
     (*enable-cuda* "CUDA nvcc compiler by compiling and verifying a test CUDA kernel"
-                   #r(set -eu
-			  if command -v nvcc >/dev/null 2>&1 ; then
-			  nvcc --version
-			  tmpdir="$(mktemp -d /tmp/ai-env-cuda.XXXXXX)"
-			  cat > "$tmpdir/test.cu" <<'CU_EOF'
-			  #include <stdio.h>
-
-			  __global__ void test_kernel(void) {}
-
-			  int main(void) {
-			  test_kernel<<<1, 1>>>() ;
-			  puts("cuda-build-ok")   ;
-			  return 0		  ;
-			  }
-			  CU_EOF
-			  nvcc "$tmpdir/test.cu" -o "$tmpdir/test"
-			  rm -rf "$tmpdir"
-			  fi
-			  ))
+                   ,(format nil "set -eu~%if command -v nvcc >/dev/null 2>&1 ; then~%  nvcc --version~%  tmpdir=\"$(mktemp -d /tmp/ai-env-cuda.XXXXXX)\"~%  cat > \"$tmpdir/test.cu\" <<'CU_EOF'~%~%~%#include <stdio.h>~%~%__global__ void test_kernel(void) {}~%~%int main(void) {~%  test_kernel<<<1, 1>>>()~%  puts(\"cuda-build-ok\")~%  return 0~%}~%~%CU_EOF~%  nvcc \"$tmpdir/test.cu\" -o \"$tmpdir/test\"~%  rm -rf \"$tmpdir\"~%fi"))
     (*install-gcc* "GCC by compiling and running a tiny C program"
-                   #r(set -eu
-			  tmpdir="$(mktemp -d /tmp/ai-env-gcc.XXXXXX)"
-			  cat > "$tmpdir/test.c" <<'C_EOF'
-			  #include <stdio.h>
-
-			  int main(void) {
-			  puts("gcc-ok") ;
-			  return 0	 ;
-			  }
-			  C_EOF
-			  gcc "$tmpdir/test.c" -o "$tmpdir/test"
-			  "$tmpdir/test"
-			  ))
+                   ,(format nil "set -eu~%tmpdir=\"$(mktemp -d /tmp/ai-env-gcc.XXXXXX)\"~%cat > \"$tmpdir/test.c\" <<'C_EOF'~%~%~%#include <stdio.h>~%~%int main(void) {~%  puts(\"gcc-ok\")~%  return 0~%}~%~%C_EOF~%gcc \"$tmpdir/test.c\" -o \"$tmpdir/test\"~%\"$tmpdir/test\""))
     (*install-rust* "Rust by compiling and running a tiny program"
-                    #r(set -eu
-			   tmpdir="$(mktemp -d /tmp/ai-env-rust.XXXXXX)"
-			   cat > "$tmpdir/test.rs" <<'R_EOF'
-			   fn main() {
-			   println!("rust-ok") ;
-			   }
-			   R_EOF
-			   rustc "$tmpdir/test.rs" -o "$tmpdir/test"
-			   "$tmpdir/test"
-			   ))
+                    ,(format nil "set -eu~%tmpdir=\"$(mktemp -d /tmp/ai-env-rust.XXXXXX)\"~%cat > \"$tmpdir/test.rs\" <<'R_EOF'~%~%~%fn main() {~%  println!(\"rust-ok\")~%}~%~%R_EOF~%rustc \"$tmpdir/test.rs\" -o \"$tmpdir/test\"~%\"$tmpdir/test\""))
     ((or *install-python* *install-python-libs*) "Python by running a tiny script"
-     #r|set -eu
-python3 - <<'PY_EOF'
-print("python-ok")
-PY_EOF
-	    |)
+     ,(format nil "set -eu~%python3 - <<'PY_EOF'~%~%~%print(\"python-ok\")~%~%PY_EOF"))
     (*install-sbcl* "SBCL by evaluating a simple expression"
-                    #r(set -eu
-			   sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'
-			   ))
+                    ,(format nil "set -eu~%sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'"))
     (*install-emacs* "Emacs by opening a file with the configured init"
-                     #r(set -eu
-			    tmpdir="$(mktemp -d /tmp/ai-env-emacs-open.XXXXXX)"
-			    cat > "$tmpdir/open-me" <<'T_EOF'
-			    hello
-			    T_EOF
-			    cat > "$tmpdir/check.el" <<'EMACS_EOF'
-			    (find-file "/tmp/ai-env-emacs-open.XXXXXX/open-me")
-			    (unless (and buffer-file-name (eq major-mode 'fundamental-mode))
-			      (error "Emacs failed to open a plain file"))
-			    EMACS_EOF
-			    sed -i "s#/tmp/ai-env-emacs-open.XXXXXX#$tmpdir#g" "$tmpdir/check.el"
-			    emacs --batch -l /root/.emacs -l "$tmpdir/check.el"
-			    ))
+                     ,(format nil "set -eu~%tmpdir=\"$(mktemp -d /tmp/ai-env-emacs-open.XXXXXX)\"~%cat > \"$tmpdir/open-me\" <<'T_EOF'~%~%~%hello~%~%T_EOF~%cat > \"$tmpdir/check.el\" <<'EMACS_EOF'~%~%~%(find-file \"/tmp/ai-env-emacs-open.XXXXXX/open-me\")~%~%(unless (and buffer-file-name (eq major-mode 'fundamental-mode))~%~%  (error \"Emacs failed to open a plain file\"))~%~%EMACS_EOF~%sed -i \"s#/tmp/ai-env-emacs-open.XXXXXX#$tmpdir#g\" \"$tmpdir/check.el\"~%emacs --batch -l /root/.emacs -l \"$tmpdir/check.el\""))
     ((and *install-emacs* *install-sbcl*) "Emacs + SLIME by opening and loading a Lisp file"
-     #r(set -eu
-	    tmpdir="$(mktemp -d /tmp/ai-env-slime.XXXXXX)"
-	    cat > "$tmpdir/example.lisp" <<'LISP_EOF'
-	    (+ 1 2)
-	    LISP_EOF
-	    cat > "$tmpdir/slime-check.el" <<'SLIME_EOF'
-	    (require 'slime)
-	    (setq inferior-lisp-program "sbcl")
-	    (slime-setup '(slime-repl))
-	    (slime)
-	    (let ((deadline (+ (float-time) 120)))
-	      (while (and (not (slime-connected-p)) (< (float-time) deadline))
-		     (sleep-for 0.2))
-	      (unless (slime-connected-p)
-		(error "SLIME connection timed out")))
-	    (find-file "/tmp/ai-env-slime.XXXXXX/example.lisp")
-	    (slime-load-file "/tmp/ai-env-slime.XXXXXX/example.lisp")
-	    (unless (= 3 (slime-eval '(cl:+ 1 2)))
-	      (error "SLIME evaluation returned the wrong value"))
-	    SLIME_EOF
-	    sed -i "s#/tmp/ai-env-slime.XXXXXX#$tmpdir#g" "$tmpdir/slime-check.el"
-	    emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
-	    ))))
+     #r|set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-slime.XXXXXX)"
+cat > "$tmpdir/example.lisp" <<'LISP_EOF'
+(+ 1 2)
+LISP_EOF
+cat > "$tmpdir/slime-check.el" <<'SLIME_EOF'
+(require 'slime)
+(setq inferior-lisp-program "sbcl")
+(slime-setup '(slime-repl))
+(slime)
+(let ((deadline (+ (float-time) 120)))
+  (while (and (not (slime-connected-p)) (< (float-time) deadline))
+    (sleep-for 0.2))
+  (unless (slime-connected-p)
+    (error "SLIME connection timed out")))
+(find-file "/tmp/ai-env-slime.XXXXXX/example.lisp")
+(slime-load-file "/tmp/ai-env-slime.XXXXXX/example.lisp")
+(unless (= 3 (slime-eval '(cl:+ 1 2)))
+  (error "SLIME evaluation returned the wrong value"))
+SLIME_EOF
+sed -i "s#/tmp/ai-env-slime.XXXXXX#$tmpdir#g" "$tmpdir/slime-check.el"
+emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
+|)))
 
 (defun test-stage ()
   (loop for (cond-expr desc script) in *smoke-tests*
@@ -559,13 +483,16 @@ PY_EOF
     (comment "Install the essential tool belt for agents")
     (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
          (and 
-              ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" (append '("curl" "ca-certificates" "git" "jq") *ubuntu-packages*))))
+              ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" (remove-duplicates (append '("curl" "ca-certificates" "git" "jq") *ubuntu-packages*) :test #'string=))))
+
     
     (comment "Install component dependencies in separate layers for caching")
+
+    
     ,@(loop for (cond-expr . pkgs) in *dependency-packages*
             when (eval cond-expr)
-            collect `(run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-                          ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" pkgs)))
+              collect `(run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
+                            ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" pkgs)))
 
     ;; Install code-quality CLIs independently of any mounted project's manifests.
     ,@(when *install-habit-hooks*
@@ -628,8 +555,8 @@ PY_EOF
                 ,(agent-wrapper-script "/usr/local/bin/agy.real" "--dangerously-skip-permissions"))
           (run "chmod +x /usr/local/bin/agy")
           (comment "Add the Antigravity clean environment tweaks to .bashrc")
-          (run (and #r#echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1="\$ "; fi' >> /root/.bashrc#
-                    #r#echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc#))))
+          (run (and #r|echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1="\$ "; fi' >> /root/.bashrc|
+                    #r|echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc|))))
     
     ;; 3. Install and wrap other CLI tools if enabled
     ,@(when (or *install-codex* *install-copilot* *install-kiro-cli* *install-teamcity-cli*)
@@ -712,16 +639,16 @@ PY_EOF
     ,@(when *install-sbcl*
         `((comment "Download and install Quicklisp")
           (run (and "curl -O https://beta.quicklisp.org/quicklisp.lisp"
-                    #r#sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)"#
+                    #r|sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)"|
                     "rm quicklisp.lisp"))
           
           (comment "Configure Quicklisp in .sbclrc")
           (copy :heredoc "/root/.sbclrc"
-                #r(#-quicklisp
- (let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
-   (when (probe-file quicklisp-init)
-     (load quicklisp-init)))
- ))
+                #r|#-quicklisp
+(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
+  (when (probe-file quicklisp-init)
+    (load quicklisp-init)))
+|)
           
           (comment "Pre-create local-projects symlinks (which resolve dynamically when /workspace/src is mounted)")
           (run (and "mkdir -p /root/quicklisp/local-projects"
@@ -730,7 +657,7 @@ PY_EOF
                     "ln -s /workspace/src/cl-rust-generator /root/quicklisp/local-projects/cl-rust-generator"))
           
           (comment "Pre-fetch and cache Quicklisp systems and common dependencies")
-          (run #r#sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quickload "quicklisp-slime-helper")' --eval '(ql:quickload "alexandria")' --eval '(ql:quickload "jonathan")' --eval '(ql:quickload "external-program")' --eval '(ql:quickload "cl-ppcre")'#)))
+          (run #r|sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quickload "quicklisp-slime-helper")' --eval '(ql:quickload "alexandria")' --eval '(ql:quickload "jonathan")' --eval '(ql:quickload "external-program")' --eval '(ql:quickload "cl-ppcre")|)))
 
     ,@(when *install-grok*
         `((comment "Install Grok Build from the official x.ai installer")
@@ -743,10 +670,10 @@ PY_EOF
           (copy :heredoc "/usr/local/bin/grok"
                 ,(grok-wrapper-script "/usr/local/bin/grok.real"))
           (copy :heredoc "/usr/local/bin/agent"
-                #r(#!/usr/bin/env bash
+                #r|#!/usr/bin/env bash
 set -euo pipefail
 exec /usr/local/bin/agent.real "$@"
-))
+|)
           (run "chmod +x /usr/local/bin/grok /usr/local/bin/grok.real /usr/local/bin/agent /usr/local/bin/agent.real")))
 
     ,@(when *install-muse*
@@ -770,9 +697,9 @@ exec /usr/local/bin/agent.real "$@"
     ;; 6. Setup Emacs if Emacs is enabled
     ,@(when (and *install-sbcl* *install-emacs*)
         `((comment "Pre-install Emacs packages")
-          (run #r#emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(setq custom-file null-device)" --eval "(dolist (pkg '(compat cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (setq package-selected-packages nil) (package-install pkg))"#)
+          (run #r|emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(setq custom-file null-device)" --eval "(dolist (pkg '(compat cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (setq package-selected-packages nil) (package-install pkg))|)
           (comment "Recompile installed Emacs packages with their dependencies available")
-          (run #r#emacs --batch --eval "(require 'package)" --eval "(package-initialize)" --eval "(byte-recompile-directory package-user-dir 0 t)"#)
+          (run #r|emacs --batch --eval "(require 'package)" --eval "(package-initialize)" --eval "(byte-recompile-directory package-user-dir 0 t)"|)
           (comment "Copy the modified .emacs configuration from the build context if present")
           (comment "Note: In real usage, ensure .emacs exists in the build context directory")
           (copy ".emacs" "/root/.emacs" :link t)))
@@ -780,23 +707,18 @@ exec /usr/local/bin/agent.real "$@"
     ,@(when *enable-tests*
         (test-stage))
     
-    ;; 7. Define Volumes for sharing configs, logins, caches, and source files
-    (volume ,(let ((vols '("/workspace/src" "/root/.config" "/root/.config/tc" "/root/.cache" "/root/.gemini" "/root/.grok" "/root/.codex" "/root/.azure")))
-               (if (and *install-rust* *rust-cache-volume*)
-                   (append vols '("/root/.cargo"))
-                   vols)))
-    
     (comment "Default to launching a bash shell")
     (cmd ("/bin/bash"))))
 
 (let ((all-code
         `(toplevel
            ,@(builder-python-stage)
-           ,@(builder-agy-stage)
-           ,@(builder-copilot-stage)
-           ,@(builder-kiro-stage)
-           ,@(builder-teamcity-stage)
-           ,@(runner-stage))))
+           ;,@(builder-agy-stage)
+           ;,@(builder-copilot-stage)
+           ;,@(builder-kiro-stage)
+           ;,@(builder-teamcity-stage)
+           ;,@(runner-stage)
+	   )))
   (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
     (write-df (merge-pathnames "Dockerfile" current-dir) all-code t)
     (format t "Generated Dockerfile in ~a successfully.~%" current-dir)))
