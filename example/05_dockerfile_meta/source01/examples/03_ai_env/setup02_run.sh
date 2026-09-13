@@ -127,6 +127,7 @@ mkdir -p "$HOME/.gemini"
 mkdir -p "$HOME/.kiro"
 mkdir -p "$HOME/.local/share/kiro-cli"
 mkdir -p "$HOME/.local/share/muse"
+mkdir -p "$HOME/.local/share/devin"
 mkdir -p "$HOME/.aws"
 mkdir -p "$HOME/.azure"
 mkdir -p "$HOME/.copilot"
@@ -139,6 +140,7 @@ mkdir -p "$HOME/.config/github-copilot"
 mkdir -p "$HOME/.config/openai"
 mkdir -p "$HOME/.config/codex"
 mkdir -p "$HOME/.config/muse"
+
 
 
 if [ ! -f "$env_file" ]; then
@@ -155,6 +157,7 @@ set -- docker run -it \
   -v "$HOME/.kiro:/root/.kiro" \
   -v "$HOME/.local/share/kiro-cli:/root/.local/share/kiro-cli" \
   -v "$HOME/.local/share/muse:/root/.local/share/muse" \
+  -v "$HOME/.local/share/devin:/root/.local/share/devin" \
   -v "$HOME/.aws:/root/.aws" \
   -v "$HOME/.azure:/root/.azure" \
   -v "$HOME/.copilot:/root/.copilot" \

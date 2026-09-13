@@ -148,7 +148,7 @@
 (defparameter *install-grok* nil)
 (defparameter *install-muse* t
   "Install Meta's Muse Code CLI.")
-
+(defparameter *install-devin-cli* t)
 ;; Toggle code-quality tools used by Habit Hooks.
 (defparameter *install-habit-hooks* nil)
 (defparameter *install-deptry* nil)
@@ -218,30 +218,38 @@
   (make-bash-script
    (format nil "case \" $* \" in~%  *\" --yolo \"*) exec ~a \"$@\" ;;~%  *) exec ~a --yolo \"$@\" ;;~%esac"
            real-binary real-binary)))
+
+(defun devin-wrapper-script (real-binary)
+  (make-bash-script
+   (format nil "case \" $* \" in~%  *\" --permission-mode bypass \"*) exec ~a \"$@\" ;;~%  *) exec ~a --permission-mode bypass \"$@\" ;;~%esac"
+           real-binary real-binary)))
+
+
+
 (defparameter *smoke-tests*
   `((*install-codex*
      "Codex by running the CLI and asserting it matches the latest npm release"
      #r(set -eu
-codex --version > /tmp/codex-version.txt
-grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/codex-version.txt
-installed_version="$(node -p "require(require('path').join(process.argv[1], '@openai/codex/package.json')).version" "$(npm root -g)" | tr -d '[:space:]')"
-latest_version="$(npm view @openai/codex version | tr -d '[:space:]')"
-[ -n "$installed_version" ]
-[ "$installed_version" = "$latest_version" ]
+	    codex --version > /tmp/codex-version.txt
+	    grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/codex-version.txt
+	    installed_version="$(node -p "require(require('path').join(process.argv[1], '@openai/codex/package.json')).version" "$(npm root -g)" | tr -d '[:space:]')"
+	    latest_version="$(npm view @openai/codex version | tr -d '[:space:]')"
+	    [ -n "$installed_version" ]
+	    [ "$installed_version" = "$latest_version" ]
 	    ))
     (*install-kiro-cli* "kiro-cli by invoking the wrapped CLI and helpers"
                         #r(set -eu
-kiro-cli --help > /tmp/kiro-cli-help.txt
-[ -s /tmp/kiro-cli-help.txt ]
-grep -qi "kiro" /tmp/kiro-cli-help.txt
+			       kiro-cli --help > /tmp/kiro-cli-help.txt
+			       [ -s /tmp/kiro-cli-help.txt ]
+			       grep -qi "kiro" /tmp/kiro-cli-help.txt
 
-kiro-cli-chat --help > /tmp/kiro-cli-chat-help.txt
-[ -s /tmp/kiro-cli-chat-help.txt ]
-grep -qi "kiro" /tmp/kiro-cli-chat-help.txt
+			       kiro-cli-chat --help > /tmp/kiro-cli-chat-help.txt
+			       [ -s /tmp/kiro-cli-chat-help.txt ]
+			       grep -qi "kiro" /tmp/kiro-cli-chat-help.txt
 
-kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
-[ -s /tmp/kiro-cli-term-help.txt ]
-grep -qi "kiro" /tmp/kiro-cli-term-help.txt
+			       kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
+			       [ -s /tmp/kiro-cli-term-help.txt ]
+			       grep -qi "kiro" /tmp/kiro-cli-term-help.txt
 			       ))
     (*install-grok* "Grok Build by checking the CLI version"
                     #r(set -eu
@@ -251,9 +259,16 @@ grep -qi "kiro" /tmp/kiro-cli-term-help.txt
     (*install-muse*
      "Meta Muse Code by checking the CLI version"
      #r(set -eu
-muse --version > /tmp/muse-version.txt
-[ -s /tmp/muse-version.txt ]
-grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/muse-version.txt
+	    muse --version > /tmp/muse-version.txt
+	    [ -s /tmp/muse-version.txt ]
+	    grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/muse-version.txt
+	    ))
+    (*install-devin-cli*
+     "Meta Devin by checking the CLI version"
+     #r(set -eu
+	    devin --version > /tmp/devin-version.txt
+	    [ -s /tmp/devin-version.txt ]
+	    grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/devin-version.txt
 	    ))
     (*install-azure-cli* "Azure CLI by checking the installed version"
                          #r(set -eu
@@ -270,14 +285,14 @@ grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/muse-version.txt
     (*install-arm-none-eabi*
      "Arm GNU bare-metal toolchain by compiling a Cortex-M7 object"
      #r(set -eu
-tmpdir="$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)"
-cat > "$tmpdir/test.c" <<'C_EOF'
-void Reset_Handler(void) {}
-C_EOF
-arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c "$tmpdir/test.c" -o "$tmpdir/test.o"
-arm-none-eabi-readelf -h "$tmpdir/test.o" > "$tmpdir/readelf.txt"
-grep -Eq 'Machine:[[:space:]]+ARM' "$tmpdir/readelf.txt"
-rm -rf "$tmpdir"
+	    tmpdir="$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)"
+	    cat > "$tmpdir/test.c" <<'C_EOF'
+	    void Reset_Handler(void) {}
+	    C_EOF
+	    arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c "$tmpdir/test.c" -o "$tmpdir/test.o"
+	    arm-none-eabi-readelf -h "$tmpdir/test.o" > "$tmpdir/readelf.txt"
+	    grep -Eq 'Machine:[[:space:]]+ARM' "$tmpdir/readelf.txt"
+	    rm -rf "$tmpdir"
 	    ))
     (*install-jlink* "SEGGER J-Link command-line tools by checking their pinned version"
                      ,(format nil #r(set -eu
@@ -331,7 +346,7 @@ rm -rf "$tmpdir"
 			  int main(void) {
 			  test_kernel<<<1, 1>>>() ;
 			  puts("cuda-build-ok")   ;
-			  return 0		   ;
+			  return 0		  ;
 			  }
 			  CU_EOF
 			  nvcc "$tmpdir/test.cu" -o "$tmpdir/test"
@@ -340,52 +355,52 @@ rm -rf "$tmpdir"
 			  ))
     (*install-gcc* "GCC by compiling and running a tiny C program"
                    #r(set -eu
-tmpdir="$(mktemp -d /tmp/ai-env-gcc.XXXXXX)"
-cat > "$tmpdir/test.c" <<'C_EOF'
-#include <stdio.h>
+			  tmpdir="$(mktemp -d /tmp/ai-env-gcc.XXXXXX)"
+			  cat > "$tmpdir/test.c" <<'C_EOF'
+			  #include <stdio.h>
 
-int main(void) {
-puts("gcc-ok") ;
-return 0	  ;
-}
-C_EOF
-gcc "$tmpdir/test.c" -o "$tmpdir/test"
-"$tmpdir/test"
+			  int main(void) {
+			  puts("gcc-ok") ;
+			  return 0	 ;
+			  }
+			  C_EOF
+			  gcc "$tmpdir/test.c" -o "$tmpdir/test"
+			  "$tmpdir/test"
 			  ))
     (*install-rust* "Rust by compiling and running a tiny program"
                     #r(set -eu
-tmpdir="$(mktemp -d /tmp/ai-env-rust.XXXXXX)"
-cat > "$tmpdir/test.rs" <<'R_EOF'
-fn main() {
-println!("rust-ok") ;
-}
-R_EOF
-rustc "$tmpdir/test.rs" -o "$tmpdir/test"
-"$tmpdir/test"
+			   tmpdir="$(mktemp -d /tmp/ai-env-rust.XXXXXX)"
+			   cat > "$tmpdir/test.rs" <<'R_EOF'
+			   fn main() {
+			   println!("rust-ok") ;
+			   }
+			   R_EOF
+			   rustc "$tmpdir/test.rs" -o "$tmpdir/test"
+			   "$tmpdir/test"
 			   ))
     ((or *install-python* *install-python-libs*) "Python by running a tiny script"
      #r(set -eu
-python3 - <<'PY_EOF'
-print("python-ok")
-PY_EOF
+	    python3 - <<'PY_EOF'
+	    print("python-ok")
+	    PY_EOF
 	    ))
     (*install-sbcl* "SBCL by evaluating a simple expression"
                     #r(set -eu
-sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'
+			   sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'
 			   ))
     (*install-emacs* "Emacs by opening a file with the configured init"
                      #r(set -eu
-tmpdir="$(mktemp -d /tmp/ai-env-emacs-open.XXXXXX)"
-cat > "$tmpdir/open-me" <<'T_EOF'
-hello
-T_EOF
-cat > "$tmpdir/check.el" <<'EMACS_EOF'
-(find-file "/tmp/ai-env-emacs-open.XXXXXX/open-me")
-(unless (and buffer-file-name (eq major-mode 'fundamental-mode))
-  (error "Emacs failed to open a plain file"))
-EMACS_EOF
-sed -i "s#/tmp/ai-env-emacs-open.XXXXXX#$tmpdir#g" "$tmpdir/check.el"
-emacs --batch -l /root/.emacs -l "$tmpdir/check.el"
+			    tmpdir="$(mktemp -d /tmp/ai-env-emacs-open.XXXXXX)"
+			    cat > "$tmpdir/open-me" <<'T_EOF'
+			    hello
+			    T_EOF
+			    cat > "$tmpdir/check.el" <<'EMACS_EOF'
+			    (find-file "/tmp/ai-env-emacs-open.XXXXXX/open-me")
+			    (unless (and buffer-file-name (eq major-mode 'fundamental-mode))
+			      (error "Emacs failed to open a plain file"))
+			    EMACS_EOF
+			    sed -i "s#/tmp/ai-env-emacs-open.XXXXXX#$tmpdir#g" "$tmpdir/check.el"
+			    emacs --batch -l /root/.emacs -l "$tmpdir/check.el"
 			    ))
     ((and *install-emacs* *install-sbcl*) "Emacs + SLIME by opening and loading a Lisp file"
      #r(set -eu
@@ -742,6 +757,15 @@ exec /usr/local/bin/agent.real "$@"
 	  (copy :heredoc "/usr/local/bin/muse"
                 ,(muse-wrapper-script "/usr/local/bin/muse.real"))
 	  (run "chmod +x /usr/local/bin/muse /usr/local/bin/muse.real")))
+
+    ,@(when *install-devin-cli*
+        `((comment "Install Devin CLI from the official installer")
+          (run (and "curl -fsSL https://cli.devin.ai/install.sh | bash"
+                    "command -v devin"))
+	  (run "mv /root/.local/bin/devin /usr/local/bin/devin.real")
+	  (copy :heredoc "/usr/local/bin/devin"
+                ,(devin-wrapper-script "/usr/local/bin/devin.real"))
+	  (run "chmod +x /usr/local/bin/devin /usr/local/bin/devin.real")))
 
     ;; 6. Setup Emacs if Emacs is enabled
     ,@(when (and *install-sbcl* *install-emacs*)
