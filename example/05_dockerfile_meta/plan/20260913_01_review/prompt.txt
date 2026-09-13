@@ -1,0 +1,2 @@
+reviewe den gen*.lisp code der die Dockerfile erzeugt. Kannst du verbesserungsmoeglichkeiten entdecken?
+
