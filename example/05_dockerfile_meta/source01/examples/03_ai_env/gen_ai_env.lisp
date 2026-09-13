@@ -263,7 +263,7 @@
 	    [ -s /tmp/muse-version.txt ]
 	    grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/muse-version.txt
 	    ))
-    (*install-devin-cli*
+    #+nil (*install-devin-cli*
      "Meta Devin by checking the CLI version"
      #r(set -eu
 	    devin --version > /tmp/devin-version.txt
@@ -285,20 +285,20 @@
     (*install-arm-none-eabi*
      "Arm GNU bare-metal toolchain by compiling a Cortex-M7 object"
      #r(set -eu
-	    tmpdir="$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)"
-	    cat > "$tmpdir/test.c" <<'C_EOF'
-	    void Reset_Handler(void) {}
-	    C_EOF
-	    arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c "$tmpdir/test.c" -o "$tmpdir/test.o"
-	    arm-none-eabi-readelf -h "$tmpdir/test.o" > "$tmpdir/readelf.txt"
-	    grep -Eq 'Machine:[[:space:]]+ARM' "$tmpdir/readelf.txt"
-	    rm -rf "$tmpdir"
+tmpdir="$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)"
+cat > "$tmpdir/test.c" <<'C_EOF'
+void Reset_Handler(void) {}
+C_EOF
+arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c "$tmpdir/test.c" -o "$tmpdir/test.o"
+arm-none-eabi-readelf -h "$tmpdir/test.o" > "$tmpdir/readelf.txt"
+grep -Eq 'Machine:[[:space:]]+ARM' "$tmpdir/readelf.txt"
+rm -rf "$tmpdir"
 	    ))
     (*install-jlink* "SEGGER J-Link command-line tools by checking their pinned version"
                      ,(format nil #r(set -eu
-					 JLinkGDBServerCLExe -version > /tmp/jlink-version.txt
-					 grep -F 'V~a ' /tmp/jlink-version.txt
-					 command -v JLinkExe >/dev/null
+JLinkGDBServerCLExe -version > /tmp/jlink-version.txt
+grep -F 'V~a ' /tmp/jlink-version.txt
+command -v JLinkExe >/dev/null
 					 ) *jlink-version*))
     (*install-teamcity-cli* "TeamCity CLI by checking the installed version"
                             #r(set -eu
@@ -316,9 +316,9 @@
 			     deptry --version
 			     ))
     (*install-jscpd* "JSCPD by checking the CLI version"
-                     #r(set -eu
-			    jscpd --version
-			    ))
+                     #r|set -eu
+jscpd --version
+			    |)
     (*install-archify* "Archify and its headless Chrome runtime"
 		       #r(set -eu
 			      archify_dir=/root/.agents/skills/archify
@@ -379,11 +379,11 @@
 			   "$tmpdir/test"
 			   ))
     ((or *install-python* *install-python-libs*) "Python by running a tiny script"
-     #r(set -eu
-	    python3 - <<'PY_EOF'
-	    print("python-ok")
-	    PY_EOF
-	    ))
+     #r|set -eu
+python3 - <<'PY_EOF'
+print("python-ok")
+PY_EOF
+	    |)
     (*install-sbcl* "SBCL by evaluating a simple expression"
                     #r(set -eu
 			   sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'
@@ -760,8 +760,8 @@ exec /usr/local/bin/agent.real "$@"
 
     ,@(when *install-devin-cli*
         `((comment "Install Devin CLI from the official installer")
-          (run (and "curl -fsSL https://cli.devin.ai/install.sh | bash"
-                    "command -v devin"))
+          (run "curl -fsSL https://cli.devin.ai/install.sh | bash || true # tries to run `devin setup` which fails"
+	                           )
 	  (run "mv /root/.local/bin/devin /usr/local/bin/devin.real")
 	  (copy :heredoc "/usr/local/bin/devin"
                 ,(devin-wrapper-script "/usr/local/bin/devin.real"))

@@ -38,6 +38,9 @@ RUN --mount=type=cache,target=/root/.cargo/registry --mount=type=cache,target=/r
  && ln -sf /root/.cargo/bin/difft /usr/local/bin/difft
 # Configure Git to use difftastic as default diff tool
 RUN git config --global diff.external difft
+# Install probe-rs
+RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-installer.sh | sh \
+ && chmod -R a+w /root/.cargo/bin/probe-rs
 # Copy the isolated Python environment
 COPY --from=builder-python --link /workspace/.venv /workspace/.venv
 ENV PATH=/workspace/.venv/bin:$PATH
@@ -78,12 +81,24 @@ case " $* " in
 esac
 EOF
 RUN chmod +x /usr/local/bin/muse /usr/local/bin/muse.real
+# Install Devin CLI from the official installer
+RUN curl -fsSL https://cli.devin.ai/install.sh | bash || true # tries to run `devin setup` which fails
+RUN mv /root/.local/bin/devin /usr/local/bin/devin.real
+COPY <<'EOF' /usr/local/bin/devin
+#!/usr/bin/env bash
+set -euo pipefail
+case " $* " in
+  *" --permission-mode bypass "*) exec /usr/local/bin/devin.real "$@" ;;
+  *) exec /usr/local/bin/devin.real --permission-mode bypass "$@" ;;
+esac
+EOF
+RUN chmod +x /usr/local/bin/devin /usr/local/bin/devin.real
 # Smoke test Meta Muse Code by checking the CLI version
 RUN <<'EOF'
 set -eu
-muse --version > /tmp/muse-version.txt
-[ -s /tmp/muse-version.txt ]
-grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/muse-version.txt
+	    muse --version > /tmp/muse-version.txt
+	    [ -s /tmp/muse-version.txt ]
+	    grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/muse-version.txt
 	    
 EOF
 # Smoke test Arm GNU bare-metal toolchain by compiling a Cortex-M7 object
@@ -102,30 +117,30 @@ EOF
 # Smoke test GCC by compiling and running a tiny C program
 RUN <<'EOF'
 set -eu
-tmpdir="$(mktemp -d /tmp/ai-env-gcc.XXXXXX)"
-cat > "$tmpdir/test.c" <<'C_EOF'
-#include <stdio.h>
+			  tmpdir="$(mktemp -d /tmp/ai-env-gcc.XXXXXX)"
+			  cat > "$tmpdir/test.c" <<'C_EOF'
+			  #include <stdio.h>
 
-int main(void) {
-puts("gcc-ok") ;
-return 0	  ;
-}
-C_EOF
-gcc "$tmpdir/test.c" -o "$tmpdir/test"
-"$tmpdir/test"
+			  int main(void) {
+			  puts("gcc-ok") ;
+			  return 0	 ;
+			  }
+			  C_EOF
+			  gcc "$tmpdir/test.c" -o "$tmpdir/test"
+			  "$tmpdir/test"
 			  
 EOF
 # Smoke test Rust by compiling and running a tiny program
 RUN <<'EOF'
 set -eu
-tmpdir="$(mktemp -d /tmp/ai-env-rust.XXXXXX)"
-cat > "$tmpdir/test.rs" <<'R_EOF'
-fn main() {
-println!("rust-ok") ;
-}
-R_EOF
-rustc "$tmpdir/test.rs" -o "$tmpdir/test"
-"$tmpdir/test"
+			   tmpdir="$(mktemp -d /tmp/ai-env-rust.XXXXXX)"
+			   cat > "$tmpdir/test.rs" <<'R_EOF'
+			   fn main() {
+			   println!("rust-ok") ;
+			   }
+			   R_EOF
+			   rustc "$tmpdir/test.rs" -o "$tmpdir/test"
+			   "$tmpdir/test"
 			   
 EOF
 # Smoke test Python by running a tiny script
@@ -139,7 +154,7 @@ EOF
 # Smoke test SBCL by evaluating a simple expression
 RUN <<'EOF'
 set -eu
-sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'
+			   sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'
 			   
 EOF
 VOLUME ["/workspace/src", "/root/.config", "/root/.config/tc", "/root/.cache", "/root/.gemini", "/root/.grok", "/root/.codex", "/root/.azure", "/root/.cargo"]
