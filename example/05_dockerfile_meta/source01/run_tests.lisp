@@ -106,6 +106,18 @@
           (incf *test-failures*)
           (format t "FAIL: (copy src dest :from) did not throw error~%"))))
 
+  ;; Test 11: apt-get update must accompany apt-get install in one RUN layer.
+  ;; Regression guard: origin/main dropped "apt-get update" from the
+  ;; generated RUN layers, which breaks docker build on empty apt lists.
+  (assert-df (format nil "RUN apt-get update \\~% && apt-get install -y curl")
+             (run (and "apt-get update" "apt-get install -y curl")))
+  (let ((bare (emit-df '(run "apt-get install -y curl"))))
+    (if (null (search "apt-get update" bare))
+        (format t "PASS: bare install RUN omits update (update must stay explicit)~%")
+        (progn
+          (incf *test-failures*)
+          (format t "FAIL: bare install RUN unexpectedly contains update: ~s~%" bare))))
+
   (format t "~%Test results: ~a failures.~%" *test-failures*)
   (if (> *test-failures* 0)
       (sb-ext:exit :code 1)
