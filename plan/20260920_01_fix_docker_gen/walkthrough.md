@@ -88,6 +88,21 @@ vor Arbeitsbeginn immer `git fetch origin` ausführen.
 - Voller `docker build` des AI-Env-Images steht aus (bewusst nicht gemacht:
   Dauer/Netzwerk/GPU); Folgeaufgabe.
 
+## Voller Docker-Build (nachgereicht)
+
+- `setup01_build.sh` läuft durch: alle 26 Runner-Steps grün, Image
+  `my-ai-env:latest` (4.4 GB) gebaut und benannt.
+- Build fand noch einen Generator-Fehler: Die `#r(…)`→`#r|…|`-Konvertierung
+  hatte das schließende `'` der letzten `--eval`-Form im
+  Quicklisp-Prefetch-RUN verschluckt (Step 18/26: „Unterminated quoted
+  string"). Ein-Zeichen-Fix + Dockerfile-Regenerierung
+  (`fix(ai-env): restore dropped quote in quicklisp prefetch RUN`).
+- Smoke-Test im frischen Container: sbcl, python3, rustc, uv, devin,
+  difft, muse, arm-none-eabi-gcc 15.3.1 funktionieren; `docker` und `node`
+  fehlen per Design (Laptop-Toggle `*install-docker-cli*`/`codex` aus).
+- Kernbeweis des `apt-get-update`-Fixes: `apt-get install -s curl` löst im
+  finalen Image fehlerfrei auf (gültige Paketlisten in jedem Layer).
+
 ## Programme für den Docker-Container
 
 - Aus dieser Arbeit zwingend: keine. Die Fixes ändern Layer-Inhalte und
