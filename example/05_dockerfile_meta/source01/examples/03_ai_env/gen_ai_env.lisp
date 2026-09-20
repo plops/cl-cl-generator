@@ -658,7 +658,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                     "ln -s /workspace/src/cl-rust-generator /root/quicklisp/local-projects/cl-rust-generator"))
           
           (comment "Pre-fetch and cache Quicklisp systems and common dependencies")
-          (run #r|sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quickload "quicklisp-slime-helper")' --eval '(ql:quickload "alexandria")' --eval '(ql:quickload "jonathan")' --eval '(ql:quickload "external-program")' --eval '(ql:quickload "cl-ppcre")|)))
+          (run #r|sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quickload "quicklisp-slime-helper")' --eval '(ql:quickload "alexandria")' --eval '(ql:quickload "jonathan")' --eval '(ql:quickload "external-program")' --eval '(ql:quickload "cl-ppcre")'|)))
 
     ,@(when *install-grok*
         `((comment "Install Grok Build from the official x.ai installer")
