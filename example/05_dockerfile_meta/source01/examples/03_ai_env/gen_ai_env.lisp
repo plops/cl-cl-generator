@@ -714,11 +714,11 @@ exec /usr/local/bin/agent.real "$@"
 (let ((all-code
         `(toplevel
            ,@(builder-python-stage)
-           ;,@(builder-agy-stage)
-           ;,@(builder-copilot-stage)
-           ;,@(builder-kiro-stage)
-           ;,@(builder-teamcity-stage)
-           ;,@(runner-stage)
+           ,@(builder-agy-stage)
+           ,@(builder-copilot-stage)
+           ,@(builder-kiro-stage)
+           ,@(builder-teamcity-stage)
+           ,@(runner-stage)
 	   )))
   (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
     (write-df (merge-pathnames "Dockerfile" current-dir) all-code t)
