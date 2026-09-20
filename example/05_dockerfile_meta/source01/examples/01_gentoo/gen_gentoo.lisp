@@ -86,7 +86,7 @@
 (defparameter *audio-system* :alsa
   "Audio system. Choices: :pipewire, :alsa, :none")
 
-(defparameter *kver* "6.18.36")
+(defparameter *kver* "6.18.41")
 
 ;; --- Snapshot resolution ---
 (defun json-value (key object)

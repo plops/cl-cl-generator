@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 # Base images
-FROM gentoo/portage:20260718 AS portage
+FROM gentoo/portage:20260824 AS portage
 # Stage3 base (1GB)
 # https://hub.docker.com/r/gentoo/stage3/tags
-FROM gentoo/stage3:amd64-nomultilib-openrc-20260629 AS base
+FROM gentoo/stage3:amd64-nomultilib-openrc-20260824 AS base
 # https://hub.docker.com/r/gentoo/portage/tags
 # Copy full Portage tree (570MB)
 COPY --from=portage /var/db/repos/gentoo /var/db/repos/gentoo
@@ -139,13 +139,13 @@ media-plugins/alsa-plugins
 
 EOF
 COPY config/dwm-6.8 /etc/portage/savedconfig/x11-wm/dwm-6.8
-ENV KVER_PURE=6.18.36
+ENV KVER_PURE=6.18.41
 ENV KVER_SOURCE=${KVER_PURE}-gentoo
 ENV KVER_RELEASE=${KVER_SOURCE}-dist
 ENV CHECKREQS_DONOTHING=1
 RUN df -h
-# Recreate the gentoo-sources-6.18.36 ebuild
-COPY <<'EOF' /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild
+# Recreate the gentoo-sources-6.18.41 ebuild
+COPY <<'EOF' /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.41.ebuild
 EAPI="8"
 ETYPE="sources"
 K_WANT_GENPATCHES="base extras experimental"
@@ -162,7 +162,7 @@ KEYWORDS="~alpha amd64 arm arm64 ~hppa ~m68k ~mips ppc ppc64 ~riscv ~s390 ~sparc
 IUSE="experimental"
 
 EOF
-RUN ebuild /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.36.ebuild manifest
+RUN ebuild /var/db/repos/gentoo/sys-kernel/gentoo-sources/gentoo-sources-6.18.41.ebuild manifest
 RUN --mount=type=bind,source=./distfiles,target=/var/cache/distfiles-host,ro \
 --mount=type=bind,source=./binpkgs,target=/var/cache/binpkgs-host,ro \
 --mount=type=cache,target=/var/cache/distfiles-cache \
