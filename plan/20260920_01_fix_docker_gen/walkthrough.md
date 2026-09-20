@@ -33,6 +33,12 @@ vor Arbeitsbeginn immer `git fetch origin` ausführen.
   kann den dokumentierten Start aus `prompt.txt`
   (`setup02_run.sh --gpu --host-kmsg --usb --source-isolation --docker-sock`)
   nicht ausführen; er wurde daher ersetzt. `sh -n` sauber.
+- Runner-Stage reaktiviert: In der `toplevel`-Assembly waren alle Stages
+  außer `builder-python` auskommentiert (Debug-Überrest der
+  `emit-df`-Reparatur), sodass `setup00` nur einen 16-Zeilen-Dockerfile ohne
+  Runner-Stage erzeugte. Splices wieder aktiviert; deaktivierte Komponenten
+  bleiben über ihre `*install-*`-Toggle aus. Regen liefert 37 Direktiven,
+  deterministisch, ohne Zeilenverlust gegenüber dem alten Artefakt.
 - `01_gentoo`: Kver-Bump 6.18.36→6.18.41 + Snapshots 20260824 als
   `chore`-Commit übernommen, Konsistenz verifiziert (kein Fix nötig).
 - Toggle-Profil: Laptop-Profil von `origin/main` beibehalten (keine
