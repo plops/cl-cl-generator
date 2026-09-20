@@ -1,58 +1,77 @@
 # Walkthrough — Fix docker-gen (`03_ai_env`), Branch `fix/ai-env-apt-update`
 
+## Korrektur zum Plan: das eigentliche `origin/main`
+
+Der Plan analysierte die Commits `0f1dc22`/`726b7dc` — aber die lokale
+`origin/main`-Ref war stale. Das echte `origin/main` ist `44bf7d3` („ai
+broke the code, i started fixing but its not working again") mit 8 weiteren
+Commits (`26c72bb`, `0610ef0`, `a3353ef`, `403c9ea`, `21d895d`, `3515bd3`,
+`21cb08d`, `44bf7d3`). Der Branch wurde deshalb auf `44bf7d3` rebased; alle
+Fixes wurden auf dem neuen Stand neu angewendet und validiert. Lesson:
+vor Arbeitsbeginn immer `git fetch origin` ausführen.
+
 ## Was implementiert wurde
 
-- Root Cause auf `origin/main` gefunden und behoben: Die Commits `0f1dc22`
-  („configure for laptop") und `726b7dc` („more") hatten in
-  `gen_ai_env.lisp` an neun Stellen das `"apt-get update"`-Element aus
-  `(and "apt-get update" "apt-get install …")`-Formen entfernt. Ohne Update
-  im selben RUN-Layer schlägt jeder `apt-get install` auf leeren
-  Paketlisten fehl. Der Scratch-Check `/tmp/check_apt_update.sh` meldete 8
-  verletzte RUN-Layer im committeten Dockerfile (nicht committet, Diagnose
-  only); nach dem Fix 0.
-- Kanonische Zwei-Element-Form wiederhergestellt (keine Inline-`&&`-Strings
-  aus dem Working Tree übernommen): `builder-python/agy/copilot/kiro/
-  teamcity`, Agent-Tool-Belt, Dependency-Loop, `azure-cli`, `docker-cli`.
-- Toggle-Profil: committetes Laptop-Profil von `origin/main` behalten (CUDA,
-  Emacs, Docker-CLI, Agy, TeamCity, Habit-Hooks aus). Die Workstation-Flips
-  aus dem uncommitteten Working Tree (`*enable-cuda* t`,
-  `*install-docker-cli* t`, `sudo`, ARM-/`clangd`-Auskommentierungen) wurden
-  bewusst NICHT übernommen; eine Kopie liegt zur Referenz unter
-  `/tmp/gen_ai_env.workstation-variant.lisp` (Container-lokal, nicht im Repo).
-  Workstation-Rebuild: in `gen_ai_env.lisp` `*enable-cuda*` und
-  `*install-docker-cli*` auf `t` setzen, `setup00` laufen lassen.
-- `setup02_run.sh`-Verbesserungen behalten (uv-Cache-Mount/Verzeichnis,
-  zusätzliche Source-Isolation-Mounts).
+- `gen_ai_env.lisp` (Stand `44bf7d3`): kanonische
+  `(and "apt-get update" "apt-get install …")`-Form an allen neun Stellen
+  (builder-python/agy/copilot/kiro/teamcity, Agent-Tool-Belt,
+  Dependency-Loop, azure-cli, docker-cli). Der Scratch-Check
+  `/tmp/check_apt_update.sh` meldete 8 verletzte RUN-Layer im committeten
+  Dockerfile (Diagnose only, nicht committet); nach dem Fix 0.
+- `dock.lisp`: Ein-Zeichen-Klassen-Fix in `emit-df`. Der Keyword-Rewrite auf
+  `origin/main` hatte eine schließende Klammer von Zeile 204 nach Zeile 203
+  verschoben; dadurch wurde die äußere `(t (emit-val code))`-cond-Klausel zu
+  einem separaten defun-Body-Form (Aufruf der undefinierten Funktion `t`,
+  deren Argumentauswertung unendlich in `emit-df` rekursiert,
+  Control-Stack-Exhaustion bei der ersten `(comment …)`-Form). Kein
+  Dockerfile war mehr generierbar. Fix: Klammer zurückverschieben
+  (203: 9→8, 204: 3→4 schließende Klammern). Gefunden per Reader-Struktur-
+  Walk (cond hatte nur 2 statt 3 Klauseln) und Tree-Diff gegen `726b7dc`.
+- `setup02_run.sh`: Das voll ausgestattete Skript (gpu, usb, kmsg,
+  source-isolation, docker-sock, uv-Cache, zusätzliche Source-Mounts)
+  wiederhergestellt. Der Minimal-Rewrite auf `origin/main` (31 Zeilen)
+  kann den dokumentierten Start aus `prompt.txt`
+  (`setup02_run.sh --gpu --host-kmsg --usb --source-isolation --docker-sock`)
+  nicht ausführen; er wurde daher ersetzt. `sh -n` sauber.
 - `01_gentoo`: Kver-Bump 6.18.36→6.18.41 + Snapshots 20260824 als
-  `chore`-Commit übernommen, Konsistenz verifiziert.
+  `chore`-Commit übernommen, Konsistenz verifiziert (kein Fix nötig).
+- Toggle-Profil: Laptop-Profil von `origin/main` beibehalten (keine
+  Workstation-Flips committet).
 - Tests: `Test 11` in `source01/run_tests.lisp` (DSL-Regressionstest im
-  bestehenden `assert-df`-Stil). DSL-Suite 0 Failures, Root-Suite
+  bestehenden `assert-df`-Stil). DSL-Suite 0 Failures (45 PASS), Root-Suite
   `run-tests.sh` 7/7 grün. Determinismus: zwei `setup00`-Läufe → identisches
   sha256. `sh -n` auf allen `03_ai_env`-Skripten sauber.
-- Commits: 6 Conventional Commits mit Body + Validierungsangabe
+- Commits: 8 Conventional Commits mit Body + Validierungsangabe
   (`chore` Plan-Moves, `fix` Generator, `test` Regressionstest, `feat`
-  regenerierter Dockerfile + Run-Skript, `chore` Gentoo, `docs` Plan/Tasks),
-  Fast-Forward-Merge nach `main`, Push ohne Force.
+  regenerierter Dockerfile + Run-Skript-Restore, `fix` DSL-Nesting,
+  `chore` Gentoo, 2× `docs` Plan/Walkthrough), Fast-Forward-Merge nach
+  `main`, Push ohne Force.
 
 ## Testbedingte Abweichungen vom Plan
 
-- Keine inhaltlichen Abweichungen. Hinweis: Der Plan sprach von „ca. 8
-  Stellen" — es sind 9 (5 Builder + Tool-Belt + Dependency-Loop + Azure +
-  Docker); alle gefixt.
-- Der `git diff --exit-code`-Determinismus-Check aus dem Plan war unpräzise
-  formuliert (Diff gegen HEAD zeigt natürlich den Fix); korrekt validiert
-  per sha256-Vergleich zweier aufeinanderfolgender `setup00`-Läufe.
+- Neun statt „ca. acht" `apt-get`-Stellen (azure-/docker-cli mitgezählt).
+- Zusätzlicher `dock.lisp`-Fix (auf echtem `origin/main` war die Generierung
+  komplett kaputt, nicht nur die Layer).
+- `setup02_run.sh` wurde restauriert statt nur übernommen (Minimal-Rewrite
+  hätte den dokumentierten Startbefehl gebrochen).
+- Determinismus-Check per sha256 statt `git diff --exit-code` (letzterer
+  zeigt gegen HEAD natürlich den Fix selbst).
 
 ## Learnings
 
-- `git diff` in diesem Repo braucht `--no-ext-diff` NACH `diff`
-  (`diff.external=difft` + Lisp-Diff-Driver zerbrechen externe Diffs).
+- Immer `git fetch origin` vor der Analyse; stale Refs führen zu Arbeit auf
+  falscher Basis.
+- `git diff` braucht hier `--no-ext-diff` NACH `diff`
+  (`diff.external=difft` zerbricht externe Diffs an Lisp-Dateien).
 - `parenmedic diagnose` meldet in `gen_ai_env.lisp` ab `*smoke-tests*`
-  False Positives: `#r(…)`-Raw-Strings enthalten Shell/JS mit unbalancierten
-  Klammern. Ground Truth ist `sbcl --load`, nicht parenmedic allein.
+  False Positives (`#r(…)`/`#r|…|`-Raw-Strings mit Shell/JS-Klammern) und in
+  `dock.lisp` an den `#\(`-Char-Literalen; Ground Truth ist `sbcl --load`.
+- Diagnose-Rezept für „unhandled condition … quitting" mit
+  Control-Stack-Exhaustion: Compile-Warnings lesen („The function t is
+  undefined" zeigte hier direkt auf die falsch verschachtelte Klausel),
+  dann Reader-Struktur-Walk statt Klammern von Hand zu zählen.
 - Generierter `Dockerfile` ist eingecheckt: nach jeder Generator-Änderung
-  `setup00` laufen lassen und das Artefakt mitcommitten, sonst driften
-  Quelle und Artefakt auseinander (genau das war hier passiert).
+  `setup00` laufen lassen und das Artefakt mitcommitten.
 
 ## Mögliche Erweiterungen
 
@@ -65,11 +84,11 @@
 
 ## Programme für den Docker-Container
 
-- Aus dieser Arbeit zwingend: keine. Der Fix ändert nur Layer-Inhalte,
-  keine Paketliste.
-- Kandidaten (nicht entschieden, je nach Profil): `sudo` (stand im Working
-  Tree, nicht übernommen), `docker-ce-cli` + `docker-buildx-plugin` (nur im
-  Workstation-Profil mit `*install-docker-cli* t` enthalten).
+- Aus dieser Arbeit zwingend: keine. Die Fixes ändern Layer-Inhalte und
+  einen Paren-Fehler, keine Paketliste.
+- Kandidaten (nicht entschieden, je nach Profil): `sudo`, `docker-ce-cli` +
+  `docker-buildx-plugin` (nur im Workstation-Profil mit
+  `*install-docker-cli* t` enthalten).
 - `parenmedic` NICHT ins Image backen — als Host-Tool über den bestehenden
-  Source-Isolation-Mount (`/workspace/src/parenmedic`, bereits in
-  `setup02_run.sh`) verfügbar halten.
+  Source-Isolation-Mount (`/workspace/src/parenmedic` in `setup02_run.sh`)
+  verfügbar halten.
