@@ -370,7 +370,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       ,(uv-copy-stage)
       (comment "Install base toolsets required to compile Python extensions")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-           (and 
+           (and "apt-get update"
                 "apt-get install -y --no-install-recommends python3-pip python3-venv python3-dev build-essential ca-certificates"))
       (workdir "/workspace")
       (comment "Install the programmatic Python SDK using uv")
@@ -386,7 +386,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       (from ,*builder-base-image* :as builder-agy)
       (env DEBIAN_FRONTEND "noninteractive")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-           (and 
+           (and "apt-get update"
                 "apt-get install -y --no-install-recommends ca-certificates curl"))
       (workdir "/workspace")
       (comment "Download, decompress, and run the Antigravity installation script")
@@ -402,7 +402,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       (from ,*builder-base-image* :as builder-copilot)
       (env DEBIAN_FRONTEND "noninteractive")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-           (and 
+           (and "apt-get update"
                 "apt-get install -y --no-install-recommends ca-certificates curl"))
       (workdir "/workspace")
       (comment "Download and install GitHub Copilot CLI from the official installer")
@@ -418,7 +418,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       (from ,*builder-base-image* :as builder-kiro)
       (env DEBIAN_FRONTEND "noninteractive")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-           (and 
+           (and "apt-get update"
                 "apt-get install -y --no-install-recommends ca-certificates curl unzip"))
       (workdir "/workspace")
       (comment "Install kiro-cli from Amazon using the official zip package")
@@ -436,7 +436,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
       (from ,*builder-base-image* :as builder-teamcity)
       (env DEBIAN_FRONTEND "noninteractive")
       (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-           (and 
+           (and "apt-get update"
                 "apt-get install -y --no-install-recommends ca-certificates curl"))
       (workdir "/workspace")
       (comment "Install TeamCity CLI from the official JetBrains installer")
@@ -482,7 +482,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     
     (comment "Install the essential tool belt for agents")
     (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-         (and 
+         (and "apt-get update"
               ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" (remove-duplicates (append '("curl" "ca-certificates" "git" "jq") *ubuntu-packages*) :test #'string=))))
 
     
@@ -492,7 +492,8 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     ,@(loop for (cond-expr . pkgs) in *dependency-packages*
             when (eval cond-expr)
               collect `(run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
-                            ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" pkgs)))
+                            (and "apt-get update"
+                                 ,(format nil "apt-get install -y --no-install-recommends ~{~a~^ ~}" pkgs))))
 
     ;; Install code-quality CLIs independently of any mounted project's manifests.
     ,@(when *install-habit-hooks*
@@ -601,7 +602,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                     "repo_suite=\"$suite\""
                     "if ! curl -fsI \"https://packages.microsoft.com/repos/azure-cli/dists/${repo_suite}/Release\" >/dev/null; then repo_suite=\"noble\"; fi"
                     "printf '%s\\n' 'Types: deb' 'URIs: https://packages.microsoft.com/repos/azure-cli/' \"Suites: ${repo_suite}\" 'Components: main' \"Architectures: ${arch}\" 'Signed-By: /etc/apt/keyrings/microsoft.gpg' > /etc/apt/sources.list.d/azure-cli.sources"
-                    
+                    "apt-get update"
                     "apt-get install -y --no-install-recommends azure-cli"))))
 
     ,@(when *install-docker-cli*
@@ -612,7 +613,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                     "chmod a+r /etc/apt/keyrings/docker.gpg"
                     "suite=\"$(. /etc/os-release && printf '%s' \"${UBUNTU_CODENAME:-$VERSION_CODENAME}\")\""
                     "printf '%s\\n' 'Types: deb' 'URIs: https://download.docker.com/linux/ubuntu' \"Suites: ${suite}\" 'Components: stable' 'Signed-By: /etc/apt/keyrings/docker.gpg' > /etc/apt/sources.list.d/docker.sources"
-                    
+                    "apt-get update"
                     "apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin"))))
 
     ,@(when *install-arm-none-eabi*
