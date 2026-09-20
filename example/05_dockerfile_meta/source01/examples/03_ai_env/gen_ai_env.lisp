@@ -42,12 +42,12 @@
   "Minimal base image for CLI builder stages to save build time and memory.")
 
 ;; Enable or disable components to build minimal images
-(defparameter *install-gcc* nil)
+(defparameter *install-gcc* t)
 (defparameter *install-sbcl* t)
 (defparameter *install-emacs* nil)
 (defparameter *install-python* t)
 (defparameter *install-python-libs* t) ; google-antigravity SDK
-(defparameter *install-docker-cli* nil
+(defparameter *install-docker-cli* t
   "Install the Docker CLI for use with an optionally mounted host Docker socket.")
 (defparameter *install-arm-none-eabi* t
   "Install the Arm GNU bare-metal toolchain used by the fountain firmware.")
@@ -140,9 +140,9 @@
    :test #'string=))
 ;; Toggle AI CLI tools
 (defparameter *install-agy* nil)
-(defparameter *install-codex* nil)
-(defparameter *install-copilot* nil)
-(defparameter *install-kiro-cli* nil)
+(defparameter *install-codex* t)
+(defparameter *install-copilot* t)
+(defparameter *install-kiro-cli* t)
 (defparameter *install-azure-cli* nil)
 (defparameter *install-teamcity-cli* nil)
 (defparameter *install-grok* nil)
