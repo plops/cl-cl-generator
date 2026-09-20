@@ -200,8 +200,8 @@
                             :test #'string=)
               (warn "Unknown Dockerfile instruction: ~a" instruction))
             (format nil "~a ~{~a~^ ~}" instruction
-                    (mapcar #'emit-val (cdr code)))))))))
-  (t (emit-val code)))
+                    (mapcar #'emit-val (cdr code))))))))
+  (t (emit-val code))))
 
 (defun file-contents-equal-p (filename content)
   (and (probe-file filename)
