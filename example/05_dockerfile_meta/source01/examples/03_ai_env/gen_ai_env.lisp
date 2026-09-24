@@ -11,24 +11,28 @@
 		   (speed 1)))
 
 ;; Toggle NVIDIA / CUDA GPU Support
-(defparameter *enable-cuda* nil
-  "When true, configure the image with NVIDIA CUDA and cuDNN support.")
+(defparameter *enable-cuda* t
+  "When true, configure the image with NVIDIA CUDA support.")
 
-(defparameter *cuda-flavor* :devel
-  "CUDA image variant:
-   - :cudnn-devel   : AI / Deep Learning development (NVCC compiler, CUDA headers, cuDNN headers & libs)
-   - :devel         : General GPU development (NVCC compiler, CUDA headers, no cuDNN)
-   - :cudnn-runtime : AI / Deep Learning production execution (CUDA runtime + cuDNN)
-   - :runtime       : General GPU production execution (CUDA runtime)
-   - :base          : Minimal deployment / driver linking")
+;; Suggested for `uv pip install cuml`: :runtime (1.81 GB)
+;; Pre-built RAPIDS wheels package their own math/cuml libraries, needing only the runtime.
+(defparameter *cuda-flavor* :runtime
+  "CUDA image variant (amd64 compressed sizes for 13.4.1):
+   - :cudnn-devel   : 4.74 GB | AI dev (NVCC, CUDA headers, cuDNN headers & libs)
+   - :devel         : 4.25 GB | GPU dev (NVCC, CUDA headers - needed if compiling cuML from source)
+   - :cudnn-runtime : 2.29 GB | Deep Learning inference (CUDA runtime + cuDNN)
+   - :runtime       : 1.81 GB | Optimal for uv/pip pre-built wheels (CUDA runtime)
+   - :base          : 211 MB  | Minimal driver-linking only (usually too stripped for cuML)
+   * Note: TensorRT flavors are omitted as they are arm64-only in this release.")
 
-(defparameter *cuda-version* "13.3.1"
+(defparameter *cuda-version* "13.4.1"
   "NVIDIA CUDA version tag.")
 
 (defparameter *cuda-ubuntu-version* "ubuntu26.04"
   "Ubuntu base release for CUDA images.")
 
 (defun compute-base-image ()
+  "Generates the Docker base image string based on current configuration."
   (if *enable-cuda*
       (format nil "nvidia/cuda:~a-~(~a~)-~a"
               *cuda-version*
@@ -37,7 +41,9 @@
       "ubuntu:26.04"))
 
 ;; Define parameters to toggle features
-(defparameter *base-image* (compute-base-image))
+(defparameter *base-image* (compute-base-image)
+  "Resolved base image tag for final application runtime/environment.")
+
 (defparameter *builder-base-image* "ubuntu:26.04"
   "Minimal base image for CLI builder stages to save build time and memory.")
 
@@ -55,7 +61,7 @@
 (defparameter *arm-none-eabi-toolchain*
   (format nil "arm-gnu-toolchain-~a-x86_64-arm-none-eabi"
           *arm-none-eabi-version*))
-(defparameter *install-jlink* nil
+(defparameter *install-jlink* t
   "Install the SEGGER J-Link command-line tools used to flash and debug firmware.")
 (defparameter *jlink-version* "9.30")
 (defparameter *jlink-version-code*
@@ -66,7 +72,7 @@
   "Install the Archify Codex skill and a Chrome for Testing browser for visual checks.")
 (defparameter *archify-chrome-build* "stable"
   "Chrome for Testing channel or exact version used by Archify (for example, stable or 140.0.7339.80).")
-(defparameter *enable-tests* nil
+(defparameter *enable-tests* t
   "Run build-time smoke tests for every enabled component that has a test entry.")
 (defparameter *python-libs*
   (append
@@ -99,7 +105,7 @@
       '(;"clang-format"
 	;"clang-tidy"
 	;"clangd"
-	;"ninja-build"
+	"ninja-build"
 	"cmake"
 	"build-essential"
 	"pkg-config"
@@ -120,6 +126,7 @@
       "picocom"
       "git"
       "usbutils"
+      "sudo"
       "libusb-1.0-0-dev"
 					;"lsof"
 					;"strace"
@@ -128,7 +135,7 @@
 					;"shellcheck"
       "fzf"
       ;"bat"
-      ;"git-lfs"
+      "git-lfs"
       ;"openssh-client"
       ;"dos2unix"
       "parallel"
