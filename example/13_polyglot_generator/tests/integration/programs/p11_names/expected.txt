@@ -1,0 +1,4 @@
+match = 3
+fn = 3
+sum = 6
+max = 100
