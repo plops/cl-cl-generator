@@ -10,7 +10,8 @@
   :expect (:cl "(make-instance 'point :y 2.0d0)"
                :python "return Point(y=2.0)"
                :cpp "return Point{.y = 2.0};"
-               :rust "Point { x: 0.0, y: 2.0 }"))
+               :rust "Point { x: 0.0, y: 2.0 }"
+               :go "return point{x: 0.0, y: 2.0}"))
 
 (define-spec const-method
   :tags (:items) :doc "A method with an :in receiver is const in C++."
@@ -20,7 +21,8 @@
   :expect (:cl "(defmethod norm ((p point)) (* (point-x p) (point-x p)))"
                :python "def norm(self) -> float: return self.x * self.x"
                :cpp "double norm() const;"
-               :rust "fn norm(&self) -> f64 { self.x * self.x }"))
+               :rust "fn norm(&self) -> f64 { self.x * self.x }"
+               :go "func (p point) norm() float64 { return p.x * p.x }"))
 
 (define-spec interface-declaration
   :tags (:items) :doc "Interfaces: abstract methods and a virtual destructor."
@@ -31,7 +33,8 @@
   :expect (:cl "(defgeneric area (s))"
                :python "class Shape(ABC): @abstractmethod def area(self) -> float: ..."
                :cpp "struct Shape { virtual ~Shape() = default; virtual double area() const = 0; };"
-               :rust "trait Shape { fn area(&self) -> f64; }"))
+               :rust "trait Shape { fn area(&self) -> f64; }"
+               :go "type shape interface { area() float64 }"))
 
 (define-spec view-parameter
   :tags (:borrows) :doc "(view :string) is passed by value as a view."
@@ -40,7 +43,8 @@
   :expect (:cl "(pg-utf8-length s)"
                :python "def spec_f(s: str) -> int: return len(s.encode())"
                :cpp "std::int64_t spec_f(std::string_view s) { return static_cast<std::int64_t>(s.size()); }"
-               :rust "fn spec_f(s: &str) -> i64 { s.len() as i64 }"))
+               :rust "fn spec_f(s: &str) -> i64 { s.len() as i64 }"
+               :go "func specF(s string) int64 { return int64(len(s)) }"))
 
 (define-spec modes-parameters
   :tags (:modes) :doc "Parameter modes :in, :inout and :sink (K1)."
@@ -50,4 +54,5 @@
   :expect (:cl "(vector-push-extend (length (bag-items a)) (bag-items b))"
                :python "def spec_f(a: Bag, b: Bag, c: Bag) -> None: b.items.append(len(a.items))"
                :cpp "void spec_f(const Bag& a, Bag& b, [[maybe_unused]] Bag c)"
-               :rust "fn spec_f(a: &Bag, b: &mut Bag, _c: Bag) { b.items.push(a.items.len() as i64); }"))
+               :rust "fn spec_f(a: &Bag, b: &mut Bag, _c: Bag) { b.items.push(a.items.len() as i64); }"
+               :go "func specF(a bag, b *bag, c bag) { b.items = append(b.items, int64(len(a.items))) }"))

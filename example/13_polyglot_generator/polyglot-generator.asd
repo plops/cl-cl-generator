@@ -117,6 +117,16 @@
          (:file "stmt")
          (:file "lifetimes")
          (:file "items")
+         (:file "artifacts")))
+       (:module "go"
+        :serial t
+        :components
+        ((:file "config")
+         (:file "types")
+         (:file "expr")
+         (:file "intrinsics")
+         (:file "stmt")
+         (:file "items")
          (:file "artifacts"))))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 
