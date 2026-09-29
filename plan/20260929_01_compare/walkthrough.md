@@ -523,9 +523,42 @@ std::string describe_boxed(const std::unique_ptr<util::Point> &p);
 ```
 Quelle: `build/p09_multimodule/cpp/report.hpp` (Auszug)
 
-Private Items (hier `half`) landen in der `.cpp` in einem anonymen Namespace.
-Das Entry-Modul hat keinen Namespace, weil `main` global sein muss. Die
-anderen Sprachen bilden dieselbe Struktur so ab:
+Was ein Modul nicht exportiert, bleibt privat. In `geometry` ist das die
+Hilfsfunktion `half`: Sie steht nicht in `(:export segment seg-length
+midpoint)`. Deshalb taucht sie in `geometry.hpp` gar nicht auf, und in
+`geometry.cpp` steht sie in einem Namespace ohne Namen (`namespace { … }`).
+Ein solcher anonymer Namespace bedeutet in C++: Der Name ist nur in dieser
+einen `.cpp`-Datei sichtbar, so wie `static` bei einer Funktion. Andere
+Module können `half` also nicht aufrufen, auch nicht als `geometry::half`:
+
+```cpp
+namespace geometry {
+namespace {
+double half(double v);
+} // namespace
+...
+util::Point midpoint(const Segment &s) {
+  return util::Point{.x = half(s.a.x + s.b.x), .y = half(s.a.y + s.b.y)};
+}
+
+namespace {
+double half(double v) { return v / 2.0; }
+} // namespace
+
+} // namespace geometry
+```
+Quelle: `build/p09_multimodule/cpp/geometry.cpp` (Auszug)
+
+Die Vorwärtsdeklaration oben erlaubt, dass `midpoint` die Funktion benutzt,
+obwohl ihre Definition erst weiter unten steht. Die anderen Sprachen
+kennzeichnen private Items auf ihre Weise; Beispiel ist die private Funktion
+`square` aus dem Modul `util`: in Python `_square` mit Unterstrich (siehe
+unten), in Rust `fn square` ohne `pub`, in Go `func square` mit kleinem
+Anfangsbuchstaben.
+
+Eine Ausnahme ist das Entry-Modul `app`, das `main` enthält: Es bekommt keinen
+Namespace, weil C++ den Einstiegspunkt `main` nur im globalen Namespace
+akzeptiert. Die anderen Sprachen bilden die Modulstruktur so ab:
 
 ```rust
 mod geometry;
