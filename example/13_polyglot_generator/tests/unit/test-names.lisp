@@ -21,6 +21,14 @@
   (is (string= "MAX_SIZE" (to-upper-snake "+max-size+")))
   (is (string= "foo_bar" (to-snake "foo_bar"))))
 
+(test case-conversions-with-digits-and-earmuffs
+  ;; cl-change-case semantics as used here (:merge-numbers t for camel/pascal)
+  (is (string= "utf8CharCount" (to-camel "utf8-char-count")))
+  (is (string= "Norm2" (to-pascal "norm2")))
+  (is (string= "Unit" (to-pascal "+unit+")))
+  (is (string= "foo" (to-snake "*foo*")))
+  (is (string= "ab_cd" (to-snake "ab--cd"))))
+
 (test verbatim-names-stay
   (is (string= "Point" (to-snake "Point")))
   (is (string= "HTTPServer" (to-pascal "HTTPServer")))

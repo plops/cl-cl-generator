@@ -5,7 +5,7 @@
   :description "One S-expression DSL, idiomatic C++20, Python 3, Rust, Common Lisp and Go."
   :author "wol pumba <wolpumba@gmail.com>"
   :licence "GPL"
-  :depends-on ("alexandria" "cl-ppcre" "trivia" "named-readtables" "cl-cl-generator")
+  :depends-on ("alexandria" "cl-ppcre" "cl-change-case" "trivia" "named-readtables" "cl-cl-generator")
   :serial t
   :components
   ((:module "src"

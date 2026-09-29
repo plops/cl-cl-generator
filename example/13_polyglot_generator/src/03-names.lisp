@@ -34,8 +34,10 @@ case letters was written in upper case; mixed names are kept verbatim."
   "A name with mixed case letters (e.g. Point, HTTPServer) is emitted verbatim."
   (and (some #'upper-case-p name) (some #'lower-case-p name)))
 
-(defun name-words (name)
-  "Split NAME into words at - and _. Earmuffs and plus signs are dropped."
+(defun check-identifier (name)
+  "Signal DSL-ERROR unless NAME is a valid DSL identifier: letters, digits, -
+and _, optionally wrapped in earmuffs or plus signs. cl-change-case would
+silently drop other characters, so they are rejected here."
   (when (zerop (length name))
     (dsl-error name "empty identifier"))
   (let ((trimmed (string-trim "*+" name)))
@@ -44,40 +46,36 @@ case letters was written in upper case; mixed names are kept verbatim."
     (loop for ch across trimmed
           unless (or (alphanumericp ch) (member ch '(#\- #\_)))
           do (dsl-error name "invalid character ~s in identifier ~s" ch name))
-    (remove "" (cl-ppcre:split "[-_]" trimmed) :test #'string=)))
+    name))
 
-(defun capitalize-word (word)
-  (concatenate 'string (string-upcase (subseq word 0 1))
-               (string-downcase (subseq word 1))))
-
-(defun join-words (words separator)
-  (format nil (concatenate 'string "~{~a~^" separator "~}") words))
+(defun change-case (name fn)
+  "Validate NAME; verbatim names are returned unchanged, all others are
+converted by FN, a cl-change-case function (it splits at - and _ and drops
+earmuffs and plus signs)."
+  (if (verbatim-name-p (check-identifier name))
+      name
+      (funcall fn name)))
 
 (defun to-snake (name)
-  "point-3d -> point_3d. Verbatim names are returned unchanged."
-  (if (verbatim-name-p name)
-      name
-      (join-words (mapcar #'string-downcase (name-words name)) "_")))
+  "point-3d -> point_3d."
+  (change-case name #'cl-change-case:snake-case))
 
 (defun to-upper-snake (name)
   "max-size -> MAX_SIZE."
-  (if (verbatim-name-p name)
-      name
-      (join-words (mapcar #'string-upcase (name-words name)) "_")))
+  (change-case name #'cl-change-case:constant-case))
 
-(defun to-pascal (name)
-  "point-3d -> Point3d."
-  (if (verbatim-name-p name)
-      name
-      (apply #'concatenate 'string (mapcar #'capitalize-word (name-words name)))))
+(defun merged-camel-case (name)
+  "camel-case with :merge-numbers, so that point-3d becomes point3d (the
+default would be point_3d)."
+  (cl-change-case:camel-case name :merge-numbers t))
 
 (defun to-camel (name)
   "point-3d -> point3d, http-server -> httpServer."
-  (if (verbatim-name-p name)
-      name
-      (let ((words (name-words name)))
-        (apply #'concatenate 'string (string-downcase (first words))
-               (mapcar #'capitalize-word (rest words))))))
+  (change-case name #'merged-camel-case))
+
+(defun to-pascal (name)
+  "point-3d -> Point3d."
+  (change-case name (lambda (n) (cl-change-case:upper-case-first (merged-camel-case n)))))
 
 (defun to-kebab (name)
   "Identity for Lisp: the name as written in the source."

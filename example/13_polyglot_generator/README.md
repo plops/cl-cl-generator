@@ -91,9 +91,9 @@ flowchart LR
 | `tools/lisp-check.sh [--indent] [--ecl] datei…` | Syntax-Gate für Lisp-Dateien |
 
 Benötigt werden SBCL mit Quicklisp (trivia, fiveam, named-readtables,
-alexandria, cl-ppcre), für die Ziele g++ ≥ 13, Python ≥ 3.12 mit ruff, Rust
-mit clippy und Go ≥ 1.23; clang-format, rustfmt, ruff und gofmt formatieren
-die Ausgabe, falls vorhanden.
+alexandria, cl-ppcre, cl-change-case), für die Ziele g++ ≥ 13, Python ≥ 3.12
+mit ruff, Rust mit clippy und Go ≥ 1.23; clang-format, rustfmt, ruff und gofmt
+formatieren die Ausgabe, falls vorhanden.
 
 ## Bekannte Grenzen
 
