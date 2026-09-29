@@ -27,6 +27,15 @@
                       for (nil text2 time2) in after
                       unless (and (eq status :unchanged) (string= text1 text2) (= time1 time2))
                       do (incf failures)
-                      (format t "~&NOT DETERMINISTIC: ~a (~a)~%" path status))))))))
+                      (format t "~&NOT DETERMINISTIC: ~a (~a)~%" path status))
+                ;; a fresh generation into another directory is byte identical
+                (let* ((out2 (merge-pathnames (format nil "_determinism2/~a/" program) (build-dir)))
+                       (third (polyglot:write-project project :targets targets :out out2 :source-file file)))
+                  (loop for (p1) in first
+                        for (p2) in third
+                        unless (equal (uiop:read-file-string p1) (uiop:read-file-string p2))
+                        do (incf failures)
+                        (format t "~&DIFFERENT BYTES: ~a vs ~a~%" p1 p2))
+                  (uiop:delete-directory-tree out2 :validate t :if-does-not-exist :ignore))))))))
     (format t "~&determinism: ~d files checked, ~d problems~%" files failures)
     (if (zerop failures) 0 1)))
