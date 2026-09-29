@@ -56,7 +56,13 @@
        (:file "38-lower")
        (:file "38-lower-stmt")
        (:file "39-order-args")
-       (:file "40-capability"))))))
+       (:file "40-capability")))
+     (:module "printer"
+      :serial t
+      :components
+      ((:file "50-writer")
+       (:file "51-precedence")
+       (:file "52-literals"))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 
 (asdf:defsystem "polyglot-generator/tests"
@@ -87,6 +93,7 @@
        (:file "test-mutability")
        (:file "test-vtable")
        (:file "test-rename")
-       (:file "test-lower"))))))
+       (:file "test-lower")
+       (:file "test-printer"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))
