@@ -18,7 +18,10 @@
   (sort (loop for k being the hash-keys of *imports* collect k) #'string< :key #'princ-to-string))
 
 (defun note-prelude (name)
+  "Record that the prelude helper NAME is used (project wide) and that the
+current module needs the prelude (import key (:prelude))."
   (pushnew name *prelude-used* :test #'equal)
+  (when *imports* (note-import (list :prelude)))
   name)
 
 (defun ex (e)
@@ -52,15 +55,38 @@
 (defun prim (string) (values string nil))
 
 (defun template-bindings (e intrinsic)
-  "Placeholder -> emitted argument (parenthesized unless primary) for E."
+  "Placeholder -> (wrapped . bare): the emitted argument parenthesized unless
+primary, and as is (for argument positions)."
   (let* ((names (intrinsic-param-names intrinsic))
          (args (ir-args e))
          (fixed (loop for n in names for a in args
-                      collect (cons n (operand :postfix :only a))))
+                      collect (cons n (cons (operand :postfix :only a) (ex-str a)))))
          (rest (when (intrinsic-rest intrinsic)
-                 (list (cons (intrinsic-rest intrinsic)
-                             (comma-list (nthcdr (length names) args)))))))
+                 (let ((s (comma-list (nthcdr (length names) args))))
+                   (list (cons (intrinsic-rest intrinsic) (cons s s)))))))
     (append fixed rest)))
+
+(defun argument-position-p (template start end)
+  "True when the placeholder TEMPLATE[START,END) is a complete call argument."
+  (let ((before (if (plusp start) (char template (1- start)) #\())
+        (after (if (< end (length template)) (char template end) #\))))
+    (and (member before '(#\( #\Space #\{ #\[))
+         (or (char/= before #\Space) (and (> start 1) (char= #\, (char template (- start 2)))))
+         (member after '(#\) #\, #\} #\])))))
+
+(defun expand-call-template (template bindings)
+  "Like EXPAND-TEMPLATE, but an argument in call position is not parenthesized."
+  (with-output-to-string (out)
+    (let ((i 0) (n (length template)))
+      (loop while (< i n)
+            do (let ((ch (char template i)))
+                 (if (char= ch #\$)
+                     (let* ((end (or (position-if-not #'placeholder-char-p template :start (1+ i)) n))
+                            (b (cdr (assoc (subseq template (1+ i) end) bindings :test #'string=))))
+                       (unless b (error "template ~s: unknown placeholder" template))
+                       (write-string (if (argument-position-p template i end) (cdr b) (car b)) out)
+                       (setf i end))
+                     (progn (write-char ch out) (incf i))))))))
 
 (defun apply-expansion-metadata (plist)
   (dolist (i (getf plist :imports)) (note-import i))
@@ -77,7 +103,7 @@
            (if (= 1 (length (ir-args e)))
                (unary (getf plist :op) (first (ir-args e)))
                (binary (getf plist :op) (first (ir-args e)) (second (ir-args e)))))
-          (t (values (expand-template (getf plist :template) (template-bindings e intrinsic))
+          (t (values (expand-call-template (getf plist :template) (template-bindings e intrinsic))
                      (getf plist :result-op))))))
 
 (defun define-expansions (backend specs)

@@ -27,6 +27,7 @@
            (dir (merge-pathnames (format nil "~a/" (target-dir-name target)) out))
            (expected-file (merge-pathnames (format nil "~a/expected.txt" program) (programs-dir)))
            (expected (and (probe-file expected-file) (uiop:read-file-string expected-file :external-format :utf-8))))
+      (uiop:delete-file-if-exists (merge-pathnames "failure.log" dir))
       (handler-case
           (handler-bind ((warning #'muffle-warning))
             (polyglot:write-project project :targets (list target) :out out :source-file file))

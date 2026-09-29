@@ -29,6 +29,7 @@ project modules; everything sorted."
   (let ((plain '()) (from (make-hash-table :test 'equal)))
     (loop for key being the hash-keys of *imports*
           do (ecase (first key)
+               (:prelude nil)
                (:import (pushnew (second key) plain :test #'string=))
                (:from (pushnew (third key) (gethash (second key) from) :test #'string=))))
     (flet ((from-line (m)

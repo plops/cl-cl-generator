@@ -63,6 +63,12 @@
       ((:file "50-writer")
        (:file "51-precedence")
        (:file "52-literals")))
+     (:module "driver"
+      :serial t
+      :components
+      ((:file "80-artifacts")
+       (:file "81-format")
+       (:file "82-write")))
      (:module "backend"
       :serial t
       :components
@@ -86,13 +92,18 @@
          (:file "intrinsics")
          (:file "stmt")
          (:file "items")
-         (:file "artifacts")))))
-     (:module "driver"
-      :serial t
-      :components
-      ((:file "80-artifacts")
-       (:file "81-format")
-       (:file "82-write"))))))
+         (:file "artifacts")))
+       (:module "cpp"
+        :serial t
+        :components
+        ((:file "config")
+         (:file "types")
+         (:file "expr")
+         (:file "intrinsics")
+         (:file "stmt")
+         (:file "items")
+         (:file "split")
+         (:file "artifacts"))))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 
 (asdf:defsystem "polyglot-generator/tests"
