@@ -39,7 +39,14 @@
       :serial t
       :components
       ((:file "30-pipeline")
-       (:file "31-desugar"))))))
+       (:file "31-signatures")
+       (:file "31-desugar")
+       (:file "32-resolve-env")
+       (:file "32-resolve-types")
+       (:file "32-resolve-expr")
+       (:file "32-resolve-expr2")
+       (:file "32-resolve-stmt")
+       (:file "32-resolve"))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 
 (asdf:defsystem "polyglot-generator/tests"
@@ -64,6 +71,7 @@
        (:file "test-items")
        (:file "test-macros")
        (:file "test-intrinsics")
-       (:file "test-desugar"))))))
+       (:file "test-desugar")
+       (:file "test-resolve"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))

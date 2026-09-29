@@ -22,7 +22,8 @@ for arg in "$@"; do
     --fix-indent) FIX=1 ;;
     --ecl) ECL=1 ;;
     --tests) TESTS=1 ;;
-    *) FILES+=("$(realpath "$arg")") ;;
+    *) if [ ! -f "$arg" ]; then echo "no such file: $arg" >&2; echo "LISP-CHECK FAILED"; exit 2; fi
+       FILES+=("$(realpath "$arg")") ;;
   esac
 done
 STATUS=0

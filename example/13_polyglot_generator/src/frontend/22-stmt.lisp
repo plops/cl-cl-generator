@@ -26,16 +26,19 @@
         (t (dsl-error form "malformed binding ~s" spec))))
 
 (defun check-parallel-let (form decls)
-  "LET binds in parallel; an init that refers to a name bound by the same LET
-is not portable (targets bind sequentially)."
-  (let ((names (mapcar (lambda (d) (ir-name (ir-var d))) decls)))
-    (dolist (d decls)
-      (when (ir-init d)
-        (walk-nodes (lambda (n)
-                      (when (and (typep n 'var-expr) (member (ir-name n) names :test #'string=))
-                        (dsl-error form "init of ~a refers to ~a bound by the same let; use let*"
-                                   (ir-name (ir-var d)) (ir-name n))))
-                    (ir-init d))))))
+  "LET binds in parallel, the targets bind sequentially: an init that refers
+to a name bound EARLIER in the same LET would see the new binding. Such a LET
+must be written as LET*."
+  (loop for d in decls
+        for earlier = '() then (cons (ir-name (ir-var prev)) earlier)
+        for prev = d
+        do (when (ir-init d)
+             (walk-nodes (lambda (n)
+                           (when (and (typep n 'var-expr)
+                                      (member (ir-name n) earlier :test #'string=))
+                             (dsl-error form "init of ~a refers to ~a bound by the same let; use let*"
+                                        (ir-name (ir-var d)) (ir-name n))))
+                         (ir-init d)))))
 
 (defun parse-let-bindings (form)
   "Returns (values decl-stmts body-forms) of a LET or LET* FORM."

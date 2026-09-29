@@ -4,6 +4,7 @@
 
 (require 'cl-indent)
 (setq-default indent-tabs-mode nil)
+(setq make-backup-files nil)
 
 ;; Indentation of the macros of this project and of the libraries it uses
 ;; (number = count of distinguished arguments before the body).

@@ -20,7 +20,8 @@
 
 (test pipeline-order
   (let ((names (mapcar #'pass-name (pass-sequence))))
-    (is (eq :desugar (first names)))
+    (is (eq :signatures (first names)))
+    (is (< (position :desugar names) (position :resolve names)))
     (is (equal names (remove-duplicates names)))))
 
 (test pipeline-does-not-modify-input

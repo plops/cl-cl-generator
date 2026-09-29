@@ -8,7 +8,7 @@
 
 (define-node function-item (item)
   ((params :child :list) (ret :initform :void) (body :child :list)
-   (flags) (borrows-from) (outlives))
+   (flags) (borrows-from) (outlives) (ret-declared))
   "Function. FLAGS is a list of :pure :virtual :override :abstract.")
 
 (define-node method-item (function-item)
@@ -22,12 +22,12 @@ spelling of the owning type, OWNER-ITEM the item (set by resolve).")
 
 (define-node struct-item (item)
   ((fields :child :list) (methods :child :list) (implements) (base)
-   (class-p) (base-item) (vtable) (composed))
+   (class-p) (base-item) (implements-items) (vtable) (composed))
   "defstruct (CLASS-P NIL) or defclass (CLASS-P T, optional BASE).
 BASE-ITEM and VTABLE are computed by resolve and the vtable pass.")
 
 (define-node interface-item (item)
-  ((extends) (methods :child :list) (generated))
+  ((extends) (methods :child :list) (extends-items) (generated))
   "definterface; methods without body are abstract.")
 
 (define-node const-item (item)

@@ -70,6 +70,7 @@ Returns (values var-def owner-spelling)."
             (make-method-item :name name :doc doc :owner owner
                               :params (cons receiver (make-params form params info :require-types t))
                               :ret (if (decl-info-ret-p info) (decl-info-ret info) :void)
+                              :ret-declared (decl-info-ret-p info)
                               :body (parse-stmts body) :flags flags
                               :borrows-from (decl-info-borrows-from info)
                               :outlives (decl-info-outlives info)
