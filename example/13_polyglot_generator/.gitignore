@@ -2,3 +2,5 @@ build/
 *.fasl
 *.bak-*
 *~
+__pycache__/
+*.pyc

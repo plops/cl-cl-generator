@@ -44,10 +44,10 @@ class Rect(Shape):
 
 def total_area(items: list[Shape]) -> float:
     """Sum of the areas of all shapes."""
-    sum = 0.0
+    sum_ = 0.0
     for s in items:
-        sum += s.area()
-    return sum
+        sum_ += s.area()
+    return sum_
 
 
 __all__ = ["Circle", "Rect", "Shape", "total_area"]

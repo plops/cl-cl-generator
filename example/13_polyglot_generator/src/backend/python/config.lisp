@@ -16,7 +16,10 @@
     "match" "case" "type" "self"
     ;; builtins and modules the generated code uses, plus ruff E741 names
     "print" "len" "min" "max" "abs" "int" "str" "float" "list" "dict" "sorted" "range"
-    "super" "object" "math" "copy" "field" "dataclass" "l" "O" "I")
+    "super" "object" "math" "copy" "field" "dataclass" "l" "O" "I"
+    ;; frequently shadowed builtins
+    "sum" "map" "filter" "id" "input" "set" "tuple" "iter" "next" "all" "any" "open"
+    "format" "hash" "type" "bool" "bytes")
   "Words that get a trailing underscore.")
 
 (defmethod backend-config ((b python-backend))
