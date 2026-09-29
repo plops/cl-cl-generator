@@ -912,6 +912,13 @@ FASL- und Cargo-Cache):
 401 statt 400 Werte: Jedes Programm druckt zum Schluss `(+ a b c d)` = 17 als
 Kontrollwert, damit ein abgeschnittenes Programm auffällt.
 
+Das Abschluss-Gate (task.md Schritt 5.3) lief nach diesem Dokument noch einmal
+über alles. Es fand eine letzte Lücke: Die in Phase 4 hinzugekommenen Programme
+p03, p10, p11 und p12 waren nicht durch den Emacs-Reindent gelaufen. Nach der
+reinen Leerraum-Korrektur waren alle Prüfungen der Tabelle grün, dazu
+`tools/lisp-check.sh --indent --tests --ecl` über alle 132 Lisp-Dateien unter
+`src/` und `tests/`.
+
 ## 2. Architektur-Entscheidungen, die aufgrund von Tests geändert werden mussten
 
 Kein Plan überlebt den ersten Compilerlauf unverändert. Die Tabelle nennt jede

@@ -304,3 +304,28 @@ Umgebung: Zwischendurch wurde der Container zurückgesetzt. `/tmp` war leer, und
 ecl, clang-format, golang-go und emacs-nox fehlten wieder. Eine Neuinstallation
 per apt stellte dieselben Versionen her. Das stützt den Dockerfile-Vorschlag im
 Walkthrough.
+
+
+## Schritt 5.2 — Walkthrough (9b5eb9c)
+
+walkthrough.md ausgefüllt. Die 8 Mermaid-Diagramme wurden mit mermaid-cli
+gerendert (8 OK). Das Prüfskript erkennt ein absichtlich kaputtes Diagramm.
+Alle zitierten Pfade existieren.
+
+## Schritt 5.3 — Abschluss-Gate
+
+Beim ersten Lauf von `tools/lisp-check.sh --indent --tests --ecl $(find src
+tests -name '*.lisp')` meldete das Gate INDENT MISMATCH für die vier in Phase 4
+hinzugekommenen Programme p03, p10, p11 und p12. Sie waren nie durch
+`--fix-indent` gelaufen. Nach dem Reindent (nur Leerraum, difftastic: „No
+syntactic changes“) sind alle Läufe grün:
+
+| Prüfung | Ergebnis |
+|---|---|
+| `tools/lisp-check.sh --indent --tests --ecl` (alle src/tests) | SBCL CHECK OK, ECL LOAD OK, LISP-CHECK OK |
+| `./run-tests.sh --all` | SBCL 826/0, ECL 826/0, SUPPORTED_FORMS.md aktuell |
+| `./run-tests.sh --paren` | 10 × PASS (401 Werte) |
+| `./run-integration.sh` | PASS 60, FAIL 0, SKIPPED 0 |
+| `./run-integration.sh --determinism` | 152 Dateien, 0 Probleme |
+| `examples/01_shapes/gen.lisp` | 17 Dateien, 0 geschrieben |
+| `git status` nach dem Commit | sauber; keine `*.bak-*`; `build/` ignoriert |
