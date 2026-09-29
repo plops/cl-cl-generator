@@ -32,11 +32,18 @@
             (dsl-string (getf spec :lisp)))))
 
 (defun dsl-string (form)
-  "Print FORM so that READ-DSL reads it back (lower case, strings escaped)."
-  (let ((*readtable* (named-readtables:find-readtable 'polyglot:polyglot-syntax))
-        (*package* (find-package :polyglot.tests))
-        (*print-pretty* nil) (*read-default-float-format* 'double-float))
-    (prin1-to-string form)))
+  "Print FORM so that READ-DSL reads it back (lower case, strings escaped).
+Symbols print without package prefix, independent of the load history."
+  (labels ((localize (x)
+             (cond ((and (symbolp x) x (not (keywordp x)) (not (eq x t))
+                         (not (target-package-backend (symbol-package x))))
+                    (intern (symbol-name x) :polyglot.tests))
+                   ((consp x) (cons (localize (car x)) (localize (cdr x))))
+                   (t x))))
+    (let ((*readtable* (named-readtables:find-readtable 'polyglot:polyglot-syntax))
+          (*package* (find-package :polyglot.tests))
+          (*print-pretty* nil) (*read-default-float-format* 'double-float))
+      (prin1-to-string (localize form)))))
 
 (defun spec-output (spec backend)
   "Generated text of the spec module for BACKEND (all artifacts, unformatted)."
