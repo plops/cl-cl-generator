@@ -66,7 +66,17 @@
      (:module "backend"
       :serial t
       :components
-      ((:file "60-protocol")))
+      ((:file "60-protocol")
+       (:module "cl"
+        :serial t
+        :components
+        ((:file "config")
+         (:file "symbols")
+         (:file "expr")
+         (:file "stmt")
+         (:file "items")
+         (:file "intrinsics")
+         (:file "artifacts")))))
      (:module "driver"
       :serial t
       :components
@@ -105,6 +115,11 @@
        (:file "test-rename")
        (:file "test-lower")
        (:file "test-printer")
-       (:file "test-driver"))))))
+       (:file "test-driver")))
+     (:module "spec"
+      :serial t
+      :components
+      ((:file "spec")
+       (:file "table-core"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))

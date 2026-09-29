@@ -107,11 +107,15 @@
   "Result of DEFPROJECT; modules are parsed when the project is written."
   name modules entry)
 
+(defvar *last-project* nil "The value of the last DEFPROJECT that was evaluated.")
+
 (defmacro defproject (name &body options)
-  "(defproject demo (:modules geometry app) (:entry app))"
-  `(make-project-spec :name ',name
-                      :modules ',(cdr (assoc :modules options))
-                      :entry ',(second (assoc :entry options))))
+  "(defproject demo (:modules geometry app) (:entry app)). The value is also
+stored in *LAST-PROJECT* for the CLI and the integration runner."
+  `(setf *last-project*
+         (make-project-spec :name ',name
+                            :modules ',(cdr (assoc :modules options))
+                            :entry ',(second (assoc :entry options)))))
 
 (defun parse-project (spec)
   "Parse all modules of the PROJECT-SPEC into a project-item."

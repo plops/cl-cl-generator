@@ -50,7 +50,7 @@ SYSTEMS='(list "polyglot-generator")'
 [ "$TESTS" = 1 ] && SYSTEMS='(list "polyglot-generator" "polyglot-generator/tests")'
 LISPFILES=""
 for f in "${FILES[@]}"; do LISPFILES="$LISPFILES \"$f\""; done
-PRE="(progn (push #p\"${REPO}/\" asdf:*central-registry*) (push #p\"${DIR}/\" asdf:*central-registry*) (let ((*compile-verbose* nil) (*load-verbose* nil)) (ql:quickload (list :alexandria :cl-ppcre :trivia :named-readtables :fiveam) :silent t) (load \"${DIR}/src/00-package.lisp\") (load \"${DIR}/src/01-syntax.lisp\")))"
+PRE="(progn (push #p\"${REPO}/\" asdf:*central-registry*) (push #p\"${DIR}/\" asdf:*central-registry*) (let ((*compile-verbose* nil) (*load-verbose* nil)) (ql:quickload (list :alexandria :cl-ppcre :trivia :named-readtables :fiveam :cl-cl-generator) :silent t) (load \"${DIR}/src/00-package.lisp\") (load \"${DIR}/src/01-syntax.lisp\")))"
 sbcl --noinform --non-interactive --load "$HOME/quicklisp/setup.lisp" --eval "$PRE" \
      --load "$DIR/tools/lisp-check.lisp" \
      --eval "(lisp-check:main (list $LISPFILES) :systems $SYSTEMS)" 2>&1 | grep -v '^;' || true

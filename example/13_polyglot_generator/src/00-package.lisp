@@ -18,6 +18,7 @@ idiomatic target languages (C++20, Python 3, Rust, Common Lisp, Go).")
    ;; user facing definition forms
    #:defmodule
    #:defproject
+   #:*last-project*
    #:define-dsl-macro
    #:define-intrinsic
    #:parse-module-form
@@ -27,6 +28,10 @@ idiomatic target languages (C++20, Python 3, Rust, Common Lisp, Go).")
    #:write-project
    #:generate-project
    #:run-cli))
+
+(defpackage :polyglot-user
+  (:use :cl :polyglot)
+  (:documentation "Default package for DSL project files (project.lisp, gen.lisp)."))
 
 (defpackage :polyglot.cpp
   (:use)
