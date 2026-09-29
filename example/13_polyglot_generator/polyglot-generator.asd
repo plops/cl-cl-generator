@@ -76,6 +76,16 @@
          (:file "stmt")
          (:file "items")
          (:file "intrinsics")
+         (:file "artifacts")))
+       (:file "61-text")
+       (:module "python"
+        :serial t
+        :components
+        ((:file "config")
+         (:file "expr")
+         (:file "intrinsics")
+         (:file "stmt")
+         (:file "items")
          (:file "artifacts")))))
      (:module "driver"
       :serial t

@@ -27,12 +27,37 @@
                    *current-backend*))
     branch))
 
+(defun simplify-not (node)
+  "(not (= a b)) -> (/= a b), (not (/= a b)) -> (= a b), (not (not x)) -> x
+\(ruff SIM201/SIM202/SIM208, clippy nonminimal_bool)."
+  (let ((arg (first (ir-args node))))
+    (if (typep arg 'op-expr)
+        (case (ir-op arg)
+          (:eq (rebuild-node arg :op :ne))
+          (:ne (rebuild-node arg :op :eq))
+          (:not (first (ir-args arg)))
+          (t node))
+        node)))
+
+(defun collapse-if (node)
+  "(if a (if b body)) without else branches -> (if (and a b) body)
+\(ruff SIM102, clippy collapsible_if)."
+  (let ((then (ir-then node)))
+    (if (and (null (ir-else node)) (= 1 (length then)) (typep (first then) 'if-stmt)
+             (null (ir-else (first then))))
+        (make-if-stmt :test (make-op-expr :op :and :args (list (ir-test node) (ir-test (first then)))
+                                          :source (ir-source node))
+                      :then (ir-then (first then)) :source (ir-source node))
+        node)))
+
 (defun desugar-node (node)
   (typecase node
-    (when-stmt (make-if-stmt :test (if (ir-negate node)
-                                       (negate-expr (ir-test node) (ir-source node))
-                                       (ir-test node))
-                             :then (ir-body node) :source (ir-source node)))
+    (op-expr (if (eq :not (ir-op node)) (simplify-not node) node))
+    (if-stmt (collapse-if node))
+    (when-stmt (collapse-if (make-if-stmt :test (if (ir-negate node)
+                                                    (simplify-not (negate-expr (ir-test node) (ir-source node)))
+                                                    (ir-test node))
+                                          :then (ir-body node) :source (ir-source node))))
     (cond-stmt (desugar-cond node))
     (dotimes-stmt (make-for-range-stmt :var (ir-var node)
                                        :start (make-lit-expr :value 0 :kind :int :source 0)
