@@ -116,6 +116,7 @@
           (:vec (unless (eq :vec (type-head ty)) (bad "a vec")))
           (:map (unless (eq :map (type-head ty)) (bad "a map")))
           ((:any :collection) nil)
+          (:string (unless (or (eq ty :string) (equal (borrow-target ty) :string)) (bad "a string")))
           (t (coerce-expr arg spec "argument")))))))
 
 (defun coerce-container-args (name args)

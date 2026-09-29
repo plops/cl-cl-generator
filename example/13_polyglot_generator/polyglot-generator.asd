@@ -46,7 +46,9 @@
        (:file "32-resolve-expr")
        (:file "32-resolve-expr2")
        (:file "32-resolve-stmt")
-       (:file "32-resolve"))))))
+       (:file "32-resolve")
+       (:file "33-check")
+       (:file "33-check-walk"))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 
 (asdf:defsystem "polyglot-generator/tests"
@@ -72,6 +74,7 @@
        (:file "test-macros")
        (:file "test-intrinsics")
        (:file "test-desugar")
-       (:file "test-resolve"))))))
+       (:file "test-resolve")
+       (:file "test-check"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))

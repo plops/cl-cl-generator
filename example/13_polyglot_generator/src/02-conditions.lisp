@@ -5,25 +5,32 @@
 (defvar *current-backend* nil
   "Keyword of the backend that is currently running, or NIL in the frontend.")
 
+(defun form-string (form)
+  "Print FORM the way it was written in a DSL file (readtable-case :invert)."
+  (let ((*readtable* (named-readtables:find-readtable 'polyglot-syntax))
+        (*print-pretty* nil) (*print-length* 12) (*print-level* 5)
+        (*print-readably* nil) (*package* (find-package :polyglot)))
+    (prin1-to-string form)))
+
 (define-condition dsl-error (error)
   ((form :initarg :form :initform nil :reader dsl-error-form)
    (backend :initarg :backend :initform nil :reader dsl-error-backend)
    (message :initarg :message :initform "" :reader dsl-error-message))
   (:report (lambda (c stream)
-             (format stream "DSL error~@[ [~(~a~)]~]: ~a~@[~%  in form: ~s~]"
+             (format stream "DSL error~@[ [~(~a~)]~]: ~a~@[~%  in form: ~a~]"
                      (dsl-error-backend c)
                      (dsl-error-message c)
-                     (dsl-error-form c))))
+                     (and (dsl-error-form c) (form-string (dsl-error-form c))))))
   (:documentation "Error in a DSL program. FORM is the offending source form,
 BACKEND the backend keyword when the error was found by a backend."))
 
 (define-condition unsupported-construct (dsl-error)
   ()
   (:report (lambda (c stream)
-             (format stream "Unsupported construct~@[ for backend ~(~a~)~]: ~a~@[~%  in form: ~s~]"
+             (format stream "Unsupported construct~@[ for backend ~(~a~)~]: ~a~@[~%  in form: ~a~]"
                      (dsl-error-backend c)
                      (dsl-error-message c)
-                     (dsl-error-form c))))
+                     (and (dsl-error-form c) (form-string (dsl-error-form c))))))
   (:documentation "The construct is valid DSL but the backend cannot express it."))
 
 (define-condition dsl-warning (warning)
