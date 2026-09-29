@@ -64,6 +64,13 @@
             (if regions self-type (ir-target-name item)))))
 
 (defun rs-impl-block (item methods trait)
+  "impl block; for a trait it is written even without methods (the struct
+must implement every trait it declares, also supertraits and default-only
+traits)."
+  (when (and trait (null methods))
+    (emit-blank-line)
+    (emit-line "~a}" (rs-impl-header item trait))
+    (return-from rs-impl-block))
   (when methods
     (emit-blank-line)
     (emit-line (rs-impl-header item trait))
@@ -79,7 +86,7 @@
   (rs-struct item)
   (let ((inherent (remove-if #'trait-of-method (ir-methods item))))
     (rs-impl-block item inherent nil)
-    (dolist (trait (remove-duplicates (remove nil (mapcar #'trait-of-method (ir-methods item)))))
+    (dolist (trait (type-interfaces item))
       (rs-impl-block item (remove-if-not (lambda (m) (eq trait (trait-of-method m))) (ir-methods item))
                      trait))))
 

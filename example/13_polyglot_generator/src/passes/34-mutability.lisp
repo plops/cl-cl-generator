@@ -33,7 +33,8 @@ field or element of it) is assigned."
 
 (defun mark-inout-args (args params)
   (loop for a in args for p in params
-        when (eq :inout (ir-mode p)) do (mark-place a)))
+        when (or (eq :inout (ir-mode p)) (eq :mut-ref (type-head (ir-ty p))))
+        do (mark-place a)))
 
 (defun mutability-node (n)
   (typecase n
