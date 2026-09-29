@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/plops/cl-cl-generator)
+
 # cl-cl-generator
 
 An elegant, robust, and highly condensed S-expression code generator for Common Lisp, leveraging Lisp's built-in pretty-printer (`pprint`).
