@@ -19,7 +19,19 @@
       :serial t
       :components
       ((:file "10-node")
-       (:file "11-types"))))))
+       (:file "11-types")
+       (:file "12-expr")
+       (:file "13-stmt")
+       (:file "14-items")))
+     (:module "frontend"
+      :serial t
+      :components
+      ((:file "20-registry")
+       (:file "21-expr")
+       (:file "21-expr-forms")
+       (:file "22-stmt")
+       (:file "22-stmt-forms")
+       (:file "23-declare"))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 
 (asdf:defsystem "polyglot-generator/tests"
@@ -37,6 +49,9 @@
       ((:file "test-syntax")
        (:file "test-names")
        (:file "test-node")
-       (:file "test-types"))))))
+       (:file "test-types")
+       (:file "test-expr")
+       (:file "test-stmt")
+       (:file "test-declare"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))
