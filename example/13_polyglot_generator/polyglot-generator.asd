@@ -13,7 +13,12 @@
     :components
     ((:file "00-package")
      (:file "01-syntax")
-     (:file "02-conditions"))))
+     (:file "02-conditions")
+     (:file "03-names")
+     (:module "ir"
+      :serial t
+      :components
+      ((:file "10-node"))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 
 (asdf:defsystem "polyglot-generator/tests"
@@ -28,6 +33,8 @@
      (:module "unit"
       :serial t
       :components
-      ((:file "test-syntax"))))))
+      ((:file "test-syntax")
+       (:file "test-names")
+       (:file "test-node"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))
