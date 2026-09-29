@@ -1,0 +1,6 @@
+adder: 10
+adder: 11
+adder: 12
+g(4) = 12
+g(9) = 7
+twice = 18
