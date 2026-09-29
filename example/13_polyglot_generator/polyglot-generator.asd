@@ -31,7 +31,9 @@
        (:file "21-expr-forms")
        (:file "22-stmt")
        (:file "22-stmt-forms")
-       (:file "23-declare"))))))
+       (:file "23-declare")
+       (:file "24-items")
+       (:file "24-modules"))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 
 (asdf:defsystem "polyglot-generator/tests"
@@ -52,6 +54,8 @@
        (:file "test-types")
        (:file "test-expr")
        (:file "test-stmt")
-       (:file "test-declare"))))))
+       (:file "test-declare")
+       (:file "test-items")
+       (:file "test-macros"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))

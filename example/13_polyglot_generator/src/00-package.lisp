@@ -21,6 +21,7 @@ idiomatic target languages (C++20, Python 3, Rust, Common Lisp, Go).")
    #:define-dsl-macro
    #:define-intrinsic
    #:parse-module-form
+   #:register-module
    #:find-module-form
    ;; driver
    #:write-project
