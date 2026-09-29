@@ -139,3 +139,9 @@ primary, and as is (for argument positions)."
 
 (defun method-call-target-name (method)
   (ir-target-name (root-method method)))
+
+(defun constant-expr-p (e)
+  "E consists of literals and operators only (its type is not inferable in Rust)."
+  (or (typep e 'lit-expr)
+      (and (typep e 'op-expr) (every #'constant-expr-p (ir-args e)))
+      (and (typep e 'call-expr) (eq :intrinsic (ir-call-kind e)) (every #'constant-expr-p (ir-args e)))))

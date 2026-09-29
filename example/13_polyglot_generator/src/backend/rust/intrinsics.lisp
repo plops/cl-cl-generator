@@ -50,7 +50,7 @@ with ARGS in order. String literals are embedded, identifiers inlined."
 (defun rs-typed-receiver (e fn)
   "x.fn() or, for literal receivers whose type Rust cannot infer, T::fn(x)."
   (let ((x (first (ir-args e))))
-    (if (typep x 'lit-expr)
+    (if (constant-expr-p x)
         (prim (format nil "~a::~a(~a)" (rs-type (ir-ty e)) fn (comma-list (ir-args e))))
         (prim (format nil "~a.~a(~a)" (receiver x) fn (comma-list (rest (ir-args e))))))))
 
@@ -63,7 +63,7 @@ with ARGS in order. String literals are embedded, identifiers inlined."
   (let ((args (ir-args e)))
     (cond ((and (= 1 (length args)) (string= name "truncate")) (rs-cast (first args) "i64"))
           ((= 1 (length args))
-           (rs-cast (if (typep (first args) 'lit-expr)
+           (rs-cast (if (constant-expr-p (first args))
                         (format nil "f64::floor(~a)" (ex-str (first args)))
                         (format nil "~a.floor()" (receiver (first args))))
                     "i64"))

@@ -171,6 +171,11 @@
        (:file "table-core")
        (:file "table-items")
        (:file "table-more")
-       (:file "docs"))))))
+       (:file "docs")))
+     (:module "paren"
+      :serial t
+      :components
+      ((:file "paren")
+       (:file "paren-run"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))
