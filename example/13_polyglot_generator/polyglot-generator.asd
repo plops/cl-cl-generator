@@ -50,7 +50,9 @@
        (:file "33-check")
        (:file "33-check-walk")
        (:file "34-mutability")
-       (:file "35-vtable"))))))
+       (:file "35-vtable")
+       (:file "37-rename")
+       (:file "37-rename-locals"))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 
 (asdf:defsystem "polyglot-generator/tests"
@@ -79,6 +81,7 @@
        (:file "test-resolve")
        (:file "test-check")
        (:file "test-mutability")
-       (:file "test-vtable"))))))
+       (:file "test-vtable")
+       (:file "test-rename"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))
