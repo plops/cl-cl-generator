@@ -1,0 +1,9 @@
+Hello, World!
+Umlaute: äöü ÄÖÜ ß
+CJK: 你好，世界
+Emoji: 😀🚀
+Quote: " Backslash: \ Braces: {} {{x}}
+Tab:	end
+Line1
+Line2
+äö😀 has 8 bytes and 3 characters
