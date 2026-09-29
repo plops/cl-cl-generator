@@ -169,6 +169,8 @@
       :components
       ((:file "spec")
        (:file "table-core")
-       (:file "table-items"))))))
+       (:file "table-items")
+       (:file "table-more")
+       (:file "docs"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))

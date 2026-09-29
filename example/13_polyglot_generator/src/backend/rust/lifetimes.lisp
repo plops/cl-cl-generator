@@ -73,7 +73,16 @@ alist var-def -> regions alist for every parameter, and *rs-param-regions*."
                                  collect (rs-param-decl p regions pushes))))
            (ret (let ((*rs-regions* ret-regions)) (rs-type (ir-ret fn)))))
       (format nil "~:[~;pub ~]fn ~a~@[<~{~a~^, ~}>~](~{~a~^, ~})~:[ -> ~a~;~*~]"
-              pub (ir-target-name fn) generics params (eq :void (ir-ret fn)) ret))))
+              pub (ir-target-name fn) (rs-outlives-bounds generics (ir-outlives fn)) params
+              (eq :void (ir-ret fn)) ret))))
+
+(defun rs-outlives-bounds (generics outlives)
+  "'a -> 'a: 'b for every (outlives :a :b)."
+  (mapcar (lambda (lt)
+            (let ((bounds (loop for (a b) in outlives
+                                when (string= lt (lifetime-name a)) collect (lifetime-name b))))
+              (if bounds (format nil "~a: ~{~a~^ + ~}" lt bounds) lt)))
+          generics))
 
 (defun mark-used-params (fn)
   (dolist (p (ir-params fn))

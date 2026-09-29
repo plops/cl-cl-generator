@@ -96,7 +96,9 @@
   (dolist (m (ir-modules project) project)
     (dolist (item (ir-items m))
       (typecase item
-        ((or function-item extern-item) (rename-function item))
+        (function-item (rename-function item))
+        (extern-item (let ((*visible-names* '()) (*function-names* (make-hash-table :test 'equal)))
+                       (mapc #'name-local (ir-params item))))
         ((or struct-item interface-item) (mapc #'rename-function (ir-methods item)))
         (const-item (rename-node (ir-value item)))))))
 

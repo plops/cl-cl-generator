@@ -73,6 +73,7 @@ value or place)."
 (defun rs-place (e)
   "E as the target of an assignment: through &mut references the place is *x."
   (if (and (typep e 'var-expr) (typep (ir-binding e) 'var-def)
-           (eq :mut (rs-var-ref-kind (ir-binding e))) (not (ir-receiver-p (ir-binding e))))
+           (eq :mut (rs-var-ref-kind (ir-binding e))) (not (ir-receiver-p (ir-binding e)))
+           (not (copy-type-p (ir-ty e))))       ; copy :inout params already print as *x
       (format nil "*~a" (ex-str e))
       (ex-str e)))

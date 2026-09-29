@@ -45,7 +45,8 @@
                    (unsupported (ir-source e) "extern ~a has no :rust spelling" (ir-name item)))))
     (if (getf (cdr spec) :method)
         (prim (format nil "~a.~a(~a)" (receiver (first (ir-args e)))
-                      (subseq (first spec) (1+ (or (search "::" (first spec) :from-end t) -2)))
+                      (let* ((name (first spec)) (p (search "::" name :from-end t)))
+                        (if p (subseq name (+ p 2)) name))
                       (comma-list (rest (ir-args e)))))
         (prim (format nil "~a(~a)" (first spec) (comma-list (ir-args e)))))))
 

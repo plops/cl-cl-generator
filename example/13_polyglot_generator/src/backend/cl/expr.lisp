@@ -75,7 +75,7 @@
   (let* ((item (ir-target e))
          (spec (or (cdr (assoc :cl (ir-expansions item)))
                    (unsupported (ir-source e) "extern ~a has no :cl spelling" (ir-name item)))))
-    `(,(read-from-string (first spec)) ,@args)))
+    `(,(let ((*package* (scratch-package *cl-module*))) (read-from-string (first spec))) ,@args)))
 
 (defmethod cl-form ((e method-call-expr))
   `(,(generic-sym (ir-target e)) ,(cl-form (ir-receiver e)) ,@(mapcar #'cl-form (ir-args e))))

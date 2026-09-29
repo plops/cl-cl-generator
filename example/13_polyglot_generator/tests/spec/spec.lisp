@@ -22,17 +22,19 @@
 
 (defun spec-module-string (spec)
   (let ((*print-case* :downcase))
-    (format nil "(defmodule spec-m (:entry t) ~{~a ~} (defun spec-f ~a (declare ~{(type ~a ~a)~^ ~} ~{(mode ~s ~a)~^ ~} ~@[(values ~a)~]) ~a))"
+    (format nil "(defmodule spec-m (:entry t) ~{~a ~} (defun spec-f ~a (declare ~{(type ~a ~a)~^ ~} ~{(mode ~s ~a)~^ ~} ~@[(values ~a)~] ~{~a ~}) ~a))"
             (getf spec :items)
             (mapcar #'first (getf spec :params))
             (loop for (n ty) in (getf spec :params) append (list (dsl-string ty) n))
             (loop for (n m) in (getf spec :modes) append (list m n))
             (and (getf spec :ret) (dsl-string (getf spec :ret)))
+            (mapcar #'dsl-string (getf spec :declare))
             (dsl-string (getf spec :lisp)))))
 
 (defun dsl-string (form)
   "Print FORM so that READ-DSL reads it back (lower case, strings escaped)."
   (let ((*readtable* (named-readtables:find-readtable 'polyglot:polyglot-syntax))
+        (*package* (find-package :polyglot.tests))
         (*print-pretty* nil) (*read-default-float-format* 'double-float))
     (prin1-to-string form)))
 

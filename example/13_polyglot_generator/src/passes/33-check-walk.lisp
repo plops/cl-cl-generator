@@ -67,7 +67,9 @@
     (unless (find b (ir-params fn) :key #'ir-name :test #'string=)
       (dsl-error (ir-source fn) "borrows-from ~a: no such parameter" b)))
   (when (and (borrowed-type-p (ir-ret fn)) (null (ir-borrows-from fn))
-             (not (eq :static (third (ir-ret fn)))))
+             (not (eq :static (third (ir-ret fn))))
+             ;; named regions (:a) are explicit lifetimes: no ambiguity
+             (member :anon (type-regions (ir-ret fn))))
     (let ((recv (and (typep fn 'method-item) (method-receiver fn)))
           (cands (reference-candidates fn)))
       (unless (or (and recv (member (ir-mode recv) '(:in :inout)))
