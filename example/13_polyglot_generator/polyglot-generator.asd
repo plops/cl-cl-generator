@@ -153,6 +153,7 @@
        (:file "test-macros")
        (:file "test-intrinsics")
        (:file "test-desugar")
+       (:file "test-signatures")
        (:file "test-resolve")
        (:file "test-check")
        (:file "test-mutability")

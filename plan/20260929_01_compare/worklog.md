@@ -45,3 +45,187 @@ alexandria und cl-ppcre ohne Fehler.
   `./run-tests.sh --ecl` → 7 checks, 0 failures; `lisp-check.sh --ecl` →
   `ECL LOAD OK`. Negativtest: Kopie ohne letztes `)` →
   `READ ERROR … form #8 (last good form started at line 43)`, Exit 1.
+
+
+## Arbeitsweise (gilt ab Schritt 1.1)
+
+- Neue Dateien werden als Ganzes geschrieben und **sofort** mit
+  `tools/lisp-check.sh --tests --fix-indent <dateien>` geprüft (SBCL liest
+  formweise und lädt das System mit `:force t`) und danach mit
+  `./run-tests.sh`. Die Emacs-Einrückung wird per `--fix-indent`
+  übernommen; die Unterschiede zu meiner Einrückung waren durchweg
+  kosmetisch (Keyword-Argumente, `let`-Bindungen, `if`-Zweige).
+- Gefundene Fehler durch das Gate bisher: ein nicht quotierter Plist-Wert
+  im Makro `define-intrinsic` (Compile-Error „illegal function call“), eine
+  Paketsperre (`find-method` ist ein CL-Symbol → `lookup-method`). Kein
+  einziger Klammerfehler bisher.
+- Werkzeugfehler: `--fix-indent` mit einem nicht expandierten Glob legte über
+  Emacs eine Datei `32-*.lisp` an. Behoben: `lisp-check.sh` lehnt fehlende
+  Dateien ab, `reindent.el` legt keine `~`-Backups mehr an.
+
+## Schritte 1.1–1.11 (2026-09-29)
+
+| Schritt | Commit | Checks |
+|---|---|---|
+| 1.1 Namen | 8adcbdb | 41 |
+| 1.2 Knoten | 83ab920 | 41 |
+| 1.3 Typen | 9696a1b | 74 |
+| 1.4–1.6 Parser (ein Commit, Parser gegenseitig rekursiv) | c6a947a | 194 |
+| 1.7 Items/Module (inkl. Tests zu 1.8) | a9be59e | 243 |
+| 1.9 Intrinsics | 0d93610 | 274 |
+| 1.10 Pipeline/desugar | c966152 | 294 |
+| 1.11 resolve | a4ad62c | 310 |
+
+Abweichungen/Entscheidungen:
+- `let` wird als `block-stmt` mit `decl-stmt`s modelliert (einheitlich für
+  Statement- und Wert-Position). Parallel-Let: nur Bezüge auf *frühere*
+  Bindungen desselben `let` sind ein Fehler (Selbstbezug `(let ((x (+ x 1))))`
+  ist erlaubt).
+- Zusätzlicher Pass `:signatures` (Order 5): Methoden ohne `(values T)`
+  erben den Ergebnistyp der Interface-/Basismethode. Nötig, weil das
+  Beispiel in plan.md K3 `(defmethod area ((c circle :in)) …)` ohne
+  `values` schreibt und desugar die Tail-Returns vor resolve einsetzt.
+- Zusätzliche Intrinsics `to-float` und `int-to-string`, zusätzliche
+  Surface-Form `(some x)` für `optional`-Werte (plan.md nennt nur `nil`).
+- Namen: Nach dem Parsen tragen Typen die Form `(:named "name" item)`.
+
+
+## Schritte 1.12–2.2 (2026-09-29)
+
+| Schritt | Commit | Checks / Integration |
+|---|---|---|
+| 1.12 check | 785f77c | 341 |
+| 1.13 mutability | 393370e | 355 |
+| 1.14 vtable | 09d2674 | 369 |
+| 1.15 rename | d6ba114 | 379 |
+| 1.16 lower/order-args/capability | d1f82e0 | 400 |
+| 1.17 printer | 0b953c1 | 439 |
+| 1.18 driver (+ Backend-Protokoll vorgezogen), Phase-1-Gate inkl. ECL | c476a14 | 450 (SBCL und ECL) |
+| 2.1 CL-Backend | 6d4dd7f | 463; p01/p02 cl PASS |
+| 2.1 Runner + p01/p02 | 16e83bd | |
+| 2.2 Python | cc7f9a9 | 476; p01/p02 cl+python PASS |
+
+Abweichungen/Entscheidungen:
+- E11 im Parser statt im lower-Pass (resolve prüft Aritäten vorher).
+- Driver-Header: git-Blob-Hash der Quelldatei statt `rev-parse HEAD`
+  (sonst wäre die committete Beispielausgabe nach jedem Commit veraltet).
+- Formatter über stdin/stdout statt temporärer Datei.
+- Zyklische Modulimporte sind ein dsl-error (Go verbietet sie; „gegenseitige
+  Imports“ in R12 wird als „Importe zwischen Modulen“ gelesen).
+- ruff 0.16.9 hat einen stark erweiterten Standardregelsatz (I001, SIM102,
+  SIM201, B023, E731, …). Konsequenzen: isort-Sektionen, `def` statt
+  Lambda-Zuweisung, desugar vereinfacht `(not (= a b))` und verschachtelte
+  `if` ohne `else` für alle Backends.
+- Gate-Fund: ein echter Klammerfehler (eine `)` zu viel, zweimal) in
+  `src/backend/cl/items.lisp`; SBCL meldete „unmatched close parenthesis“
+  mit Formnummer, Emacs-Reindent zeigte die Stelle.
+- LOOP-Schlüsselwörter (`for`, `from`, `below`, `across`, `while`) müssen im
+  Scratch-Paket interniert werden, sonst druckt emit-cl `polyglot::for`
+  (vom Spec-Test gefunden).
+
+
+## Schritte 2.3–2.8 (2026-09-29)
+
+| Schritt | Commit | Ergebnis |
+|---|---|---|
+| 2.3 C++ Kern + Split | d311121 | 489 checks; p01/p02 cl,python,cpp PASS; cmake -G Ninja einmalig OK |
+| 2.4 C++ Mehrmodul | e0c9756 | 504 checks; p09 PASS (Include vs. Vorwärtsdeklaration) |
+| 2.5 C++ Structs/Interfaces/Vererbung/Views | cc65c8e | 519 checks; 21/21 PASS (7 Programme × 3) |
+| 2.6 Rust Kern | 7a4cdfa | 537 checks; 24/24 PASS |
+| 2.7 Rust Traits/Lifetimes | 1ea3519 | (derselbe Lauf) |
+| 2.8 Composition | 35c5f28 | 551 checks; 28/28 PASS (7 × cl,python,cpp,rust) |
+
+Abweichungen/Entscheidungen:
+- Das Entry-Modul hat in C++ keinen Namespace (`main` muss global sein)
+  und nur dann einen Header, wenn es öffentliche Items hat.
+- p09 hat vier Module (util, geometry, report, app), damit Include und
+  Vorwärtsdeklaration getrennt sichtbar sind.
+- Neu im Kern: `(box T)` darf an `:in`-Parameter vom Typ T übergeben werden;
+  Intrinsics `string-find`/`string-slice` (ASCII-Byte-Offsets) für p06;
+  E5 erlaubt das Ablegen einer Stelle in einen geliehenen Typ.
+- p07 nutzt 3 statt 3.14159: `clippy::approx_constant` ist deny-by-default.
+- Rust: 2.6 und 2.7 entstanden zusammen; Commit 7a4cdfa referenziert in der
+  .asd bereits `rust/items`/`lifetimes`, die erst in 1ea3519 folgen (ein
+  Zwischenstand, der nicht lädt).
+- Composition: freie Funktionen nehmen `&dyn CDyn` statt eines generischen
+  `T: CDyn + ?Sized` (Trait-Upcasting ist stabil). `&mut Box<dyn T>` wird
+  nicht automatisch zu `&mut dyn T` (Unsizing hat Vorrang) → `.as_mut()`.
+  Accessoren werden nur erzeugt, wenn sie gebraucht werden (sonst
+  dead_code-Warnungen).
+- ASDF meldet Style-Warnings als `WARNING` („Lisp compilation had
+  style-warnings“); das Gate wertet das als Fehler (gut: hält den Code
+  warnungsfrei). Die `artifact`-Struktur muss vor den Backends geladen
+  werden (sonst Style-Warning zu nicht inlinebaren Accessoren).
+
+
+## Schritte 2.9–3.3 (2026-09-29)
+
+| Schritt | Commit | Ergebnis |
+|---|---|---|
+| 2.9 Go | b52b216 | 569 checks; 35/35 PASS; **keine Kernänderung** (nur neue Dateien in `src/backend/go/` plus `.asd`) |
+| 2.10 Intrinsics/Prelude, p04, Phase-2-Gate | 0843ad2 | 696 checks (SBCL und ECL); 40/40 PASS |
+| 3.1 Spec-Tabelle + SUPPORTED_FORMS.md | b56825d | 815 checks; 43 Spec-Einträge in 13 Tags (der Commit-Body nennt fälschlich 51, das war die Zahl der Tabellenzeilen) |
+| 3.2 Zufalls-Präzedenztests | cb3deb8 | 5 Backends × 2 Modi × 401 Werte PASS |
+| 3.3 Abdeckungs-Audit | (dieser Schritt) | 821 checks |
+
+Gate-Funde in dieser Phase: ein zweiter echter Klammerfehler (`go/config.lisp`,
+eine `)` zu viel beim Schließen der Operator-Liste), vom Reader gemeldet
+(„unmatched close parenthesis“, Form #9). Der Spec-Ausbau fand fünf Fehler
+(extern im rename-Pass, CL-Extern-Paket, Rust-Methodenname, `**x`,
+K1b-Check bei benannten Regionen), die Zufallstests einen (Rust E0689 bei
+Receivern nur aus Literalen).
+
+Go-spezifische Entscheidungen: Shadowing `:rename` statt `:block` (ein
+gespliceter letzter Block könnte sonst dieselbe Variable im selben Scope
+neu deklarieren); `go 1.23` statt 1.22 (slices.Sorted/maps.Keys); Pointer-
+Receiver für alle Methoden, sobald eine mutiert oder der Typ ein Interface
+implementiert; Interface-Default-Methoden als freie Funktionen plus
+Delegation.
+
+### Abdeckungs-Audit (Schritt 3.3)
+
+Conditions:
+- `dsl-error`: praktisch jede Testdatei (z. B. test-check, test-resolve).
+- `unsupported-construct`: test-declare (&optional), test-items (Mehrfach-
+  vererbung), test-desugar (target-case ohne Zweig), test-lower
+  (capability), test-signatures (:sink in Komposition), Spec (Python/CL
+  :inout-Skalare, fremde Erweiterungsformen).
+- `dsl-warning`: test-lower (E11), test-driver (fehlender Formatter).
+
+Check-Regeln (je positiv und negativ in test-check): E5, E5 für :sink,
+E7, E14 und format-string, E1, fehlende Returns, :in-Parameter nur lesbar,
+K1b (mehrdeutig, unbekannter Parameter), zusätzlich Parallel-Let
+(test-stmt).
+
+Passes mit Negativtest: signatures (Zyklus), desugar (target-case), resolve
+(unbekannte Namen, Typfehler, Importe), check (s. o.), mutability
+(Zuweisung an Schleifenvariable), vtable (override-Fehler, fehlende
+Implementierung, abstrakte Klasse), composition (:sink), rename
+(Kollisionen), lower (and/or, while-Test), order-args (kein Fehlerfall;
+positiv/negativ als „hebt nur bei >1 unreinem Argument“), capability (vier
+Fälle).
+
+Quelldatei -> Testdatei:
+
+| src | Tests |
+|---|---|
+| 00-package, 01-syntax, 02-conditions | test-syntax |
+| 03-names | test-names |
+| ir/10-node, 11-types | test-node, test-types |
+| ir/12-expr, 13-stmt, 14-items | test-expr, test-stmt, test-items |
+| frontend/20-registry | test-macros |
+| frontend/21-expr*, 22-stmt*, 23-declare, 24-*, 25-intrinsics | test-expr, test-stmt, test-declare, test-items, test-intrinsics |
+| passes/30-pipeline, 31-desugar, 31-signatures | test-desugar, test-signatures |
+| passes/32-resolve* | test-resolve |
+| passes/33-check* | test-check |
+| passes/34-mutability, 35-vtable, 36-composition* | test-mutability, test-vtable, test-composition |
+| passes/37-rename*, 38-lower*, 39-order-args, 40-capability | test-rename, test-lower |
+| printer/50–52 | test-printer |
+| driver/80–82, backend/60-protocol | test-driver |
+| backend/61-text, cl/*, python/*, cpp/*, rust/*, go/* | tests/spec (43 Einträge × 5), test-backends, test-cpp-split, tests/paren, Integration |
+
+Abweichung: Die Backend-Dateien haben keine eigene Testdatei pro Datei;
+sie werden über die Spec-Tabelle (ein Eintrag prüft jeweils alle Backends),
+test-backends, test-cpp-split, die Zufallstests und die Integrations-
+programme abgedeckt. Eine Datei pro Backend-Datei hätte dieselben Fälle nur
+dupliziert.
