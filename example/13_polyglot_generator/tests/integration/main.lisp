@@ -77,6 +77,10 @@
 (defun main (args)
   "Entry point of run-integration.sh. Returns the process exit code."
   (multiple-value-bind (programs targets determinism) (parse-args args)
+    (let ((unknown (set-difference programs (all-programs) :test #'string=)))
+      (when unknown
+        (format t "~&unknown program~p: ~{~a~^, ~} (known: ~{~a~^ ~})~%" (length unknown) unknown (all-programs))
+        (return-from main 2)))
     (if determinism
         (run-determinism programs targets)
         (let ((results (loop for p in programs
