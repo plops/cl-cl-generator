@@ -103,6 +103,18 @@
          (:file "stmt")
          (:file "items")
          (:file "split")
+         (:file "artifacts")))
+       (:module "rust"
+        :serial t
+        :components
+        ((:file "config")
+         (:file "types")
+         (:file "args")
+         (:file "expr")
+         (:file "intrinsics")
+         (:file "stmt")
+         (:file "lifetimes")
+         (:file "items")
          (:file "artifacts"))))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 

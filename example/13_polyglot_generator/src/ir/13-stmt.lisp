@@ -4,7 +4,7 @@
 
 (define-node var-def ()
   ((name) (declared-ty) (ty :initform :unknown) (mode :initform :in)
-   (kind :initform :local) (target-name) (mutable) (receiver-p))
+   (kind :initform :local) (target-name) (mutable) (receiver-p) (used :initform t))
   "A binding: local, parameter, loop variable. KIND is :local :param :loop
 :receiver. MODE (:in :inout :sink) only matters for parameters; MUTABLE is set
 by the mutability pass, TARGET-NAME by rename.")

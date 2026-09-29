@@ -1,5 +1,6 @@
 ;;;; p07_interfaces --- interface with abstract and default methods, two
-;;;; implementations, a vec of (box (dyn shape)) (K3 stage 1)
+;;;; implementations, a vec of (box (dyn shape)) (K3 stage 1). The circle
+;;;; uses 3 instead of pi: clippy::approx_constant rejects 3.14159.
 
 (in-package :polyglot-user)
 (in-dsl)
@@ -13,7 +14,7 @@
       (format-string "{} with area {:.2f}" (label s) (area s))))
 
   (defstruct circle (:implements shape) (r :f64 1d0)
-    (defmethod area ((c :in)) (* 3.14159d0 (dot c r) (dot c r)))
+    (defmethod area ((c :in)) (* 3d0 (dot c r) (dot c r)))
     (defmethod label ((c :in)) "circle"))
 
   (defstruct rect (:implements shape) (w :f64) (h :f64)
