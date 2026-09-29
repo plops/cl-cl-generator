@@ -70,7 +70,8 @@
       :components
       ((:file "80-artifacts")
        (:file "81-format")
-       (:file "82-write")))
+       (:file "82-write")
+       (:file "83-cli")))
      (:module "backend"
       :serial t
       :components

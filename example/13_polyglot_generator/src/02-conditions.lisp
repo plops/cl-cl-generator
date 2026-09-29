@@ -5,11 +5,19 @@
 (defvar *current-backend* nil
   "Keyword of the backend that is currently running, or NIL in the frontend.")
 
+(defun first-symbol-package (form)
+  "Home package of the first non-keyword symbol in FORM (the DSL file's package)."
+  (cond ((and (symbolp form) form (not (keywordp form)) (symbol-package form)))
+        ((consp form) (or (first-symbol-package (car form)) (first-symbol-package (cdr form))))
+        (t nil)))
+
 (defun form-string (form)
-  "Print FORM the way it was written in a DSL file (readtable-case :invert)."
+  "Print FORM the way it was written in a DSL file (readtable-case :invert,
+symbols relative to the package of the file)."
   (let ((*readtable* (named-readtables:find-readtable 'polyglot-syntax))
         (*print-pretty* nil) (*print-length* 12) (*print-level* 5)
-        (*print-readably* nil) (*package* (find-package :polyglot)))
+        (*print-readably* nil)
+        (*package* (or (first-symbol-package form) (find-package :polyglot))))
     (prin1-to-string form)))
 
 (define-condition dsl-error (error)
