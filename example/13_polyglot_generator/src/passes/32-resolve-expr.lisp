@@ -42,8 +42,16 @@
                (length params) (length args)))
   (loop for a in args
         for p in params
+        unless (box-deref-arg-p a p)
         do (coerce-expr a (ir-ty p) (format nil "argument ~a" (ir-name p))))
   args)
+
+(defun box-deref-arg-p (arg param)
+  "A (box T) argument for an :in parameter of type T is borrowed through the box."
+  (and (eq :box (type-head (ir-ty arg)))
+       (eq :in (ir-mode param))
+       (not (eq :box (type-head (ir-ty param))))
+       (type-compatible-p (second (ir-ty arg)) (ir-ty param))))
 
 (defun make-method-call (e method)
   (let ((args (ir-args e)))

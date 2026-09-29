@@ -136,7 +136,8 @@
        (:file "test-rename")
        (:file "test-lower")
        (:file "test-printer")
-       (:file "test-driver")))
+       (:file "test-driver")
+       (:file "test-cpp-split")))
      (:module "spec"
       :serial t
       :components

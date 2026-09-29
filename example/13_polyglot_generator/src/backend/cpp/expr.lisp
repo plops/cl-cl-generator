@@ -35,9 +35,19 @@
       ((:neg :bitnot :not) (unary (ir-op e) (first args)))
       (t (binary (ir-op e) (first args) (second args))))))
 
+(defun cpp-call-args (args params)
+  "Arguments; a box passed to an :in parameter of the boxed type is dereferenced."
+  (format nil "~{~a~^, ~}"
+          (loop for a in args
+                for p = (pop params)
+                collect (if (and p (box-deref-arg-p a p))
+                            (format nil "*~a" (operand :neg :only a))
+                            (ex-str a)))))
+
 (defmethod emit-expr ((b cpp-backend) (e call-expr))
   (ecase (ir-call-kind e)
-    (:function (prim (format nil "~a(~a)" (cpp-item-ref (ir-target e)) (comma-list (ir-args e)))))
+    (:function (prim (format nil "~a(~a)" (cpp-item-ref (ir-target e))
+                             (cpp-call-args (ir-args e) (ir-params (ir-target e))))))
     (:extern (cpp-extern-call e))
     (:intrinsic (emit-intrinsic e))))
 
@@ -61,7 +71,7 @@
 
 (defmethod emit-expr ((b cpp-backend) (e method-call-expr))
   (prim (format nil "~a(~a)" (cpp-member-access (ir-receiver e) (ir-target-name (ir-target e)))
-                (comma-list (ir-args e)))))
+                (cpp-call-args (ir-args e) (rest (ir-params (ir-target e)))))))
 
 (defmethod emit-expr ((b cpp-backend) (e field-expr))
   (prim (cpp-member-access (ir-object e) (ir-target-name (ir-target e)))))

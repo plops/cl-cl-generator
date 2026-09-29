@@ -33,13 +33,20 @@ project modules; everything sorted."
                (:import (pushnew (second key) plain :test #'string=))
                (:from (pushnew (third key) (gethash (second key) from) :test #'string=))))
     (flet ((from-line (m)
-             (format nil "from ~a import ~{~a~^, ~}" m (sort (copy-list (gethash m from)) #'string<))))
+             (format nil "from ~a import ~{~a~^, ~}" m (isort-names (gethash m from)))))
       (let ((modules (sort (alexandria:hash-table-keys from) #'string<)))
         (let ((std (append (mapcar (lambda (m) (format nil "import ~a" m)) (sort plain #'string<))
                            (mapcar #'from-line (remove-if-not #'python-std-module-p modules))))
               (local (mapcar #'from-line (remove-if #'python-std-module-p modules))))
           ;; isort sections: standard library, blank line, first party
           (append std (when (and std local) (list "")) local))))))
+
+(defun isort-names (names)
+  "isort order-by-type: CONSTANTS, then Classes, then functions."
+  (flet ((rank (n) (cond ((every (lambda (c) (not (lower-case-p c))) n) 0)
+                         ((upper-case-p (char n 0)) 1)
+                         (t 2))))
+    (sort (copy-list names) (lambda (a b) (if (= (rank a) (rank b)) (string< a b) (< (rank a) (rank b)))))))
 
 (defun python-std-module-p (m)
   (member m +python-std-modules+ :test #'string=))
@@ -57,7 +64,7 @@ project modules; everything sorted."
       (when (and exports (not (ir-entry-p module)))
         (emit-blank-line)
         (emit-blank-line)
-        (emit-line "__all__ = [~{~s~^, ~}]" exports)))
+        (emit-line "__all__ = [~{~s~^, ~}]" (isort-names exports))))
     (when (and (ir-entry-p module) (module-entry-function module))
       (emit-blank-line)
       (emit-blank-line)
