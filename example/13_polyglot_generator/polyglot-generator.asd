@@ -34,7 +34,12 @@
        (:file "23-declare")
        (:file "24-items")
        (:file "24-modules")
-       (:file "25-intrinsics"))))))
+       (:file "25-intrinsics")))
+     (:module "passes"
+      :serial t
+      :components
+      ((:file "30-pipeline")
+       (:file "31-desugar"))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 
 (asdf:defsystem "polyglot-generator/tests"
@@ -58,6 +63,7 @@
        (:file "test-declare")
        (:file "test-items")
        (:file "test-macros")
-       (:file "test-intrinsics"))))))
+       (:file "test-intrinsics")
+       (:file "test-desugar"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))
