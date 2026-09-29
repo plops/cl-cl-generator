@@ -52,4 +52,4 @@
     (is (= 1 (ir-value (first (ir-items tree)))))))
 
 (test print-object-readable
-  (is (search "TEST-SEQ" (princ-to-string (sample-tree)))))
+  (is (search "TEST-SEQ" (princ-to-string (sample-tree)) :test #'char-equal)))

@@ -62,7 +62,17 @@
       :components
       ((:file "50-writer")
        (:file "51-precedence")
-       (:file "52-literals"))))))
+       (:file "52-literals")))
+     (:module "backend"
+      :serial t
+      :components
+      ((:file "60-protocol")))
+     (:module "driver"
+      :serial t
+      :components
+      ((:file "80-artifacts")
+       (:file "81-format")
+       (:file "82-write"))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 
 (asdf:defsystem "polyglot-generator/tests"
@@ -94,6 +104,7 @@
        (:file "test-vtable")
        (:file "test-rename")
        (:file "test-lower")
-       (:file "test-printer"))))))
+       (:file "test-printer")
+       (:file "test-driver"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))
