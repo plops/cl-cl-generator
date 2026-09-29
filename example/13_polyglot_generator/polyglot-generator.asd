@@ -48,7 +48,8 @@
        (:file "32-resolve-stmt")
        (:file "32-resolve")
        (:file "33-check")
-       (:file "33-check-walk"))))))
+       (:file "33-check-walk")
+       (:file "34-mutability"))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 
 (asdf:defsystem "polyglot-generator/tests"
@@ -75,6 +76,7 @@
        (:file "test-intrinsics")
        (:file "test-desugar")
        (:file "test-resolve")
-       (:file "test-check"))))))
+       (:file "test-check")
+       (:file "test-mutability"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))
