@@ -79,15 +79,18 @@
       (progn (cpp-std-include "utility") (format nil "std::move(~a)" (ir-target-name f)))))
 
 (defun cpp-bases (item)
-  (let ((bases (append (when (ir-base-item item) (list (ir-base-item item)))
-                       (ir-implements-items item)
-                       (when (typep item 'interface-item) (ir-extends-items item)))))
+  (let ((bases (if (typep item 'interface-item)
+                   (ir-extends-items item)
+                   (append (when (ir-base-item item) (list (ir-base-item item)))
+                           (ir-implements-items item)))))
     (if bases (format nil " : ~{public ~a~^, ~}" (mapcar #'cpp-item-ref bases)) "")))
 
 (defun cpp-needs-virtual-dtor-p (item)
-  (and (or (typep item 'interface-item) (some #'method-virtual-p (ir-methods item)))
-       (null (ir-base-item item)) (null (ir-implements-items item))
-       (not (and (typep item 'interface-item) (ir-extends-items item)))))
+  "Roots of a polymorphic hierarchy declare a virtual destructor."
+  (if (typep item 'interface-item)
+      (null (ir-extends-items item))
+      (and (some #'method-virtual-p (ir-methods item))
+           (null (ir-base-item item)) (null (ir-implements-items item)))))
 
 (defun cpp-type-declaration (item)
   "struct Name : bases { fields; constructor; methods; };"

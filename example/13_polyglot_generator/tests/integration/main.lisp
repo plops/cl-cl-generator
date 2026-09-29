@@ -31,7 +31,7 @@
       (handler-case
           (handler-bind ((warning #'muffle-warning))
             (polyglot:write-project project :targets (list target) :out out :source-file file))
-        (polyglot:dsl-error (e)
+        (error (e)
           (write-failure-log dir (or expected "") "" (princ-to-string e))
           (return-from run-generated (funcall done :fail "generation error"))))
       (multiple-value-bind (status actual log) (funcall toolchain dir project)

@@ -74,7 +74,15 @@
       ("mod" :template "polyglot_rt::mod($a, $b)" :prelude ("mod"))
       ("rem" :op :rem)
       ("to-float" :template "static_cast<double>($x)")
-      ("int-to-string" :template "std::to_string($x)" :includes ((:std "string")))))
+      ("int-to-string" :template "std::to_string($x)" :includes ((:std "string")))
+      ("string-find" :template "polyglot_rt::find_char($s, $ch, $start)" :prelude ("find_char"))
+      ("string-slice" :function cpp-string-slice)))
+
+(defun cpp-string-slice (e)
+  (destructuring-bind (s start end) (ir-args e)
+    (cpp-std-include "string_view")
+    (prim (format nil "std::string_view(~a).substr(~a, ~a)" (ex-str s) (ex-str start)
+                  (binary-string +cpp-ops+ :sub (ex-pair end) (ex-pair start) *mode*)))))
 
 (defparameter +cpp-prelude+
   '(("floor_div" ("cstdint")
@@ -126,6 +134,12 @@ std::vector<K> sorted_keys(const std::map<K, V>& m) {
     keys.push_back(entry.first);
   }
   return keys;
+}")
+    ("find_char" ("cstdint" "string_view")
+     "// Byte offset of c in s at or after start, -1 when absent.
+inline std::int64_t find_char(std::string_view s, char c, std::int64_t start) {
+  const auto pos = s.find(c, static_cast<std::size_t>(start));
+  return pos == std::string_view::npos ? -1 : static_cast<std::int64_t>(pos);
 }")
     ("make_vec" ("vector" "utility")
      "// A vector of move-only values (std::initializer_list would copy).

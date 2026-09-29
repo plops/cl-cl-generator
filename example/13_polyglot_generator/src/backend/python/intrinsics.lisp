@@ -71,7 +71,9 @@
       ("mod" :op :mod)
       ("rem" :function py-rem)
       ("to-float" :template "float($x)")
-      ("int-to-string" :template "str($x)")))
+      ("int-to-string" :template "str($x)")
+      ("string-find" :template "$s.find($ch, $start)")
+      ("string-slice" :template "$s[$start:$end]")))
 
 (defparameter +python-prelude+
   '(("trunc_div" "def trunc_div(a: int, b: int) -> int:

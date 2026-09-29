@@ -137,3 +137,6 @@ alist BINDINGS. $$ is a literal dollar sign."
 (define-intrinsic rem ((a :integer) (b :integer)) (:type-of a))
 (define-intrinsic to-float ((x :integer)) :f64)
 (define-intrinsic int-to-string ((x :integer)) :string)
+;; ASCII byte offsets; a slice borrows from its string (K1b)
+(define-intrinsic string-find ((s :string) (ch :char) (start :integer)) :i64)
+(define-intrinsic string-slice ((s :string) (start :integer) (end :integer)) (:view :string nil))

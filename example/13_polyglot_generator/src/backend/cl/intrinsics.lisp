@@ -55,6 +55,8 @@
       ((string= name "string-concat") `(concatenate 'string ,@args))
       ((string= name "to-float") `(float ,a 1d0))
       ((string= name "int-to-string") `(princ-to-string ,a))
+      ((string= name "string-find") `(or (position ,b ,a :start ,c) -1))
+      ((string= name "string-slice") `(subseq ,a ,b ,c))
       ((member name '("sqrt" "abs" "min" "max" "mod" "rem") :test #'string=)
        `(,(find-symbol (string-upcase name) :cl) ,@args))
       ((member name '("truncate" "floor") :test #'string=)
@@ -63,7 +65,8 @@
 
 (dolist (name '("print-line" "format-string" "length" "string-byte-length" "string-char-count"
                 "push" "map-get" "map-set" "map-contains" "map-keys-sorted" "string-concat"
-                "sqrt" "abs" "min" "max" "truncate" "floor" "mod" "rem" "to-float" "int-to-string"))
+                "sqrt" "abs" "min" "max" "truncate" "floor" "mod" "rem" "to-float" "int-to-string"
+                "string-find" "string-slice"))
   (define-intrinsic-expansion name :cl :function 'cl-intrinsic-call))
 
 (defparameter +cl-prelude+

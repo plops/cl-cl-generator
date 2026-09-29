@@ -1,0 +1,6 @@
+a = (11, 1)
+tri has 3 points
+total = 19
+far: (11, 1)
+far: none
+b = (5, -5) |b| = 10

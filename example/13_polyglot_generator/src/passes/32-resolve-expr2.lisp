@@ -98,7 +98,7 @@
 
 (defun intrinsic-result-type (intrinsic args form)
   (let ((spec (intrinsic-ret intrinsic)))
-    (if (atom spec)
+    (if (or (atom spec) (not (member (car spec) '(:type-of :map-value-optional :map-keys))))
         spec
         (let* ((arg (intrinsic-arg intrinsic args (spelling (second spec))))
                (ty (strip-indirection (if arg (ir-ty arg) :unknown))))

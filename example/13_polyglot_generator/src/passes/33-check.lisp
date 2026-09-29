@@ -18,10 +18,11 @@
 (defun place-expr-p (e)
   (typep e '(or var-expr field-expr aref-expr)))
 
-(defun check-ownership (e what)
+(defun check-ownership (e what &optional target-type)
   "E5: a non-copy value that is stored somewhere must be fresh or explicitly
-cloned or moved."
+cloned or moved. Storing into a borrowed TARGET-TYPE (view, ref) borrows."
   (when (and e (place-expr-p e) (known-type-p (ir-ty e)) (not (copy-type-p (ir-ty e)))
+             (not (borrowed-type-p target-type))
              (not (typep (ir-binding-or-nil e) '(or function-item const-item))))
     (let ((src (form-string (ir-source e))))
       (dsl-error (ir-source e) "~a: ~a of type ~a is not a copy type; write (clone ~a) or (move ~a)"

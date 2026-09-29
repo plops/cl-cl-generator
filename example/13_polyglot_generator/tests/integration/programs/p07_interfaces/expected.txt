@@ -1,0 +1,4 @@
+circle with area 3.14
+rect 2.0x3.0
+circle with area 0.79
+total = 9.927

@@ -13,9 +13,10 @@
 
 (defun check-node (n)
   (typecase n
-    (decl-stmt (check-ownership (ir-init n) (format nil "initial value of ~a" (ir-name (ir-var n)))))
+    (decl-stmt (check-ownership (ir-init n) (format nil "initial value of ~a" (ir-name (ir-var n)))
+                                (ir-ty (ir-var n))))
     (assign-stmt (check-mutable-place (ir-place n) "setf")
-                 (check-ownership (ir-value n) "assigned value"))
+                 (check-ownership (ir-value n) "assigned value" (ir-ty (ir-place n))))
     (op-assign-stmt (check-mutable-place (ir-place n) "incf/decf"))
     (return-stmt (check-return-ownership n))
     (for-each-stmt (setf (gethash (ir-var n) *loop-seqs*) (ir-seq n)))
@@ -25,7 +26,9 @@
                  (:intrinsic (check-intrinsic-call n))
                  ((:function :extern) (check-call-args (ir-args n) (ir-params (ir-target n))))))
     (method-call-expr (check-method-call n))
-    (make-expr (dolist (i (ir-inits n)) (check-ownership (ir-value i) (format nil "field ~a" (ir-name i)))))
+    (make-expr (dolist (i (ir-inits n))
+                 (check-ownership (ir-value i) (format nil "field ~a" (ir-name i))
+                                  (ir-ty (find-field (ir-target n) (ir-name i))))))
     (vec-expr (dolist (x (ir-elems n)) (check-ownership x "vec element")))
     (own-expr (when (eq :box (ir-kind n)) (check-ownership (ir-value n) "boxed value"))
               (when (eq :some (ir-kind n)) (check-ownership (ir-value n) "optional value")))

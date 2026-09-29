@@ -1,0 +1,7 @@
+longest: polyglot!
+first word: borrowed
+token: the
+token: quick
+token: brown
+token: fox
+sum = 14

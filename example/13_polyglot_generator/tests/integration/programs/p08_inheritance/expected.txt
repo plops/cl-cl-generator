@@ -1,0 +1,3 @@
+widget at (2.0, 0.5) area=0.00
+button ok at (1.0, 2.5) area=1.00
+fancy button go at (1.0, 0.5) area=3.00

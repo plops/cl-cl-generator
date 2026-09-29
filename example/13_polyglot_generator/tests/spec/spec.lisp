@@ -22,10 +22,11 @@
 
 (defun spec-module-string (spec)
   (let ((*print-case* :downcase))
-    (format nil "(defmodule spec-m (:entry t) ~{~a ~} (defun spec-f ~a (declare ~{(type ~a ~a)~^ ~} ~@[(values ~a)~]) ~a))"
+    (format nil "(defmodule spec-m (:entry t) ~{~a ~} (defun spec-f ~a (declare ~{(type ~a ~a)~^ ~} ~{(mode ~s ~a)~^ ~} ~@[(values ~a)~]) ~a))"
             (getf spec :items)
             (mapcar #'first (getf spec :params))
             (loop for (n ty) in (getf spec :params) append (list (dsl-string ty) n))
+            (loop for (n m) in (getf spec :modes) append (list m n))
             (and (getf spec :ret) (dsl-string (getf spec :ret)))
             (dsl-string (getf spec :lisp)))))
 

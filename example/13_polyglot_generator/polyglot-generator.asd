@@ -142,6 +142,7 @@
       :serial t
       :components
       ((:file "spec")
-       (:file "table-core"))))))
+       (:file "table-core")
+       (:file "table-items"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))
