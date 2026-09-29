@@ -1,0 +1,9 @@
+len=4 first=5 last=1
+original sum=17 len=4
+copy sum=107 len=5
+moved len=4
+alice is 30
+bob is 25
+carol is 35
+has dave: no
+count=3

@@ -162,7 +162,8 @@
        (:file "test-lower")
        (:file "test-printer")
        (:file "test-driver")
-       (:file "test-cpp-split")))
+       (:file "test-cpp-split")
+       (:file "test-backends")))
      (:module "spec"
       :serial t
       :components

@@ -26,7 +26,7 @@
                       for (nil text1 time1) in before
                       for (nil text2 time2) in after
                       unless (and (eq status :unchanged) (string= text1 text2) (= time1 time2))
-                        do (incf failures)
-                           (format t "~&NOT DETERMINISTIC: ~a (~a)~%" path status))))))))
+                      do (incf failures)
+                      (format t "~&NOT DETERMINISTIC: ~a (~a)~%" path status))))))))
     (format t "~&determinism: ~d files checked, ~d problems~%" files failures)
     (if (zerop failures) 0 1)))

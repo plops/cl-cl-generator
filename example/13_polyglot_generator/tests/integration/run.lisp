@@ -41,7 +41,7 @@
   (let ((cmd (if env (append (list "env") env command) command)))
     (multiple-value-bind (out err code)
         (uiop:run-program cmd :directory directory :output :string :error-output :string
-                              :ignore-error-status t :external-format :utf-8)
+                          :ignore-error-status t :external-format :utf-8)
       (values code out err))))
 
 (defun tool-available-p (name) (polyglot::find-executable name))
