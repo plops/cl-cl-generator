@@ -1,83 +1,57 @@
-du lauefst in einem docker image mit ubuntu 26 auf einem linux host
-und hast zugriff auf kernel messages vom host und auch die usb
-geraete.
+**Rolle & Umgebung:**
+Du läufst in einem Docker-Image mit Ubuntu 26 auf einem Linux-Host. Du hast Zugriff auf Kernel-Messages vom Host und auf USB-Geräte.
+Docker-Referenz: `/workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/examples/03_ai_env/Dockerfile`
+Falls dir Pakete fehlen, installiere sie selbstständig. Du arbeitest im Auftrag von wol pumba (wolpumba@gmail.com).
 
-Docker-Referenz:
-/workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/examples/03_ai_env/Dockerfile
+**Der Kontext:**
+Schau dir den Code in folgenden Verzeichnissen an (unter /workspace/src):
+- `cl-cl-generator/`
+- `cl-cpp-generator2/`
+- `cl-py-generator/`
+- `cl-rust-generator/`
+- und alle anderen verzeichnisse vom pattern /workspace/src/cl-*-generator 
 
+Dabei handelt es sich um in **Common Lisp** geschriebene Transpiler, die von einer Common Lisp-ähnlichen Input-Sprache in verschiedene Zielsprachen übersetzen. 
 
-falls dir packete fehlen installiere sie.  du arbeitest im
-auftrag von wol pumba (wolpumba@gmail.com)
+**Das Ziel (Architektur-Design):**
+Konzipiere eine Architektur, wie man die Input-Sprache und die in Common Lisp geschriebenen Generatoren so refactoren und anpassen kann, dass ein *neuer, vereinheitlichter Transpiler* aus demselben Input flexibel verschiedene Output-Sprachen erzeugen kann (nicht beschränkt auf die bisherigen vier Sprachen). Denkbar wäre z.B. die Einführung einer generischen Zwischenrepräsentation (AST/IR). Du hast auch entscheidungsgewalt ueber die zugelassenen Outputsprachen: wenn eine Sprache (z.B. Verilog) zu sehr aus der Reihe faellt, kann sie auch weggelassen werden.
+ 
+**Deine Aufgaben für diesen Prompt (Bitte seriell abarbeiten):**
 
+**Schritt 1: Analyse & Dependency Mapping (`deps.md`)**
+Analysiere den Quellcode und die Architektur. Nutze Tools (z.B. deepwiki mcp für `plops/cl-rust-generator`), um Dokumentationen zu lesen. 
+Falls wir neue Abhängigkeiten einführen (z.B. neue Common Lisp Bibliotheken, externe Tools), liste diese auf. Hole dir vorab Usage-Examples über Deepwiki. 
+Erstelle eine Datei `deps.md` im Planungsordner. Liste dort alle Abhängigkeiten mit ihren GitHub-Pfaden in der Notation `<organization>/<projekt>` auf, damit spätere Agenten Deepwiki gezielt abfragen können.
 
-Schau dir den code in den verzeichnissen
-cl-cl-generator/
-cl-cpp-generator2/
-cl-py-generator/
-cl-rust-generator/
+**Schritt 2: Feature-Vorschlag & Requirements-Check**
+Schreibe eine kurze Konzeption, wie dieses Feature in Common Lisp umgesetzt werden kann. Liste auf, welche Requirements erfüllt werden müssen. 
+Frage mich (den User) kritisch: *Habe ich alle wichtigen Requirements erfasst? Gibt es Randfälle oder weitere Features, die bedacht werden müssen?* (Mache hierfür konkrete Vorschläge).
 
-an. Dabei handelt es sich um transpiler von einer common lisp aehnlichen input sprache in verschiedene andere sprachen.
+**Schritt 3: Erstellung des Implementierungsplans (`task.md`)**
+Schreibe eine Datei `task.md`. Dieser Plan muss so detailliert sein, dass ein *völlig unabhängiger AI-Agent* danach die komplette Programmierung in Common Lisp übernehmen kann. 
+Die `task.md` muss enthalten:
+- **Kontext-Aufbau:** Eine Liste von Dateien, die sich der Folge-Agent zwingend anschauen muss, mit jeweils einem Satz Begründung.
+- **Lisp-spezifische Code-Hygiene (Klammern!):** Weise den Agenten *ausdrücklich und eindringlich* darauf hin, dass KIs bei Common Lisp extrem anfällig für Klammer-Fehler (Parenthesis-Mismatch) sind. Der Agent muss gezwungen werden:
+  1. Den Code pedantisch und korrekt einzurücken (Indentation), um die Struktur zu wahren.
+  2. Änderungen nur in winzigen, nachvollziehbaren Schritten durchzuführen.
+  3. Nach *jeder* kleinen Code-Änderung sofort die Lisp-Syntax zu prüfen (z.B. durch Laden der Datei in `sbcl` oder `ecl`), bevor er weiterarbeitet.
+- **Git-Vorgaben:** Eine strikte Anweisung an den Agenten, dass alle Commits im "Conventional Commit"-Format und mit einer umfassenden Beschreibung (Body) erfolgen müssen.
+- **Serielle Task-Liste:** Unterteile die Implementierung in chronologische Schritte. Jeder Schritt muss Validierung und Testing beinhalten. 
+- **Phasen:** Gliedere die Tasks logisch, z.B. in: 1. Core-Implementierung (generische Zwischenrepräsentation/AST), 2. Refactoring der sprachspezifischen Backends, 3. Unit-Tests, 4. Integration-Tests (Validierung der generierten C++/Python/Rust-Codes).
 
-Wie koennte man die input sprache und die generatoren so anpassen,
-dass ein neuer transpiler aus demselben input verschiedene output
-sprachen erzeugen koennte. Die output sprachen sollten nicht auf die
-beispiele beschraenkt sein.
+**Schritt 4: Vorlage für den Abschluss (`walkthrough.md`)**
+Erstelle bereits jetzt das detaillierte Grundgerüst für eine Datei `plan/2026_.../walkthrough.md`. Lege für den ausführenden Agenten folgende strikte Regeln für das Schreiben dieses Dokuments fest:
+- **Sprache und Stil:** Das Dokument *muss zwingend auf Deutsch* verfasst sein. Es soll den Leser didaktisch gut abholen, mitnehmen und flüssig lesbar sein. 
+- **Erklärungen:** Fachbegriffe müssen kurz und verständlich erklärt werden.
+- **Visualisierung:** Verwende reichlich Code-Beispiele und nutze **Mermaid-Diagramme**, um die Architektur, den Datenfluss und komplexe Konzepte visuell zu veranschaulichen.
+- **Inhaltliche Struktur:**
+  1. Was exakt implementiert wurde.
+  2. Welche Architektur-Entscheidungen aufgrund von Tests spontan geändert werden mussten.
+  3. Learnings und mögliche zukünftige Erweiterungen.
+  4. Eine Liste der neuen Programme/Pakete, die dauerhaft in das Dockerfile aufgenommen werden sollten.
 
-in deps.md sollst du die pfade der abhaengigkeiten auf github in der
-<organization>/<projekt> notation auflisten. dies kannst du benutzen
-um in deepwiki mcp nach weiteren informationen zu suchen / fragen.
-
-ordnerstruktur: arbeite im planungsordner wo du die prompt.txt von
-gelesen hast
-
-
-vorgehensweise: nutze tools um konsistenten und aufgeraeumten
-quellcode zu gewaehrleisten
-
-Schaue dir den Quellcode an und die Architektur dieser Software. Nutze
-z.B.  deepwiki mcp fuer plops/cl-rust-generator um dokumentation zu
-bekommen und fragen beantworten zu lassen. falls abhaengigkeiten
-eingefuehrt werden sind diese mitsamt ihrer github organisation in
-deps.md aufzuschreiben, so dass wir spaeter einfach die deepwiki
-abfragen konstruieren koennen. nutze rust tools um auf die neueste
-vorhandene version zu switchen (auch wenn vor kompatibilitaet gewarnt
-wird, wenn wir gerade eine dependency einfuehren ist es wichtig, die
-neueste version zu nehmen) und schon vorab usage examples in den plan
-aufzunehmen (mit deepwiki mcp zu erfragen)
-
-du befindest dich in einem docker container, basierend auf ubuntu
-26. du darfst neue programme installieren, falls noetig.
-
-Schlage vor, wie wir dieses Feature implementieren können. Habe ich
-alle Requirements aufgelistet, die wichtig sind, oder kannst du dir
-vorstellen, dass noch andere Dinge werden sollen? Liste mir diese auf
-Vorschlägen, was man am besten umsetzen könnte. 
-
-Schreibe einen Implementierungsplan. Dieser Implementierungsplan soll
-einen unabhängigen AI-Agenten dazu befähigen, selbstständig einen
-Kontext aufzubauen, der die wesentlichen quellen beinhaltet.  Das
-heißt, der Implementierungsplan hat eine Liste von Dateien, die sich
-der Agent sich anschauen sollte, mit einer kurzen Beschreibung für
-jede Datei.  Weiterhin soll der Implementierungsplan eine Erklärung
-Commit Messages sendet werden sollen. Und zwar sollen diese mit einer
-umfassenden Beschreibung und als Conventional Commit format ausgeführt
-werden.
-
-Neue Unit-Tests und Integration-Tests sollen wie erforderlich
-eingeführt werden.  Diese sollen auch ausgeführt werden.
-
-schreibe task.md wo du die implementierungs und test schritte
-aufeinander abfolgen laesst, so dass ein agent die tasks seriell
-abarbeiten kann und die arbeit in jedem schritt getested und validiert
-wird. jeder modus bekommt eigene tasks (implementierung, host-tests,
-HIL-nachweis), danach erst die TUI-tasks.
-
-Nach der vollständigen Implementierung, wenn alle Tests abgeschlossen
-sind und alles committed ist, soll auch ein Walkthrough-Dokument
-entgeschrieben werden und in plan/2026.../walkthrough.md (im ordner wo
-du diese prompt.txt datei findest) abgelegt werden. Dieses soll
-zusammenfassen, was wirklich implementiert wurde, welche Stellen
-aufgrund der Tests oder wie auch immer gemacht wurden, als im
-Untergrund auch Learnings und mögliche Erweiterungen. liste auch die
-neuen programme die mit in den docker container aufgenommen werden
-sollten
+Arbeite ausschließlich im Planungsordner (dort, wo diese prompt.txt
+liegt). Achte auf sauberen, konsistenten Output. Beginne jetzt mit
+Schritt 1. Spaeter wenn der neue plan implementiert wird, soll der
+output in einen neuen ordner nach dem pattern
+/workspace/src/cl-cl-generator/example/13_.../ gehen.
