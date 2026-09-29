@@ -280,3 +280,27 @@ Der Hauptteil der Umsetzung (Phasen 0–4 und Schritt 5.1) kostete laut Kiro-CLI
 ca. 640 Credits: `Credits: 640.55 • Time: 125m 21s`. Zum selben Zeitpunkt zeigte
 `/usage` für den Plan KIRO PRO+ 1601,23 von 2000 Credits verbraucht (80,1 %,
 Reset am 2026-10-01).
+
+
+## Nachtrag — cl-change-case (36442ac)
+
+Hinweis des Nutzers: `src/03-names.lisp` implementierte die Bibliothek
+`rudolfochrist/cl-change-case` (Quicklisp, `cl-change-case-20250622-git`) nach.
+Die Umwandlungen delegieren jetzt an `snake-case`, `constant-case` und
+`camel-case :merge-numbers t` (Pascal: `upper-case-first` davon). Eigener Code
+bleibt nur für zwei Dinge:
+- Validierung: Die Bibliothek entfernt ungültige Zeichen stillschweigend.
+- Namen mit gemischter Schreibweise (`Point`, `HTTPServer`) bleiben unverändert.
+
+Wichtig ist `:merge-numbers`. Ohne die Option wird `point-3d` zu `point_3d` bzw.
+`Point_3d`.
+
+Beleg: Alle 152 erzeugten Quelldateien der Integrationsprogramme sind vor und
+nach der Änderung byteweise gleich. `tools/lisp-check.sh` lädt die
+Abhängigkeiten jetzt aus der `.asd`. Die fest codierte Liste hätte die neue
+Abhängigkeit nicht gekannt: READ ERROR „Package CL-CHANGE-CASE does not exist“.
+
+Umgebung: Zwischendurch wurde der Container zurückgesetzt. `/tmp` war leer, und
+ecl, clang-format, golang-go und emacs-nox fehlten wieder. Eine Neuinstallation
+per apt stellte dieselben Versionen her. Das stützt den Dockerfile-Vorschlag im
+Walkthrough.
