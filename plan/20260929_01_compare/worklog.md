@@ -229,3 +229,54 @@ sie werden über die Spec-Tabelle (ein Eintrag prüft jeweils alle Backends),
 test-backends, test-cpp-split, die Zufallstests und die Integrations-
 programme abgedeckt. Eine Datei pro Backend-Datei hätte dieselben Fälle nur
 dupliziert.
+
+
+Korrektur zu Schritt 3.1: Der Commit-Body von b56825d nennt 51 Spec-
+Einträge; tatsächlich sind es 43 Einträge in 13 Tags.
+
+## Phase 4
+
+### Schritt 4.1 – Integrationsprogramme und Runner (accd805, 7adf6bb, 60e5688, c927af0, 2044e97, 393d343)
+
+Runner mit `--help` und Fehlermeldung bei unbekanntem Programm (accd805).
+7adf6bb behebt beim Ausbau gefundene Fehler; danach kamen p03, p10, p11 und
+p12 hinzu. Die neuen Programme deckten auf:
+- CL: Schleifenvariablen, die von Closures eingefangen werden, brauchen eine
+  Neubindung pro Iteration.
+- CL: Ein leerer LOOP-Rumpf braucht `(values)`.
+- C++: Das Include `<vector>` fehlte.
+- Rust: `clippy::useless_vec`.
+- Go: Lokale Variablen überschatten unter `:rename` Modul-Items.
+Ergebnis: 12 Programme × 5 Ziele = 60 PASS.
+
+### Schritt 4.3 – Determinismus (8f09767)
+
+`./run-integration.sh --determinism` erzeugt zweimal und vergleicht
+byteweise: 152 Dateien, 0 Abweichungen.
+
+### Schritt 4.4 – ECL und `--all` (d12fc48, 7b96062)
+
+821 Checks laufen unter ECL 24.5.10 in 28,7 s. 7b96062 macht
+SUPPORTED_FORMS.md unabhängig von der Ladehistorie; Ursache war eine
+nichtdeterministische Reihenfolge in `dsl-string`.
+
+### Schritt 4.5 – CLI und Beispiel (f6f266a, fb2e0b9)
+
+`polyglot-gen.sh` plus `examples/01_shapes`. Ein zweiter Lauf schreibt 0
+Dateien und `git status` bleibt sauber. fb2e0b9 ergänzt die Liste reservierter
+Python-Namen um häufige Builtins (`sum` → `sum_`) und nimmt eine versehentlich
+eingecheckte `.pyc`-Datei aus dem Index.
+
+## Phase 5
+
+### Schritt 5.1 – README (dcf2420)
+
+Die Mermaid-Diagramme wurden mit mermaid-cli gerendert. Chromium brauchte dafür
+zusätzliche apt-Pakete (libnss3 u. a.).
+
+## Aufwand
+
+Der Hauptteil der Umsetzung (Phasen 0–4 und Schritt 5.1) kostete laut Kiro-CLI
+ca. 640 Credits: `Credits: 640.55 • Time: 125m 21s`. Zum selben Zeitpunkt zeigte
+`/usage` für den Plan KIRO PRO+ 1601,23 von 2000 Credits verbraucht (80,1 %,
+Reset am 2026-10-01).
