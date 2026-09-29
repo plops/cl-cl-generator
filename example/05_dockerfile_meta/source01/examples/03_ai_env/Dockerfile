@@ -1,7 +1,7 @@
 # ====================================================================
 # Stage: Python Dependencies (runs in parallel with other builders)
 # ====================================================================
-FROM ubuntu:26.04 AS builder-python
+FROM nvidia/cuda:13.4.1-cudnn-runtime-ubuntu26.04 AS builder-python
 ENV DEBIAN_FRONTEND=noninteractive
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
@@ -13,7 +13,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
 WORKDIR /workspace
 # Install the programmatic Python SDK using uv
 RUN --mount=type=cache,target=/root/.cache/uv uv venv .venv \
- && uv pip install numpy pandas loguru requests ruff
+ && uv pip install numpy pandas loguru requests ruff polars pyarrow
 # ====================================================================
 # Stage: GitHub Copilot CLI Download
 # ====================================================================
@@ -40,11 +40,32 @@ RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-
  && chmod +x /tmp/kirocli-extracted/kirocli/install.sh \
  && KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh \
  && rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted
+# ====================================================================
+# Stage: TeamCity CLI Download
+# ====================================================================
+FROM ubuntu:26.04 AS builder-teamcity
+ENV DEBIAN_FRONTEND=noninteractive
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl
+WORKDIR /workspace
+# Install TeamCity CLI from the official JetBrains installer
+RUN curl -fsSL https://jb.gg/tc/install -o /tmp/teamcity-install.sh \
+ && bash /tmp/teamcity-install.sh \
+ && rm -f /tmp/teamcity-install.sh \
+ && command -v teamcity >/dev/null
 # =====================================================================
 # Stage 2: Insulated Runtime Runner
 # =====================================================================
-FROM ubuntu:26.04 AS runner
+FROM nvidia/cuda:13.4.1-cudnn-runtime-ubuntu26.04 AS runner
 ENV DEBIAN_FRONTEND=noninteractive
+# Configure NVIDIA Container Toolkit runtime and CUDA development paths
+ENV NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    CUDA_HOME=/usr/local/cuda \
+    CUDA_PATH=/usr/local/cuda \
+    CUDACXX=/usr/local/cuda/bin/nvcc \
+    PATH=/usr/local/cuda/bin:$PATH \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 WORKDIR /workspace
 RUN chmod 755 /root
 # Copy the modern uv binary directly from Astral's official release container
@@ -52,7 +73,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV UV_TOOL_BIN_DIR=/usr/local/bin
 # Install the essential tool belt for agents
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates jq cmake build-essential pkg-config less file findutils tree man-db procps psmisc iproute2 ripgrep fd-find yq picocom git usbutils libusb-1.0-0-dev moreutils tmux fzf parallel unzip zip xz-utils
+ && apt-get install -y --no-install-recommends curl ca-certificates jq ninja-build cmake build-essential pkg-config less file findutils tree man-db procps psmisc iproute2 ripgrep fd-find yq picocom git usbutils sudo libusb-1.0-0-dev moreutils tmux fzf git-lfs openssh-client parallel unzip zip xz-utils
 # Install component dependencies in separate layers for caching
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
  && apt-get install -y --no-install-recommends build-essential gcc
@@ -113,6 +134,8 @@ exec /usr/local/bin/kiro-cli.real chat --v3 --trust-all-tools "$@"
 
 EOF
 RUN chmod +x /usr/local/bin/kiro-cli
+# Copy TeamCity CLI from the builder image
+COPY --from=builder-teamcity --link --chmod=755 /usr/local/bin/teamcity /usr/local/bin/teamcity
 # Install Docker CLI for an optionally mounted host Docker socket
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked install -m 0755 -d /etc/apt/keyrings \
  && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
@@ -126,6 +149,11 @@ RUN curl -fL https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for
  && tar -xJf /tmp/arm-none-eabi.tar.xz -C /opt \
  && rm /tmp/arm-none-eabi.tar.xz
 ENV PATH=/opt/arm-gnu-toolchain-15.3.rel1-x86_64-arm-none-eabi/bin:$PATH
+# Install SEGGER J-Link tools (the download accepts SEGGER's license terms)
+RUN curl -fL --data 'accept_license_agreement=accepted&non_eu_market=true' https://www.segger.com/downloads/jlink/JLink_Linux_V930_x86_64.tgz -o /tmp/jlink.tgz \
+ && tar -xzf /tmp/jlink.tgz -C /opt \
+ && rm /tmp/jlink.tgz
+ENV PATH=/opt/JLink_Linux_V930_x86_64:$PATH
 # Download and install Quicklisp
 RUN curl -O https://beta.quicklisp.org/quicklisp.lisp \
  && sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)" \

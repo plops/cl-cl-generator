@@ -16,7 +16,7 @@
 
 ;; Suggested for `uv pip install cuml`: :runtime (1.81 GB)
 ;; Pre-built RAPIDS wheels package their own math/cuml libraries, needing only the runtime.
-(defparameter *cuda-flavor* :runtime
+(defparameter *cuda-flavor* :cudnn-runtime
   "CUDA image variant (amd64 compressed sizes for 13.4.1):
    - :cudnn-devel   : 4.74 GB | AI dev (NVCC, CUDA headers, cuDNN headers & libs)
    - :devel         : 4.25 GB | GPU dev (NVCC, CUDA headers - needed if compiling cuML from source)
@@ -136,7 +136,7 @@
       "fzf"
       ;"bat"
       "git-lfs"
-      ;"openssh-client"
+      "openssh-client"
       ;"dos2unix"
       "parallel"
       "unzip"
@@ -151,7 +151,7 @@
 (defparameter *install-copilot* t)
 (defparameter *install-kiro-cli* t)
 (defparameter *install-azure-cli* nil)
-(defparameter *install-teamcity-cli* nil)
+(defparameter *install-teamcity-cli* t)
 (defparameter *install-grok* nil)
 (defparameter *install-muse* t
   "Install Meta's Muse Code CLI.")
