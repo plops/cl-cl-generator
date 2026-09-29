@@ -18,12 +18,14 @@ value or place)."
     (case (ir-kind var)
       ((:param :receiver)
        (case (ir-mode var)
-         (:in (unless (copy-type-p ty) :shared))
+         (:in (unless (and (copy-type-p ty) (not (eq :fn (type-head ty)))) :shared))
          (:inout :mut)))
       (:loop (let ((mode (and *rs-loop-modes* (gethash var *rs-loop-modes*))))
                (unless (copy-type-p ty)
                  (case mode (:ref :shared) (:mut :mut)))))
       (t nil))))
+
+(defvar *rs-boxed-closures* nil "Closures in the current slot are boxed.")
 
 (defun string-literal-p (e) (and (typep e 'lit-expr) (eq :string (ir-kind e))))
 
@@ -49,6 +51,9 @@ value or place)."
 (defun ex-str-for (e expected)
   "E converted for a slot of type EXPECTED (owned string, borrow, value)."
   (cond ((not (known-type-p expected)) (ex-str e))
+        ((and *rs-boxed-closures* (eq :fn (type-head expected)) (typep e 'lambda-expr))
+         ;; a closure stored in a Vec or a field is a Box<dyn Fn>
+         (format nil "Box::new(~a)" (ex-str e)))
         ((borrowed-type-p expected) (rs-borrowed e :mut (eq :mut-ref (type-head expected))))
         (t (values (rs-owned e expected)))))
 
@@ -64,7 +69,8 @@ value or place)."
                   (format nil "~a.~:[as_ref~;as_mut~]()" (receiver a) (eq :mut-ref (type-head ty))))
                  ((borrowed-type-p ty) (ex-str-for a ty))
                  ((copy-type-p ty) (ex-str a))
-                 ((eq :fn (type-head ty)) (if (typep a 'lambda-expr) (ex-str a) (format nil "&~a" (ex-str a))))
+                 ((eq :fn (type-head ty))
+                  (if (eq :shared (rs-ref-kind a)) (ex-str a) (format nil "&~a" (operand :ref :only a))))
                  (t (rs-borrowed a)))))))
 
 (defun rs-args (args params)

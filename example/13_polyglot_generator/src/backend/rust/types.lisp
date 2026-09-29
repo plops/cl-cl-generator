@@ -72,7 +72,7 @@ vec that is pushed to stays &mut Vec<T>); :sink -> T."
     (ecase (ir-mode var)
       (:in (cond ((or (copy-type-p ty) (borrowed-type-p ty)) (rs-type ty))
                  ((eq :fn (type-head ty))
-                  (format nil "impl Fn(~{~a~^, ~}) -> ~a" (mapcar #'rs-type (second ty)) (rs-type (third ty))))
+                  (format nil "&dyn Fn(~{~a~^, ~}) -> ~a" (mapcar #'rs-type (second ty)) (rs-type (third ty))))
                  (t (rs-borrow-type ty :region region))))
       (:inout (if (and (eq :vec (type-head ty)) (not pushes))
                   (rs-ref (format nil "[~a]" (rs-type (second ty))) region :mut t)

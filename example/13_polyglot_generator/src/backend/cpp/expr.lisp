@@ -108,6 +108,7 @@
                               (t (format nil "~a{}" (cpp-type (ir-ty f))))))))
 
 (defmethod emit-expr ((b cpp-backend) (e vec-expr))
+  (cpp-std-include "vector")
   (let ((ty (cpp-type (ir-elem-type e))))
     (if (eq :box (type-head (ir-elem-type e)))
         (progn (note-prelude "make_vec")

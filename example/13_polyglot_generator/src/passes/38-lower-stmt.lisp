@@ -21,7 +21,13 @@
 
 (defmethod lower-stmt ((s decl-stmt))
   (let ((init (ir-init s)))
-    (cond ((and init (hoistable-p init))
+    (cond ((and (typep init 'lambda-expr) (not (capability-p :multi-statement-lambda))
+                (not (single-expression-body-p init)))
+           ;; E10: (let ((g (lambda ...)))) becomes def g(...) directly
+           (setf (ir-captures init) (loop-vars-captured init)
+                 (ir-body init) (lower-stmt-list (ir-body init)))
+           (list (make-local-fn-stmt :var (ir-var s) :fn init :source (ir-source s))))
+          ((and init (hoistable-p init))
            (setf (ir-init s) nil (ir-mutable (ir-var s)) t)
            (cons s (lower-into init (lambda (v) (make-assign-stmt :place (var-ref (ir-var s))
                                                                   :value v :source (ir-source s))))))

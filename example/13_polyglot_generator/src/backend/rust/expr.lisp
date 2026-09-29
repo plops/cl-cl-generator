@@ -73,7 +73,7 @@
 
 (defun rs-field-init (field value)
   (let ((name (ir-target-name field))
-        (text (ex-str-for value (ir-ty field))))
+        (text (let ((*rs-boxed-closures* t)) (ex-str-for value (ir-ty field)))))
     (if (string= text name) name (format nil "~a: ~a" name text))))
 
 (defmethod emit-expr ((b rust-backend) (e make-expr))
@@ -91,7 +91,7 @@
 (defmethod emit-expr ((b rust-backend) (e vec-expr))
   (if (ir-elems e)
       (prim (format nil "vec![~{~a~^, ~}]"
-                    (mapcar (lambda (x) (ex-str-for x (ir-elem-type e))) (ir-elems e))))
+                    (let ((*rs-boxed-closures* t)) (mapcar (lambda (x) (ex-str-for x (ir-elem-type e))) (ir-elems e)))))
       (prim "Vec::new()")))
 
 (defmethod emit-expr ((b rust-backend) (e map-expr))

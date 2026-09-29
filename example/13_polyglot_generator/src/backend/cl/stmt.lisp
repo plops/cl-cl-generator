@@ -98,11 +98,29 @@ in the tail position of a function."
                       (continue-stmt (setf found t))))
                   s))))
 
-(defun cl-loop-body (stmts)
-  "Body forms of a loop; a CONTINUE inside needs a block around one iteration."
-  (let ((forms (cl-stmt-forms stmts)))
-    (if (contains-continue-p stmts)
-        `((block ,(local-sym "pg-continue") ,@forms))
+(defun captured-by-lambda-p (var stmts)
+  "A lambda in STMTS refers to VAR."
+  (let ((found nil))
+    (dolist (s stmts found)
+      (walk-nodes (lambda (n)
+                    (when (typep n 'lambda-expr)
+                      (walk-nodes (lambda (m) (when (and (typep m 'var-expr) (eq var (ir-binding m)))
+                                                (setf found t)))
+                                  n)))
+                  s))))
+
+(defun cl-loop-body (stmts &optional var)
+  "Body forms of a loop; a CONTINUE inside needs a block around one iteration.
+A loop variable captured by a closure is rebound per iteration (E3): LOOP
+updates one binding, the other targets capture a fresh value."
+  (let* ((forms (cl-stmt-forms stmts))
+         ;; E2: LOOP DO needs a form; comments alone print as nothing
+         (forms (if (every (lambda (s) (typep s 'comment-stmt)) stmts) (append forms (list '(values))) forms))
+         (forms (if (contains-continue-p stmts)
+                    `((block ,(local-sym "pg-continue") ,@forms))
+                    forms)))
+    (if (and var (captured-by-lambda-p var stmts))
+        (let ((sym (local-sym var))) `((let ((,sym ,sym)) ,@forms)))
         forms)))
 
 (defmethod cl-stmt ((s while-stmt) tail-p)
@@ -112,12 +130,12 @@ in the tail position of a function."
 (defmethod cl-stmt ((s for-range-stmt) tail-p)
   (declare (ignore tail-p))
   (list `(loop ,(loop-kw "for") ,(local-sym (ir-var s)) ,(loop-kw "from") ,(cl-form (ir-start s))
-          ,(loop-kw "below") ,(cl-form (ir-end s)) do ,@(cl-loop-body (ir-body s)))))
+          ,(loop-kw "below") ,(cl-form (ir-end s)) do ,@(cl-loop-body (ir-body s) (ir-var s)))))
 
 (defmethod cl-stmt ((s for-each-stmt) tail-p)
   (declare (ignore tail-p))
   (list `(loop ,(loop-kw "for") ,(local-sym (ir-var s)) ,(loop-kw "across") ,(cl-form (ir-seq s))
-          do ,@(cl-loop-body (ir-body s)))))
+          do ,@(cl-loop-body (ir-body s) (ir-var s)))))
 
 (defmethod cl-stmt ((s break-stmt) tail-p)
   (declare (ignore tail-p))

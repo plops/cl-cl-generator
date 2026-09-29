@@ -27,7 +27,7 @@ step makes the result :fail; the stdout of the last step is the output."
 (defun cl-toolchain (dir project)
   (let* ((system (kebab (polyglot::project-spec-name project)))
          (pkg (format nil "~a.~a" system (kebab (entry-module project))))
-         (load (format nil "(let ((err (make-string-output-stream))) (let ((*standard-output* (make-broadcast-stream)) (*error-output* err)) (asdf:load-system ~s)) (let ((text (get-output-stream-string err))) (when (or (search \"caught WARNING\" text) (search \"caught ERROR\" text)) (format *error-output* \"~~a\" text) (uiop:quit 3))))" system))
+         (load (format nil "(let ((err (make-string-output-stream))) (let ((*standard-output* (make-broadcast-stream)) (*error-output* err)) (handler-case (asdf:load-system ~s) (error (e) (format *error-output* \"~~a~~%~~a\" (get-output-stream-string err) e) (uiop:quit 4)))) (let ((text (get-output-stream-string err))) (when (or (search \"caught WARNING\" text) (search \"caught ERROR\" text)) (format *error-output* \"~~a\" text) (uiop:quit 3))))" system))
          (call (format nil "(~a::main)" pkg)))
     (with-steps (log)
       ((list "sbcl" "--noinform" "--non-interactive" "--no-userinit" "--no-sysinit"

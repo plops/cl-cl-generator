@@ -75,18 +75,29 @@ vecs of boxes (the coercion to Box<dyn T> needs the expected type)."
                  "}")
       (rs-stmts (ir-body s) nil))))
 
+(defun rs-loop-var-name (var body)
+  "_x for a loop variable the body does not use (unused_variables)."
+  (let ((used nil))
+    (dolist (s body)
+      (walk-nodes (lambda (n) (when (and (typep n 'var-expr) (eq var (ir-binding n))) (setf used t))) s))
+    (if used (ir-target-name var) (format nil "_~a" (ir-target-name var)))))
+
 (defmethod emit-stmt ((b rust-backend) (s for-range-stmt))
-  (with-block ((format nil "for ~a in ~a..~a {" (ir-target-name (ir-var s)) (ex-str (ir-start s))
+  (with-block ((format nil "for ~a in ~a..~a {" (rs-loop-var-name (ir-var s) (ir-body s)) (ex-str (ir-start s))
                        (ex-str (ir-end s)))
                "}")
     (rs-stmts (ir-body s) nil)))
 
 (defun rs-loop-head (s)
   (let* ((var (ir-var s)) (seq (ir-seq s)) (mode (ir-iter-mode s))
-         (copy (copy-type-p (ir-ty var))) (name (ir-target-name var)))
+         (copy (copy-type-p (ir-ty var))) (name (rs-loop-var-name var (ir-body s))))
     (setf (gethash var *rs-loop-modes*) mode)
     (ecase mode
-      (:move (format nil "for ~a in ~a {" name (ex-str seq)))
+      (:move (format nil "for ~a in ~a {" name
+                     ;; clippy::useless_vec: iterate an array literal
+                     (if (and (typep seq 'vec-expr) (ir-elems seq))
+                         (format nil "[~a]" (comma-list (ir-elems seq)))
+                         (ex-str seq))))
       (:ref (format nil "for ~:[~;&~]~a in ~a {" copy name (rs-borrowed seq)))
       (:mut (format nil "for ~a in ~a {" name
                     (if (eq :mut (rs-ref-kind seq)) (format nil "~a.iter_mut()" (receiver seq))

@@ -83,8 +83,11 @@
     (mapc #'name-local (ir-params n))
     (rename-scoped (ir-body n))))
 
+(defvar *module-item-names* '()
+  "Target names of the module level items; locals must not hide them under :rename.")
+
 (defun rename-function (fn)
-  (let ((*visible-names* '())
+  (let ((*visible-names* (copy-list *module-item-names*))
         (*function-names* (make-hash-table :test 'equal)))
     (mapc #'name-local (ir-params fn))
     (check-collisions (ir-params fn) "parameter")
@@ -94,13 +97,25 @@
   (dolist (m (ir-modules project))
     (rename-items m))
   (dolist (m (ir-modules project) project)
-    (dolist (item (ir-items m))
-      (typecase item
-        (function-item (rename-function item))
-        (extern-item (let ((*visible-names* '()) (*function-names* (make-hash-table :test 'equal)))
-                       (mapc #'name-local (ir-params item))))
-        ((or struct-item interface-item) (mapc #'rename-function (ir-methods item)))
-        (const-item (rename-node (ir-value item)))))))
+    (let ((*module-item-names* (module-visible-item-names m)))
+      (dolist (item (ir-items m))
+        (typecase item
+          (function-item (rename-function item))
+          (extern-item (let ((*visible-names* '()) (*function-names* (make-hash-table :test 'equal)))
+                         (mapc #'name-local (ir-params item))))
+          ((or struct-item interface-item) (mapc #'rename-function (ir-methods item)))
+          (const-item (rename-node (ir-value item))))))))
+
+(defun module-visible-item-names (module)
+  "Target names of functions and constants visible in MODULE (own and imported)."
+  (let ((out '()))
+    (dolist (m (cons module (remove nil (mapcar (lambda (n) (find-module n (ir-project module)))
+                                                (ir-imports module)))))
+      (dolist (i (ir-items m))
+        (when (and (typep i '(or function-item const-item))
+                   (or (eq m module) (eq :public (ir-visibility i))))
+          (push (ir-target-name i) out))))
+    out))
 
 (define-pass :rename (:order 70) (project)
              "Assign target names to all definitions according to the backend config."

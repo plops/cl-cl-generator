@@ -7,6 +7,7 @@
   "Identifier that can be inlined into a format string, or NIL."
   (when (and (typep e 'var-expr) (typep (ir-binding e) 'var-def))
     (let ((s (ex-str e)))
+      ;; raw identifiers (r#type) cannot be inlined into format strings
       (when (every (lambda (c) (or (alphanumericp c) (char= c #\_))) s) s))))
 
 (defun rs-escape-format-literal (s)
@@ -86,7 +87,7 @@ with ARGS in order. String literals are embedded, identifiers inlined."
       ("string-byte-length" :function rs-len)
       ("string-char-count" :function ,(lambda (e) (rs-cast (format nil "~a.chars().count()" (receiver (first (ir-args e)))) "i64")))
       ("push" :function ,(lambda (e) (prim (format nil "~a.push(~a)" (receiver (second (ir-args e)))
-                                                   (ex-str-for (first (ir-args e)) (element-type (ir-ty (second (ir-args e)))))))))
+                                                   (let ((*rs-boxed-closures* t)) (ex-str-for (first (ir-args e)) (element-type (ir-ty (second (ir-args e))))))))))
       ("map-get" :function rs-map-get)
       ("map-set" :function ,(lambda (e) (destructuring-bind (m k v) (ir-args e)
                                           (let ((ty (strip-indirection (ir-ty m))))
