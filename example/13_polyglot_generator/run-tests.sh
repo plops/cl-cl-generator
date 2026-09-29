@@ -6,7 +6,15 @@
 #   ./run-tests.sh --docs        regenerate SUPPORTED_FORMS.md from the spec table
 #   ./run-tests.sh --docs-check  fail when SUPPORTED_FORMS.md is outdated
 #   ./run-tests.sh --paren       randomized precedence tests (compiles programs)
+#   ./run-tests.sh --all         SBCL, ECL and the docs check one after another
+#
+# ECL (24.5.10) loads the system and runs the complete unit and spec suite;
+# only the external formatters and compilers are the same processes.
 set -u
+if [ "${1:-}" = "--all" ]; then
+  "$0" && "$0" --ecl && "$0" --docs-check
+  exit $?
+fi
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "${DIR}/../.." && pwd)"
 LISP=sbcl
@@ -17,7 +25,7 @@ for arg in "$@"; do
     --docs) ACTION='(progn (polyglot.tests::write-supported-forms) (uiop:quit 0))' ;;
     --docs-check) ACTION='(uiop:quit (if (polyglot.tests::supported-forms-current-p) 0 1))' ;;
     --paren) ACTION='(uiop:quit (if (polyglot.tests::run-paren-tests) 0 1))' ;;
-    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
