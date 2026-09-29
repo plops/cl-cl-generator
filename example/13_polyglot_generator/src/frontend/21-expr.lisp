@@ -31,6 +31,18 @@ follow Common Lisp: and/or/not are logical, log* are bitwise.")
         ((form-is form "false") (make-lit-expr :value nil :kind :bool :source form))
         (t (make-var-expr :name (spelling form) :source form))))
 
+(defvar *pending-comments* nil
+  "Comments found in argument lists while a statement is parsed (E11).")
+
+(defun parse-exprs (forms)
+  "Parse FORMS as argument expressions. Comments among them are removed and
+queued in *PENDING-COMMENTS*; PARSE-STMT emits them before the statement."
+  (loop for f in forms
+        for e = (parse-expr f)
+        if (typep e 'comment-expr)
+        do (push e *pending-comments*)
+        else collect e))
+
 (defun parse-expr (form)
   "Parse FORM in value position."
   (cond ((symbolp form) (parse-symbol-expr form))
@@ -49,7 +61,7 @@ follow Common Lisp: and/or/not are logical, log* are bitwise.")
           ((operator-entry head) (parse-operator form))
           ((make-form-p form) (parse-make form))
           (t (make-call-expr :name (spelling head)
-                             :args (mapcar #'parse-expr (cdr form))
+                             :args (parse-exprs (cdr form))
                              :source form)))))
 
 (defun fold-left (op args source)
@@ -58,8 +70,8 @@ follow Common Lisp: and/or/not are logical, log* are bitwise.")
 
 (defun parse-operator (form)
   (destructuring-bind (name op arity) (operator-entry (car form))
-    (let ((args (mapcar #'parse-expr (cdr form)))
-          (n (length (cdr form))))
+    (let* ((args (parse-exprs (cdr form)))
+           (n (length args)))
       (flet ((need (ok what)
                (unless ok (dsl-error form "~a expects ~a" name what))))
         (ecase arity

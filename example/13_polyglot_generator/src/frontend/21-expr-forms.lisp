@@ -63,7 +63,7 @@ block-expr, or the plain expression when there is only one form."
 (define-surface-form "vec-of" (:expr form)
   (check-arg-count form 1 nil)
   (make-vec-expr :elem-type (parse-type (second form))
-                 :elems (mapcar #'parse-expr (cddr form)) :source form))
+                 :elems (parse-exprs (cddr form)) :source form))
 
 (define-surface-form "map-of" (:expr form)
   (check-arg-count form 2)
@@ -80,12 +80,12 @@ block-expr, or the plain expression when there is only one form."
   (own "some" :some))
 
 (define-surface-form "call-super" (:expr form)
-  (make-super-expr :args (mapcar #'parse-expr (cdr form)) :source form))
+  (make-super-expr :args (parse-exprs (cdr form)) :source form))
 
 (define-surface-form "funcall" (:expr form)
   (check-arg-count form 1 nil)
   (make-funcall-expr :fn (parse-expr (second form))
-                     :args (mapcar #'parse-expr (cddr form)) :source form))
+                     :args (parse-exprs (cddr form)) :source form))
 
 (define-surface-form "lambda" (:expr form)
   (parse-lambda form))

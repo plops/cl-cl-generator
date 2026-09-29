@@ -52,7 +52,11 @@
        (:file "34-mutability")
        (:file "35-vtable")
        (:file "37-rename")
-       (:file "37-rename-locals"))))))
+       (:file "37-rename-locals")
+       (:file "38-lower")
+       (:file "38-lower-stmt")
+       (:file "39-order-args")
+       (:file "40-capability"))))))
   :in-order-to ((asdf:test-op (asdf:test-op "polyglot-generator/tests"))))
 
 (asdf:defsystem "polyglot-generator/tests"
@@ -82,6 +86,7 @@
        (:file "test-check")
        (:file "test-mutability")
        (:file "test-vtable")
-       (:file "test-rename"))))))
+       (:file "test-rename")
+       (:file "test-lower"))))))
   :perform (asdf:test-op (o c)
              (uiop:symbol-call :fiveam :run! :polyglot)))

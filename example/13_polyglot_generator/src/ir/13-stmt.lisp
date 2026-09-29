@@ -95,3 +95,7 @@ by the mutability pass, TARGET-NAME by rename.")
 (define-node target-form-stmt (stmt)
   ((backend) (form))
   "Statement form from an extension package.")
+
+(define-node local-fn-stmt (stmt)
+  ((var :child :one) (fn :child :one))
+  "A lambda lifted to a named local function (E10, Python def).")

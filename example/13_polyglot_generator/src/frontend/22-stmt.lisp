@@ -3,12 +3,26 @@
 (in-package :polyglot)
 
 (defun parse-stmt (form)
-  "Parse FORM in statement position."
+  "Parse FORM in statement position. Comments that were written inside the
+expressions of FORM are moved before the statement with a warning (E11)."
+  (let* ((*pending-comments* '())
+         (stmt (parse-stmt-1 form)))
+    (if (null *pending-comments*)
+        stmt
+        (progn
+          (dsl-warn form "comment inside an expression was moved before the statement (E11)")
+          (make-block-stmt :stmts (append (loop for c in (reverse *pending-comments*)
+                                                collect (make-comment-stmt :lines (ir-lines c)
+                                                                           :source (ir-source c)))
+                                          (list stmt))
+                           :scope nil :source form)))))
+
+(defun parse-stmt-1 (form)
   (if (atom form)
       (make-expr-stmt :expr (parse-expr form) :source form)
       (with-macro-expansion (f form)
         (if (atom f)
-            (parse-stmt f)
+            (parse-stmt-1 f)
             (let ((parser (and (symbolp (car f)) (gethash (form-name (car f)) *stmt-forms*)))
                   (backend (extension-form-backend f)))
               (cond (backend (make-target-form-stmt :backend backend :form f :source f))

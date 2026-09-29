@@ -83,8 +83,11 @@
   (setf (ir-ty e) (ir-ty (ir-value e)))
   e)
 
+(defmethod resolve-expr ((e comment-expr))
+  (dsl-error (ir-source e) "a comment is not a value"))
+
 (defmethod resolve-expr ((e expr))
-  ;; target-form-expr, raw-expr, comment-expr: opaque
+  ;; target-form-expr, raw-expr: opaque
   e)
 
 ;;; intrinsic calls

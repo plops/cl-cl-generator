@@ -64,8 +64,9 @@
 
 (define-node lambda-expr (expr)
   ((params :child :list) (ret :initform :void) (body :child :list)
-   (capture :initform :value))
-  "Anonymous function.")
+   (capture :initform :value) (captures))
+  "Anonymous function. CAPTURES (set by lower) lists the loop variables of
+enclosing loops that the body refers to (E3).")
 
 (define-node funcall-expr (expr)
   ((fn :child :one) (args :child :list))
