@@ -1,7 +1,7 @@
 (eval-when (:compile-toplevel :execute :load-toplevel)
   (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
     (push (merge-pathnames "../../" current-dir) asdf:*central-registry*))
-  (ql:quickload :cl-dockerfile-generator)
+  (asdf:load-system :cl-dockerfile-generator)
   (setf (readtable-case *readtable*) :invert))
 
 (in-package :cl-dockerfile-generator)
@@ -11,7 +11,7 @@
 		   (speed 1)))
 
 ;; Toggle NVIDIA / CUDA GPU Support
-(defparameter *enable-cuda* t
+(defparameter *enable-cuda* nil
   "When true, configure the image with NVIDIA CUDA support.")
 
 ;; Suggested for `uv pip install cuml`: :runtime (1.81 GB)
@@ -48,20 +48,20 @@
   "Minimal base image for CLI builder stages to save build time and memory.")
 
 ;; Enable or disable components to build minimal images
-(defparameter *install-gcc* t)
-(defparameter *install-sbcl* t)
+(defparameter *install-gcc* nil)
+(defparameter *install-sbcl* nil)
 (defparameter *install-emacs* nil)
 (defparameter *install-python* t)
 (defparameter *install-python-libs* t) ; google-antigravity SDK
 (defparameter *install-docker-cli* t
   "Install the Docker CLI for use with an optionally mounted host Docker socket.")
-(defparameter *install-arm-none-eabi* t
+(defparameter *install-arm-none-eabi* nil
   "Install the Arm GNU bare-metal toolchain used by the fountain firmware.")
 (defparameter *arm-none-eabi-version* "15.3.rel1")
 (defparameter *arm-none-eabi-toolchain*
   (format nil "arm-gnu-toolchain-~a-x86_64-arm-none-eabi"
           *arm-none-eabi-version*))
-(defparameter *install-jlink* t
+(defparameter *install-jlink* nil
   "Install the SEGGER J-Link command-line tools used to flash and debug firmware.")
 (defparameter *jlink-version* "9.30")
 (defparameter *jlink-version-code*
@@ -148,22 +148,26 @@
 ;; Toggle AI CLI tools
 (defparameter *install-agy* nil)
 (defparameter *install-codex* t)
-(defparameter *install-copilot* t)
+(defparameter *install-copilot* nil)
 (defparameter *install-kiro-cli* t)
+(defparameter *install-kirocrew* t
+  "Install KiroCrew and its managed Python runtime.")
+(defparameter *kirocrew-version* "0.7.2"
+  "Signed KiroCrew release verified by the gateway and CLI integration tests.")
 (defparameter *install-azure-cli* nil)
-(defparameter *install-teamcity-cli* t)
+(defparameter *install-teamcity-cli* nil)
 (defparameter *install-grok* nil)
-(defparameter *install-muse* t
+(defparameter *install-muse* nil
   "Install Meta's Muse Code CLI.")
-(defparameter *install-devin-cli* t)
+(defparameter *install-devin-cli* nil)
 ;; Toggle code-quality tools used by Habit Hooks.
 (defparameter *install-habit-hooks* nil)
 (defparameter *install-deptry* nil)
 (defparameter *install-jscpd* nil)
 
 ;; Toggle Rust support
-(defparameter *install-rust* t)
-(defparameter *install-probe-rs* t)
+(defparameter *install-rust* nil)
+(defparameter *install-probe-rs* nil)
 (defparameter *rust-cache-volume* t)
 (defparameter *install-difftastic* t
   "Requires *install-rust* to be true.")
@@ -209,9 +213,34 @@
   (format nil "#!/usr/bin/env bash~%set -euo pipefail~%exec ~a ~a \"$@\"~%"
           real-binary default-flag))
 
-(defun kiro-wrapper-script (real-binary)
-  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%exec ~a chat --v3 --trust-all-tools \"$@\"~%"
-          real-binary))
+(defun kirocrew-wrapper-script (real-binary)
+  (format nil #r^#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  "")
+    exec ~a gateway --approval yolo --no-open
+    ;;
+  gateway)
+    shift
+    gateway_args=()
+    while (($#)); do
+      case "$1" in
+        --approval) shift; (($#)) && shift ;;
+        --approval=*) shift ;;
+        *) gateway_args+=("$1"); shift ;;
+      esac
+    done
+    exec ~a gateway --approval yolo "${gateway_args[@]}"
+    ;;
+  *)
+    exec ~a "$@"
+    ;;
+esac
+^ real-binary real-binary real-binary))
+
+(defun kiro-cli-wrapper-script (real-binary)
+  (format nil "#!/usr/bin/env bash~%set -euo pipefail~%case \"${1:-}\" in~%  init) exec ~a init --force \"${@:2}\" ;;~%  *) exec ~a \"$@\" ;;~%esac~%"
+          real-binary real-binary))
 
 (defun grok-wrapper-script (real-binary)
   (format nil "#!/usr/bin/env bash~%set -euo pipefail~%exec ~a --always-approve \"$@\"~%"
@@ -226,6 +255,22 @@
           real-binary))
 
 (defparameter *smoke-tests* `())
+;; KiroCrew publishes signed wheels outside PyPI. Its official installer
+;; verifies the signed channel manifest and wheel digest, and provisions the
+;; supported CPython runtime with its SHA-256-pinned uv binary.
+(defparameter *kirocrew-smoke-tests*
+  `((*install-kirocrew* "KiroCrew CLI and its chat/gateway commands"
+     #r|set -eu
+kirocrew --help > /tmp/kirocrew-help.txt
+grep -q 'chat' /tmp/kirocrew-help.txt
+grep -q 'gateway' /tmp/kirocrew-help.txt
+kirocrew chat --help > /tmp/kirocrew-chat-help.txt
+grep -q 'Interactive mode' /tmp/kirocrew-chat-help.txt
+kirocrew gateway --help > /tmp/kirocrew-gateway-help.txt
+grep -q -- '--port' /tmp/kirocrew-gateway-help.txt
+kiro-cli acp --help > /tmp/kiro-cli-acp-help.txt
+grep -qi 'acp' /tmp/kiro-cli-acp-help.txt
+|)))
 #+nil
 (defparameter *smoke-tests*
   `((*install-codex*
@@ -359,7 +404,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
 |)))
 
 (defun test-stage ()
-  (loop for (cond-expr desc script) in *smoke-tests*
+  (loop for (cond-expr desc script) in (append *smoke-tests* *kirocrew-smoke-tests*)
         when (eval cond-expr)
         collect `(comment ,(format nil "Smoke test ~a" desc))
         and collect `(run :heredoc ,script)))
@@ -435,6 +480,22 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                 "KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh"
                 "rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted")))))
 
+(defun builder-kirocrew-stage ()
+  (when *install-kirocrew*
+    `((comment "====================================================================")
+      (comment "Stage: KiroCrew signed wheel installation")
+      (comment "====================================================================")
+      (from ,*builder-base-image* :as builder-kirocrew)
+      (env DEBIAN_FRONTEND "noninteractive")
+      (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
+           (and "apt-get update"
+                "apt-get install -y --no-install-recommends ca-certificates curl openssl python3-full"))
+      (comment "Use KiroCrew's official signed-channel installer; it verifies the release manifest and wheel checksum")
+      (run (and "curl -fsSL https://download.crew.kiro.dev/cli.sh -o /tmp/kirocrew-install.sh"
+                ,(format nil "KIROCREW_HOME=/root/.kiro/crew-yolo KIROCREW_VENV=/opt/kirocrew-venv KIROCREW_PYTHON_DIR=/opt/kirocrew-python sh /tmp/kirocrew-install.sh --managed-python --version ~a" *kirocrew-version*)
+                "ln -s /root/.local/bin/kirocrew /usr/local/bin/kirocrew"
+                "rm -f /tmp/kirocrew-install.sh")))))
+
 (defun builder-teamcity-stage ()
   (when *install-teamcity-cli*
     `((comment "====================================================================" )
@@ -468,6 +529,10 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     (comment "=====================================================================")
     (from ,*base-image* :as runner)
     (env DEBIAN_FRONTEND "noninteractive")
+    ,@(when *install-kirocrew*
+        `((env KIROCREW_BIND "0.0.0.0"
+               KIROCREW_HOME "/root/.kiro/crew-yolo"
+               KIROCREW_KIRO_BIN "/usr/local/bin/kiro-cli.real")))
     ,@(when *enable-cuda*
         `((comment "Configure NVIDIA Container Toolkit runtime and CUDA development paths")
           (env NVIDIA_VISIBLE_DEVICES "all"
@@ -482,6 +547,18 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
     ;; The run script supplies the host UID/GID. Keep /root traversable so
     ;; bind-mounted credential directories remain usable by that user.
     (run "chmod 755 /root")
+
+    ,@(when *install-kirocrew*
+        `((comment "Copy the signed KiroCrew installation and its managed Python 3.12 runtime")
+          (copy "/opt/kirocrew-venv" "/opt/kirocrew-venv" :from builder-kirocrew :link t)
+          (copy "/opt/kirocrew-venv-current" "/opt/kirocrew-venv-current" :from builder-kirocrew :link t)
+          (copy "/opt/kirocrew-python" "/opt/kirocrew-python" :from builder-kirocrew :link t)
+          (copy "/root/.local/bin/kirocrew" "/usr/local/bin/kirocrew" :from builder-kirocrew :link t :chmod "755")
+          (run "mv /usr/local/bin/kirocrew /usr/local/bin/kirocrew.real")
+          (copy :heredoc "/usr/local/bin/kirocrew"
+                ,(kirocrew-wrapper-script "/usr/local/bin/kirocrew.real"))
+          (run "chmod +x /usr/local/bin/kirocrew")
+          (env KIROCREW_BIND "0.0.0.0")))
     
     (comment "Copy the modern uv binary directly from Astral's official release container")
     ,(uv-copy-stage)
@@ -592,7 +669,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                 (comment "Rename the original binary and install a wrapper that skips confirmation for init")
                 (run "mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real")
                 (copy :heredoc "/usr/local/bin/kiro-cli"
-                      ,(kiro-wrapper-script "/usr/local/bin/kiro-cli.real"))
+                      ,(kiro-cli-wrapper-script "/usr/local/bin/kiro-cli.real"))
                 (run "chmod +x /usr/local/bin/kiro-cli")))
           ,@(when *install-teamcity-cli*
               `((comment "Copy TeamCity CLI from the builder image")
@@ -724,6 +801,7 @@ exec /usr/local/bin/agent.real "$@"
            ,@(builder-agy-stage)
            ,@(builder-copilot-stage)
            ,@(builder-kiro-stage)
+           ,@(builder-kirocrew-stage)
            ,@(builder-teamcity-stage)
            ,@(runner-stage)
 	   )))

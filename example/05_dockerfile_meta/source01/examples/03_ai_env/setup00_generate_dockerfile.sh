@@ -9,4 +9,4 @@ if ! command -v sbcl >/dev/null 2>&1; then
   exit 1
 fi
 
-sbcl --load "$script_dir/gen_ai_env.lisp" --eval "(quit)"
+sbcl --eval '(require "asdf")' --load "$script_dir/gen_ai_env.lisp" --eval "(quit)"

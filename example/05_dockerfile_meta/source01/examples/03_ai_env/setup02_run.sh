@@ -10,6 +10,9 @@ enable_graphics=0
 enable_display=0
 enable_usb=0
 enable_source_isolation=1
+kirocrew_host_port=5476
+kirocrew_publish_port=1
+kirocrew_seccomp_profile=""
 gpus_spec="all"
 verbose=0
 
@@ -37,6 +40,12 @@ Options:
                  Mount the complete source root at /workspace/src.
   --docker-sock  Bind mount the host Docker socket. This grants the container
                  root-equivalent control over the host Docker daemon.
+  --kirocrew-port PORT
+                 Use PORT on host loopback for container port 5476 (default 5476).
+                 The container still starts in Bash (1-65535).
+  --kirocrew-sandbox-profile FILE
+                 Use KiroCrew's seccomp profile and AppArmor opt-out so its
+                 inner user-namespace sandbox can run.
   -v, --verbose  Print the executed commands.
   -h, --help     Show this help text and exit.
 
@@ -88,6 +97,23 @@ while [ "$#" -gt 0 ]; do
     --docker-sock)
       enable_docker_sock=1
       ;;
+    --kirocrew-port)
+      if [ "$#" -lt 2 ]; then
+        echo "--kirocrew-port requires a port number." >&2
+        exit 1
+      fi
+      kirocrew_host_port=$2
+      kirocrew_publish_port=1
+      shift
+      ;;
+    --kirocrew-sandbox-profile)
+      if [ "$#" -lt 2 ]; then
+        echo "--kirocrew-sandbox-profile requires a profile path." >&2
+        exit 1
+      fi
+      kirocrew_seccomp_profile=$2
+      shift
+      ;;
     -v|--verbose)
       verbose=1
       ;;
@@ -103,6 +129,20 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+
+if [ "$kirocrew_publish_port" -eq 1 ]; then
+  case "$kirocrew_host_port" in
+    ''|*[!0-9]*) echo "KiroCrew host port must be an integer from 1 to 65535." >&2; exit 1 ;;
+  esac
+  if [ "$kirocrew_host_port" -lt 1 ] || [ "$kirocrew_host_port" -gt 65535 ]; then
+    echo "KiroCrew host port must be an integer from 1 to 65535." >&2
+    exit 1
+  fi
+fi
+if [ -n "$kirocrew_seccomp_profile" ] && [ ! -r "$kirocrew_seccomp_profile" ]; then
+  echo "KiroCrew sandbox profile is not readable: $kirocrew_seccomp_profile" >&2
+  exit 1
+fi
 
 if [ -n "${ENV_FILE:-}" ]; then
   env_file=$ENV_FILE
@@ -124,6 +164,7 @@ host_gid=$(id -g)
 
 mkdir -p "$HOME/.gemini"
 mkdir -p "$HOME/.kiro"
+mkdir -p "$HOME/.kiro/crew-yolo"
 mkdir -p "$HOME/.local/share/kiro-cli"
 mkdir -p "$HOME/.local/share/muse"
 mkdir -p "$HOME/.aws"
@@ -149,12 +190,16 @@ if [ ! -f "$env_file" ]; then
   exit 1
 fi
 
-set -- docker run -it \
+# `--network host` needed for codex login
+
+set -- docker run -it --network host \
   --env-file "$env_file" \
+  -e KIROCREW_HOME=/root/.kiro/crew-yolo \
   -e ANTIGRAVITY_PLAINTEXT_AUTH=1 \
   -e AZURE_CONFIG_DIR=/root/.azure \
   -v "$HOME/.gemini:/root/.gemini" \
   -v "$HOME/.kiro:/root/.kiro" \
+  -v "$HOME/.kiro/crew-yolo:/root/.kiro/crew-yolo" \
   -v "$HOME/.local/share/kiro-cli:/root/.local/share/kiro-cli" \
   -v "$HOME/.local/share/muse:/root/.local/share/muse" \
   -v "$HOME/.aws:/root/.aws" \
@@ -173,7 +218,14 @@ set -- docker run -it \
   -v "$HOME/.cache/uv:/root/.cache/uv" \
   -v my-ai-env-cargo-cache:/root/.cargo
 
-#set -- "$@" --user "$host_uid:$host_gid" 
+if [ "$kirocrew_publish_port" -eq 1 ]; then
+  set -- "$@" -p "127.0.0.1:${kirocrew_host_port}:5476"
+fi
+if [ -n "$kirocrew_seccomp_profile" ]; then
+  set -- "$@" --security-opt "seccomp=$kirocrew_seccomp_profile" --security-opt apparmor=unconfined
+fi
+
+set -- "$@" --user "$host_uid:$host_gid"
 
 if [ "$enable_source_isolation" -eq 1 ]; then
   set -- "$@" \
@@ -264,4 +316,5 @@ if [ "$verbose" -eq 1 ]; then
   echo "+ $* $image_name" >&2
 fi
 
-exec "$@" "$image_name"
+set -- "$@" "$image_name"
+exec "$@"

@@ -253,3 +253,60 @@ NVIDIA's CUDA 13.3.1 (Ubuntu 26.04) Docker images offer varying sizes based on b
 | base | 199.7 MB | 345.86 MB | Minimal deployment/driver linking |
 
 For production, prioritize the runtime or cudnn-runtime images, while the devel options are recommended for compilation.
+# KiroCrew
+
+Das Image enthält KiroCrew 0.7.2. Der offizielle Installer prüft eine signierte
+Release-Meldung und den SHA-256-Prüfwert des Wheels und richtet CPython 3.12
+mit dem von KiroCrew gepinnten `uv` ein.
+
+`setup02_run.sh` startet den Container immer in Bash. `kirocrew` startet danach
+manuell das Gateway mit `--approval yolo`; `kirocrew gateway` erzwingt denselben
+Modus auch dann, wenn ein anderes `--approval` angegeben wurde. Der geprüfte
+KiroCrew-Release 0.7.2 bietet für `kirocrew chat` keinen YOLO-Schalter; dieser
+Befehl bleibt deshalb unverändert beim interaktiven Freigabeverhalten. Für
+YOLO-Betrieb `kirocrew` oder `kirocrew gateway` verwenden.
+
+```sh
+./setup02_run.sh
+# In der Bash des Containers: startet das Gateway mit YOLO.
+kirocrew
+```
+
+Port 5476 ist standardmäßig auf `127.0.0.1` des Hosts veröffentlicht.
+Der Container bleibt in Bash; Gateway startest du danach im Container wie oben.
+Mit `--kirocrew-port` lässt sich der Host-Port ändern:
+
+```sh
+./setup02_run.sh --kirocrew-port 15476
+# Im Container: kirocrew gateway --no-open --port 5476 --approval interactive
+# Der Wrapper setzt die Approval-Option dennoch auf yolo.
+```
+
+Der Browser öffnet `http://localhost:15476/`. Das Gateway bindet im Container
+an `0.0.0.0`, während das Host-Mapping nur `127.0.0.1` verwendet.
+
+Die Login-Konfiguration von kiro-cli bleibt auf dem Host unter
+`~/.local/share/kiro-cli`. KiroCrew-Konfiguration, Sessions und Gedächtnis
+liegen persistent unter `~/.kiro/crew-yolo`; `setup02_run.sh` bindet beide
+Verzeichnisse ein. Der getrennte KiroCrew-Pfad ist erforderlich, damit der
+Gateway-YOLO-Modus als expliziter, vom Standard isolierter Datenpfad erkannt
+wird. AWS-SSO-Daten bleiben zusätzlich unter `~/.aws` erhalten.
+
+Einmalig im laufenden Container anmelden:
+
+```sh
+kiro-cli login
+```
+
+Das Dashboard benötigt einen Token. Erzeuge im Container einen kurzlebigen
+Link und öffne ihn zeitnah im Browser:
+
+```sh
+kirocrew token --ttl 2h
+```
+
+Für LAN-Zugriff ist eine passende Dashboard-Origin-Konfiguration erforderlich;
+für entfernte Nutzung sollte ein TLS-Reverse-Proxy davorstehen. YOLO erlaubt
+Tool-Aufrufe ohne Rückfrage. Die Agent-Ausführung kann dennoch fail-closed
+bleiben, wenn die innere Sandbox nicht verfügbar ist. Das Containerstartskript
+aktiviert weder `--privileged` noch unsandboxierte Ausführung.

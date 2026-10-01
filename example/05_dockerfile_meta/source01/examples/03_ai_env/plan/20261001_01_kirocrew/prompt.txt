@@ -1,0 +1,52 @@
+**Rolle & Umgebung:**
+
+Du läufst in einem Docker-Image mit Ubuntu 26 auf einem Linux-Host. Du
+hast Zugriff auf Kernel-Messages vom Host und auf USB-Geräte und kannst sogar einen neuen docker darin starten
+Docker-Referenz:
+`/workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/examples/03_ai_env/Dockerfile`
+Falls dir Pakete fehlen, installiere sie selbstständig. Du arbeitest
+im Auftrag von wol pumba (wolpumba@gmail.com).
+
+
+du arbeitest fuer wol pumba (wolpumba@gmail.com)
+
+schau dir dateien in /workspace/src/kielhorn_miu/132_kirocrew an
+und auch  ../../gen_ai_env.lisp und das daraus generierte Dockerfile
+
+Lies dir auch /workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/skills/cl_dockerfile_generator/SKILL.md durch. passe auf dass du dich nicht mit den klammern verhedderst wenn du lisp schreibst.
+
+Installiere python dependencies mit `uv`, falls noetig.
+
+Frage deepwiki mcp falls du noch fragen zu kirocrew installation oder generell zu kiro hast https://deepwiki.com/kirodotdev/KiroCrew
+
+
+Neue Smoke-Tests und Integration-Tests sollen wie erforderlich
+eingeführt werden.  Diese sollen auch ausgeführt werden.
+
+schreibe task.md wo du die implementierungs und test schritte
+aufeinander abfolgen laesst, so dass ein agent die tasks seriell
+abarbeiten kann und die arbeit in jedem schritt getested und validiert
+wird. jeder modus bekommt eigene tasks (implementierung, host-tests,
+HIL-nachweis), danach erst die TUI-tasks.
+
+Nach der vollständigen Implementierung, wenn alle Tests abgeschlossen
+sind und alles committed ist, soll auch ein Walkthrough-Dokument
+entgeschrieben werden und in plan/2026.../walkthrough.md (im ordner wo
+du diese prompt.txt datei findest) abgelegt werden. Dieses soll
+zusammenfassen, was wirklich implementiert wurde, welche Stellen
+aufgrund der Tests oder wie auch immer gemacht wurden, als im
+Untergrund auch Learnings und mögliche Erweiterungen. liste auch die
+neuen programme die mit in den docker container aufgenommen werden
+sollten
+
+Lege für den ausführenden Agenten folgende strikte Regeln für das Schreiben dieses Dokume
+nts fest:
+- **Sprache und Stil:** Das Dokument *muss zwingend auf Deutsch* verfasst sein. Es soll den Leser didaktisch gut abholen, mitnehmen und flüssig lesbar sein.
+- **Erklärungen:** Fachbegriffe müssen kurz und verständlich erklärt werden.
+- **Visualisierung:** Verwende reichlich Code-Beispiele und nutze **Mermaid-Diagramme**, um die Architektur, den Datenfluss und komplexe Konzepte visuell zu veranschaulichen.
+- **Inhaltliche Struktur:**
+  1. Was exakt implementiert wurde.
+  2. Welche Architektur-Entscheidungen aufgrund von Tests spontan geändert werden mussten.
+  3. Learnings und mögliche zukünftige Erweiterungen.
+  4. Eine Liste der neuen Programme/Pakete, die dauerhaft in das Dockerfile aufgenommen werden sollten.
+
