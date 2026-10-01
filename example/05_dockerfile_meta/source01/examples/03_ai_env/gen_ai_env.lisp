@@ -16,7 +16,7 @@
 
 ;; Suggested for `uv pip install cuml`: :runtime (1.81 GB)
 ;; Pre-built RAPIDS wheels package their own math/cuml libraries, needing only the runtime.
-(defparameter *cuda-flavor* :cudnn-runtime
+(defparameter *cuda-flavor* :devel
   "CUDA image variant (amd64 compressed sizes for 13.4.1):
    - :cudnn-devel   : 4.74 GB | AI dev (NVCC, CUDA headers, cuDNN headers & libs)
    - :devel         : 4.25 GB | GPU dev (NVCC, CUDA headers - needed if compiling cuML from source)
@@ -49,7 +49,9 @@
 
 ;; Enable or disable components to build minimal images
 (defparameter *install-gcc* nil)
-(defparameter *install-sbcl* nil)
+(defparameter *install-sbcl* t)
+(defparameter *install-quicklisp* nil
+  "Install Quicklisp when SBCL is enabled; disable for a small validation image.")
 (defparameter *install-emacs* nil)
 (defparameter *install-python* t)
 (defparameter *install-python-libs* t) ; google-antigravity SDK
@@ -268,6 +270,9 @@ kirocrew chat --help > /tmp/kirocrew-chat-help.txt
 grep -q 'Interactive mode' /tmp/kirocrew-chat-help.txt
 kirocrew gateway --help > /tmp/kirocrew-gateway-help.txt
 grep -q -- '--port' /tmp/kirocrew-gateway-help.txt
+|)
+    (*install-kiro-cli* "Kiro CLI ACP command"
+     #r|set -eu
 kiro-cli acp --help > /tmp/kiro-cli-acp-help.txt
 grep -qi 'acp' /tmp/kiro-cli-acp-help.txt
 |)))
@@ -721,7 +726,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
           (env PATH ,(format nil "/opt/~a:$PATH" *jlink-directory*))))
 
     ;; 4. Setup Quicklisp and Lisp dependencies if SBCL is enabled
-    ,@(when *install-sbcl*
+    ,@(when (and *install-sbcl* *install-quicklisp*)
         `((comment "Download and install Quicklisp")
           (run (and "curl -O https://beta.quicklisp.org/quicklisp.lisp"
                     #r|sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)"|
@@ -795,16 +800,18 @@ exec /usr/local/bin/agent.real "$@"
     (comment "Default to launching a bash shell")
     (cmd ("/bin/bash"))))
 
-(let ((all-code
-        `(toplevel
-           ,@(builder-python-stage)
-           ,@(builder-agy-stage)
-           ,@(builder-copilot-stage)
-           ,@(builder-kiro-stage)
-           ,@(builder-kirocrew-stage)
-           ,@(builder-teamcity-stage)
-           ,@(runner-stage)
-	   )))
-  (let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
-    (write-df (merge-pathnames "Dockerfile" current-dir) all-code t)
-    (format t "Generated Dockerfile in ~a successfully.~%" current-dir)))
+(defun generate-ai-env (output-path)
+  (write-df output-path
+            `(toplevel
+               ,@(builder-python-stage)
+               ,@(builder-agy-stage)
+               ,@(builder-copilot-stage)
+               ,@(builder-kiro-stage)
+               ,@(builder-kirocrew-stage)
+               ,@(builder-teamcity-stage)
+               ,@(runner-stage))
+            t))
+
+(let ((current-dir (make-pathname :directory (pathname-directory *load-pathname*))))
+  (generate-ai-env (merge-pathnames "Dockerfile" current-dir))
+  (format t "Generated Dockerfile in ~a successfully.~%" current-dir))

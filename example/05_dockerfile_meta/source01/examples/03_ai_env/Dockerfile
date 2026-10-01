@@ -91,6 +91,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
  && apt-get install -y --no-install-recommends curl ca-certificates jq less file findutils tree man-db procps psmisc iproute2 ripgrep fd-find yq picocom git usbutils sudo libusb-1.0-0-dev moreutils tmux fzf git-lfs openssh-client parallel unzip zip xz-utils
 # Install component dependencies in separate layers for caching
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
+ && apt-get install -y --no-install-recommends sbcl rlwrap
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
  && apt-get install -y --no-install-recommends python3-full
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
  && apt-get install -y --no-install-recommends nodejs npm
@@ -144,6 +146,11 @@ kirocrew chat --help > /tmp/kirocrew-chat-help.txt
 grep -q 'Interactive mode' /tmp/kirocrew-chat-help.txt
 kirocrew gateway --help > /tmp/kirocrew-gateway-help.txt
 grep -q -- '--port' /tmp/kirocrew-gateway-help.txt
+
+EOF
+# Smoke test Kiro CLI ACP command
+RUN <<'EOF'
+set -eu
 kiro-cli acp --help > /tmp/kiro-cli-acp-help.txt
 grep -qi 'acp' /tmp/kiro-cli-acp-help.txt
 

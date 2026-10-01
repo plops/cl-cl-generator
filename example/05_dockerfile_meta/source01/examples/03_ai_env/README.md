@@ -16,7 +16,7 @@ Customize the generated image by changing the parameters near the top of [`gen_a
 | :--- | :--- | :--- |
 | `*enable-cuda*` | `t` | Selects the NVIDIA CUDA base image, exports CUDA runtime/development paths, and enables the CUDA smoke test. Set it to `nil` for plain `ubuntu:26.04`. |
 | `*cuda-flavor*` | `:devel` | CUDA image variant: `:cudnn-devel`, `:devel`, `:cudnn-runtime`, `:runtime`, or `:base`. Compiler smoke coverage is useful with a `devel` variant; runtime/base variants intentionally may not contain `nvcc`. |
-| `*cuda-version*` | `"13.3.1"` | Version part of the NVIDIA CUDA image tag. |
+| `*cuda-version*` | `"13.4.1"` | Version part of the NVIDIA CUDA image tag. |
 | `*cuda-ubuntu-version*` | `"ubuntu26.04"` | Ubuntu suffix of the NVIDIA CUDA image tag. |
 | `*base-image*` | computed | Final runner and Python-builder base. It is computed from the CUDA settings; override it only when deliberately replacing that selection. |
 | `*builder-base-image*` | `"ubuntu:26.04"` | Small base used by independent CLI download stages. |
@@ -27,19 +27,20 @@ Customize the generated image by changing the parameters near the top of [`gen_a
 
 | Parameter | Default | What it controls |
 | :--- | :--- | :--- |
-| `*install-gcc*` | `t` | GCC, `build-essential`, and a compile/run smoke test. Rust also pulls in these build packages. |
-| `*install-sbcl*` | `t` | SBCL, Quicklisp, cached Lisp systems, and an SBCL smoke test. |
-| `*install-emacs*` | `t` | Terminal Emacs. SLIME setup and the Emacs/SLIME integration test require both this and `*install-sbcl*`. |
+| `*install-gcc*` | `nil` | GCC, `build-essential`, and a compile/run smoke test. Rust also pulls in these build packages. |
+| `*install-sbcl*` | `t` | SBCL and `rlwrap`, so the Lisp generator can run in the working container. |
+| `*install-quicklisp*` | `nil` | When SBCL is enabled, optionally install Quicklisp and cached Lisp systems. |
+| `*install-emacs*` | `nil` | Terminal Emacs. SLIME setup and the Emacs/SLIME integration test require both this and `*install-sbcl*`. |
 | `*install-python*` | `t` | System Python 3 runtime. |
 | `*install-python-libs*` | `t` | A separate uv-built virtual environment containing `*python-libs*`; this also ensures system Python is present. |
 | `*python-libs*` | package list | Python packages installed into `/workspace/.venv`. CUDA-specific packages are appended only when CUDA is enabled. |
-| `*install-rust*` | `t` | Stable Rust via rustup, including `rustc`, Cargo, Clippy, rustfmt, and a compile/run smoke test. |
+| `*install-rust*` | `nil` | Stable Rust via rustup, including `rustc`, Cargo, Clippy, rustfmt, and a compile/run smoke test. |
 | `*install-difftastic*` | `t` | Installs and configures difftastic when Rust is enabled. It has no effect when `*install-rust*` is `nil`. |
 | `*rust-cache-volume*` | `t` | Declares `/root/.cargo` as a Docker volume when Rust is enabled. |
-| `*install-docker-cli*` | `nil` | Docker CLI and Buildx only—not a daemon. Combine it with `setup02_run.sh --docker-sock` to use the host daemon. |
-| `*install-arm-none-eabi*` | `t` | Arm GNU bare-metal toolchain and Cortex-M7 compile smoke test. |
-| `*arm-none-eabi-version*` | `"14.3.rel1"` | Pinned Arm GNU toolchain release used to derive its download name/path. |
-| `*install-jlink*` | `t` | SEGGER J-Link command-line tools and version smoke test. The download accepts SEGGER's license terms. |
+| `*install-docker-cli*` | `t` | Docker CLI and Buildx only—not a daemon. Combine it with `setup02_run.sh --docker-sock` to use the host daemon. |
+| `*install-arm-none-eabi*` | `nil` | Arm GNU bare-metal toolchain and Cortex-M7 compile smoke test. |
+| `*arm-none-eabi-version*` | `"15.3.rel1"` | Pinned Arm GNU toolchain release used to derive its download name/path. |
+| `*install-jlink*` | `nil` | SEGGER J-Link command-line tools and version smoke test. The download accepts SEGGER's license terms. |
 | `*jlink-version*` | `"9.30"` | Pinned J-Link release used to derive its download name/path. |
 
 ### Agent, cloud, and quality tools
@@ -48,16 +49,17 @@ Customize the generated image by changing the parameters near the top of [`gen_a
 | :--- | :--- | :--- |
 | `*install-agy*` | `nil` | Google Antigravity CLI and its permissive wrapper. |
 | `*install-codex*` | `t` | Latest npm Codex CLI plus a wrapper that bypasses approvals/sandboxing by default. |
-| `*install-copilot*` | `t` | GitHub Copilot CLI plus an `--allow-all` wrapper. |
+| `*install-copilot*` | `nil` | GitHub Copilot CLI plus an `--allow-all` wrapper. |
 | `*install-kiro-cli*` | `t` | Kiro CLI and helper binaries plus a wrapper that defaults to trusted/non-interactive operation. |
+| `*install-kirocrew*` | `t` | KiroCrew 0.7.2 with its managed Python runtime and gateway wrapper. |
 | `*install-azure-cli*` | `nil` | Azure CLI from Microsoft's apt repository. |
 | `*install-teamcity-cli*` | `nil` | TeamCity CLI from JetBrains' installer. |
 | `*install-grok*` | `nil` | Grok Build and its permissive wrapper. |
-| `*install-muse*` | `t` | Meta Muse Code CLI, installed with Meta's official installer. |
-| `*install-habit-hooks*` | `t` | Habit Hooks with all optional integrations, installed as an isolated uv tool. |
-| `*install-deptry*` | `t` | Deptry installed as an isolated uv tool. |
-| `*install-jscpd*` | `t` | JSCPD installed globally with npm. |
-| `*install-archify*` | `t` | Archify's Codex skill, Chrome for Testing, its shared libraries, browser environment, and Archify/browser smoke test. Set to `nil` to omit that entire feature. |
+| `*install-muse*` | `nil` | Meta Muse Code CLI, installed with Meta's official installer. |
+| `*install-habit-hooks*` | `nil` | Habit Hooks with all optional integrations, installed as an isolated uv tool. |
+| `*install-deptry*` | `nil` | Deptry installed as an isolated uv tool. |
+| `*install-jscpd*` | `nil` | JSCPD installed globally with npm. |
+| `*install-archify*` | `nil` | Archify's Codex skill, Chrome for Testing, its shared libraries, browser environment, and Archify/browser smoke test. |
 | `*archify-chrome-build*` | `"stable"` | Chrome for Testing channel or exact version. Use an exact version for reproducible builds. |
 
 Derived parameters such as `*arm-none-eabi-toolchain*`, `*jlink-version-code*`, `*jlink-directory*`, and `*archify-browser-packages*` normally should not be edited independently; they keep emitted names and dependency lists centralized.
@@ -121,7 +123,7 @@ To avoid authenticating every time you run a new container and to persist chat h
 - `/root/.grok` (holds Grok auth, downloads, and completions)
 - `/root/.cargo` (holds Cargo's downloaded crates, indexes, and git repositories, preventing re-downloads)
 
-`setup02_run.sh` starts the container with the invoking host user's numeric UID and GID. This is important for bind mounts: files created or modified below `/workspace/src` are therefore owned by the host user instead of container `root`. The generator also makes `/root` traversable so the existing credential mounts below `/root` remain usable by that numeric user. Run the container through `setup02_run.sh` rather than calling `docker run` without `--user`.
+`setup02_run.sh` starts the container with the invoking host user's numeric UID, GID and supplementary groups. This is important for bind mounts: files created or modified below `/workspace/src` are therefore owned by the host user instead of container `root`. With `--docker-sock`, it also passes the socket's numeric group. The generator makes `/root` traversable so the existing credential mounts below `/root` remain usable by that numeric user. Run the container through `setup02_run.sh` rather than calling `docker run` without `--user`.
 
 ### How to Run
 
@@ -259,6 +261,50 @@ Das Image enthält KiroCrew 0.7.2. Der offizielle Installer prüft eine signiert
 Release-Meldung und den SHA-256-Prüfwert des Wheels und richtet CPython 3.12
 mit dem von KiroCrew gepinnten `uv` ein.
 
+Für einen kleinen Integrations-Build ohne CUDA und ohne die übrigen AI-Tools:
+
+```sh
+./test_kirocrew_minimal_build.sh
+```
+
+Der Test erzeugt vorübergehend ein Ubuntu-26-Image mit KiroCrew, kiro-cli,
+Docker-CLI, Python und SBCL, baut es und prüft Gateway,
+Authentisierungsgrenze und Persistenz. CUDA, weitere AI-Tools, schwere
+Python-Bibliotheken und Quicklisp fehlen in dieser Variante.
+Voraussetzungen sind `sbcl`, `uv` und Zugriff auf einen Docker-Daemon.
+
+Zum Start des regulären Arbeitscontainers mit Zugriff auf den Docker-Daemon:
+
+```sh
+./setup02_run.sh --docker-sock --no-source-isolation
+```
+
+Falls das vorhandene Image Codex oder Docker-CLI noch nicht enthält, vorher
+neu bauen:
+
+```sh
+./setup00_generate_dockerfile.sh
+./setup01_build.sh
+./setup02_run.sh --docker-sock --no-source-isolation
+```
+
+Das reguläre Image enthält weiterhin den Codex-Launcher. Das oben erzeugte
+kleine `kirocrew-validation:local` ist ausschließlich das Prüfimage und enthält
+keinen Codex-Launcher. Es wird vom Integrationstest automatisch gestartet.
+Der normale Generator ist derzeit ohne CUDA konfiguriert. Der separate
+KiroCrew-Validierungsbuild ist ebenfalls CUDA-frei und schaltet weitere große
+Komponenten gezielt ab.
+
+`setup02_run.sh` führt die Programme im Container als Root aus und setzt
+`HOME=/root`. Die Credential-Verzeichnisse des Host-Benutzers werden dort
+eingehängt. Ein Lauf mit Host-UID 1000 (`kiel`) war das gewünschte Ziel,
+funktionierte mit den installierten Programmen aber nicht zuverlässig; daher
+bleibt Root der geprüfte Betriebsmodus. Mit `--docker-sock` wird zusätzlich
+der Docker-Socket eingebunden und seine numerische Gruppe ergänzt. Dadurch
+kann die Docker-CLI im Container den Host-Daemon ansprechen; diese Option
+verleiht weitreichende Host-Rechte. Prüfe nach dem Start `id`, `docker info`
+und `kirocrew --version`.
+
 `setup02_run.sh` startet den Container immer in Bash. `kirocrew` startet danach
 manuell das Gateway mit `--approval yolo`; `kirocrew gateway` erzwingt denselben
 Modus auch dann, wenn ein anderes `--approval` angegeben wurde. Der geprüfte
@@ -284,6 +330,11 @@ Mit `--kirocrew-port` lässt sich der Host-Port ändern:
 
 Der Browser öffnet `http://localhost:15476/`. Das Gateway bindet im Container
 an `0.0.0.0`, während das Host-Mapping nur `127.0.0.1` verwendet.
+Das Startskript verwendet hierfür Docker-Bridge-Netzwerk. Für Anmeldeabläufe,
+die ausdrücklich Host-`localhost` benötigen, gibt es `--host-network`.
+In diesem Modus entfällt das Docker-Portmapping; `--kirocrew-port` ist damit
+nicht kombinierbar. Das Skript setzt `KIROCREW_BIND=127.0.0.1`, sodass das
+Gateway auf dem Host nur an dessen Loopback-Adresse auf Port 5476 lauscht.
 
 Die Login-Konfiguration von kiro-cli bleibt auf dem Host unter
 `~/.local/share/kiro-cli`. KiroCrew-Konfiguration, Sessions und Gedächtnis
@@ -309,4 +360,13 @@ Für LAN-Zugriff ist eine passende Dashboard-Origin-Konfiguration erforderlich;
 für entfernte Nutzung sollte ein TLS-Reverse-Proxy davorstehen. YOLO erlaubt
 Tool-Aufrufe ohne Rückfrage. Die Agent-Ausführung kann dennoch fail-closed
 bleiben, wenn die innere Sandbox nicht verfügbar ist. Das Containerstartskript
-aktiviert weder `--privileged` noch unsandboxierte Ausführung.
+aktiviert weder `--privileged` noch unsandboxierte Ausführung. KiroCrew 0.7.2
+verweigert Agent-Prozesse ohne Sandbox-Backend standardmäßig. Für die innere
+Linux-Namespace-Sandbox kann ein KiroCrew-kompatibles Seccomp-Profil mit
+`--kirocrew-sandbox-profile /pfad/kirocrew-seccomp.json` aktiviert werden;
+das Startskript setzt dabei auch `apparmor=unconfined`. Das offizielle Profil
+liegt in KiroCrews Repository unter `docker/seccomp/kirocrew-seccomp.json`.
+Falls der Betreiber bewusst auf die innere Sandbox verzichtet, ist die
+explizite KiroCrew-Konfigurationsoption
+`agent.sandbox_allow_unsandboxed_exec=true` erforderlich. In diesem Fall sind
+die eingehängten Host-Verzeichnisse für Agent-Prozesse zugänglich.
