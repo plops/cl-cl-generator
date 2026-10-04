@@ -132,10 +132,8 @@ Constraint: no `crate::` inside raw string literals of the entry module."
       (push (cons (namestring path)
                   (pg-write-if-changed path (cdr e)))
             extra)))
-  ;; thin bin: main.rs uses the lib instead of compiling the modules
-  (when *append-to*
-    (when (assoc "src/main.rs" *append-to* :test #'string=)
-      (error "*append-to* must not target src/main.rs (bin split owns it)")))
+  ;; thin bin: main.rs uses the lib instead of compiling the modules.
+  ;; Appends to main.rs are allowed (the split rewrites crate:: in them).
   (push (cons (namestring (merge-pathnames "src/main.rs" rust-dir))
               (pg-split-bin rust-dir))
         extra)

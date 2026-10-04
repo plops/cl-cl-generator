@@ -41,12 +41,59 @@
   '((Left 1) (Middle 2) (Right 3)))
 
 ;;; ------------------------------------------------------------------
+;;; Table helpers: +key-table+ / +btn-table+ expand into raw match arms,
+;;; array literals and test rows (single source, used by the input
+;;; module and tests/input.rs).
+;;; ------------------------------------------------------------------
+
+(defun make-key-match ()
+  "Raw `match _k` over minifb::Key (None for unmapped keys)."
+  ;; symbol-name, not the symbol: ~a would upcase it (*print-case*).
+  (format nil "match _k {~%~{    Key::~a => Some(\"~a\"),~%~}    _ => None,~%}"
+          (loop for (name key) in +key-table+
+                collect (symbol-name key) collect name)))
+
+(defun make-btn-table ()
+  "Raw [(MouseButton, X11-number); 3] array literal."
+  (format nil "[~{(MouseButton::~a, ~a)~^, ~}]"
+          (loop for (btn code) in +btn-table+
+                collect (symbol-name btn) collect code)))
+
+(defun make-input-test ()
+  "tests/input.rs content: one assert row per +key-table+ row, so the
+table and its test cannot drift apart."
+  (format nil "~{~a~%~}"
+          `("use lbw_client_pg::input::{btn_table, key_name};"
+            "use minifb::{Key, MouseButton};"
+            ""
+            "#[test]"
+            "fn every_key_row_maps() {"
+            ,@(loop for (name key) in +key-table+
+                    collect (format nil "    assert_eq!(key_name(Key::~a), Some(\"~a\"));"
+                                    (symbol-name key) name))
+            "    assert_eq!(key_name(Key::F12), None);"
+            "}"
+            ""
+            "#[test]"
+            "fn buttons_carry_x11_numbers() {"
+            "    let t = btn_table();"
+            ,@(loop for (btn code) in +btn-table+
+                    for i from 0
+                    collect (format nil "    assert_eq!(t[~a], (MouseButton::~a, ~a));"
+                                    i (symbol-name btn) code))
+            "}")))
+
+;;; ------------------------------------------------------------------
 ;;; Project intrinsic: the DSL has no int->int casts and length->i64,
 ;;; so u32 dimensions need an explicit widening (used by blit).
 ;;; ------------------------------------------------------------------
 
 (define-intrinsic to-i64 ((x :integer)) :i64
   (:rust "$x as i64" :result-op :cast))
+
+;;; Widening cast for pixel math (see upload-rgba).
+(define-intrinsic to-u32 ((x :integer)) :u32
+  (:rust "$x as u32" :result-op :cast))
 
 ;;; ------------------------------------------------------------------
 ;;; *cargo-toml*: replaces source01/rust/Cargo.toml (the generator
@@ -188,9 +235,11 @@ usage: lbw-client-pg [--connect ADDR]")
     }
     Event::ClearText => {
         self.clear_texts();
+        self.dirty = true;
     }
     Event::AddText(_t) => {
         self.push_text(_t);
+        self.dirty = true;
     }
     Event::Tile {
         x,
@@ -486,15 +535,227 @@ loop {
 }")))
 
 ;;; ------------------------------------------------------------------
+;;; input: key/button mapping tables as functions. Built with
+;;; register-module + backquote (defmodule quotes, so ,@ would not work
+;;; there); the raw bodies are spliced from +key-table+/+btn-table+.
+;;; ------------------------------------------------------------------
+
+(register-module
+ `(defmodule input (:export key-name btn-table)
+    (defun key-name (k)
+      "Server name for a special key (None for unmapped keys)."
+      (declare (type (rs::type "Key") k) (mode :sink k)
+               (values (rs::type "Option<&'static str>")))
+      (rs::raw ,(make-key-match)))
+    (defun btn-table ()
+      "Mouse buttons with X11 numbers."
+      (declare (values (rs::type "[(MouseButton, u8); 3]")))
+      (rs::raw ,(make-btn-table)))))
+
+;;; ------------------------------------------------------------------
 ;;; app: entry module. T1: parse config and print it (T5: run client).
 ;;; ------------------------------------------------------------------
 
 (defmodule app (:import config)
+  (defun upload-rgba (canvas buf)
+    "Expand RGBA bytes to minifb 0RGB words."
+    (declare (type (vec :u8) canvas)
+             (type (vec :u32) buf) (mode :inout buf))
+    ;; NOTE: * instead of shl: `x as u32 << 16` does not parse (rustc
+    ;; reads << after an `as` type as generics, like `<` in blit).
+    (dotimes (i (truncate (length canvas) 4))
+      (setf (aref buf i)
+            (+ (* (to-u32 (aref canvas (* i 4))) 65536)
+               (* (to-u32 (aref canvas (+ (* i 4) 1))) 256)
+               (to-u32 (aref canvas (+ (* i 4) 2)))))))
+
+  (defun fill-rect (buf x y w h color)
+    "Fill a clipped rectangle in the u32 framebuffer."
+    (declare (type (vec :u32) buf) (mode :inout buf)
+             (type :u32 x y w h color))
+    (rs::raw "let x0 = _x.min(640);
+let y0 = _y.min(640);
+let x1 = _x.saturating_add(_w).min(640);
+let y1 = _y.saturating_add(_h).min(640);
+for y in y0..y1 {
+    for x in x0..x1 {
+        _buf[(y * 640 + x) as usize] = _color;
+    }
+}"))
+
+  (defun draw-str (buf s x y scale fg)
+    "Raster a string with scaled 8x8 glyphs (missing glyphs: ?)."
+    (declare (type (vec :u32) buf) (mode :inout buf)
+             (type :string s)
+             (type :u32 x y scale fg))
+    (rs::raw "for (i, ch) in _s.chars().enumerate() {
+    let glyph = BASIC_FONTS
+        .get(ch)
+        .or_else(|| LATIN_FONTS.get(ch))
+        .or_else(|| BASIC_FONTS.get('?'))
+        .unwrap_or([0; 8]);
+    for (gy, row) in glyph.iter().enumerate() {
+        for gx in 0..8u32 {
+            if (row >> gx) & 1 == 1 {
+                for dy in 0.._scale {
+                    for dx in 0.._scale {
+                        let x = _x + (i as u32) * 8 * _scale + gx * _scale + dx;
+                        let y = _y + (gy as u32) * _scale + dy;
+                        if x < 640 && y < 640 {
+                            _buf[(y * 640 + x) as usize] = _fg;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}"))
+
+  (defun draw-text-item (buf item)
+    "Raster one OCR text item (bg fill + scaled glyphs)."
+    (declare (type (vec :u32) buf) (mode :inout buf)
+             (type (rs::type "TextItem") item))
+    (rs::raw "let bg = ((_item.bg[0] as u32) << 16) | ((_item.bg[1] as u32) << 8) | (_item.bg[2] as u32);
+let fg = ((_item.fg[0] as u32) << 16) | ((_item.fg[1] as u32) << 8) | (_item.fg[2] as u32);
+let (rx, ry, rw, rh) = (
+    _item.rect.x as u32,
+    _item.rect.y as u32,
+    _item.rect.w as u32,
+    _item.rect.h as u32,
+);
+fill_rect(&mut *_buf, rx, ry, rw, rh, bg);
+draw_str(&mut *_buf, &_item.text, rx, ry, (rh / 8).max(1), fg);"))
+
+  (defun draw-hud (buf scene)
+    "Raster the one-line status box (top, yellow on black)."
+    (declare (type (vec :u32) buf) (mode :inout buf)
+             (type (rs::type "Scene") scene))
+    (rs::raw "let link = match &_scene.link {
+    Link::Connecting => \"verbinde...\".to_string(),
+    Link::Up => \"online\".to_string(),
+    Link::Down(why) => format!(\"offline ({why})\"),
+};
+let hud = hud_text(
+    &link,
+    _scene.texts.len() as i64,
+    _scene.tiles as i64,
+    _scene.tile_bytes,
+);
+fill_rect(&mut *_buf, 0, 0, 640, 16, 0);
+draw_str(&mut *_buf, &hud, 8, 0, 2, 0xffff00);"))
+
+  (defun poll-input (net window chars last-mouse last-btns show-hud)
+    "Poll minifb input, send deltas to the server. True when F1 toggled."
+    (declare (type (rs::type "Net") net)
+             (type (rs::type "Window") window)
+             (type (rs::type "Arc<Mutex<Vec<char>>>") chars)
+             (type (rs::type "(u16, u16)") last-mouse) (mode :inout last-mouse)
+             (type (rs::type "[bool; 3]") last-btns) (mode :inout last-btns)
+             (type :bool show-hud) (mode :inout show-hud)
+             (values :bool))
+    (rs::raw "let mut toggled = false;
+if let Some((mx, my)) = _window.get_mouse_pos(MouseMode::Clamp) {
+    let pos = (mx.clamp(0.0, 639.0) as u16, my.clamp(0.0, 639.0) as u16);
+    if pos != *_last_mouse {
+        _net.send(ClientMsg::MouseMove { x: pos.0, y: pos.1 });
+        *_last_mouse = pos;
+    }
+}
+for (i, (btn, code)) in btn_table().iter().enumerate() {
+    let down = _window.get_mouse_down(*btn);
+    if down != _last_btns[i] {
+        _net.send(ClientMsg::Button {
+            button: *code,
+            down,
+        });
+        _last_btns[i] = down;
+    }
+}
+for ch in _chars.lock().unwrap().drain(..) {
+    if !ch.is_control() {
+        _net.send(ClientMsg::Text(ch.to_string()));
+    }
+}
+for k in _window.get_keys_pressed(KeyRepeat::No) {
+    if let Some(name) = key_name(k) {
+        _net.send(ClientMsg::Key {
+            key: name.into(),
+            down: true,
+        });
+    }
+}
+for k in _window.get_keys_released() {
+    if let Some(name) = key_name(k) {
+        _net.send(ClientMsg::Key {
+            key: name.into(),
+            down: false,
+        });
+    }
+}
+if _window.is_key_pressed(Key::F1, KeyRepeat::No) {
+    *_show_hud = !*_show_hud;
+    toggled = true;
+}
+toggled"))
+
+  (defun run-app (cfg)
+    "Run the client until the window closes."
+    (declare (type config cfg))
+    (rs::raw "let net = net_connect(&_cfg.connect);
+let mut scene = scene_new();
+let mut window = Window::new(
+    \"lbw-client-pg\",
+    640,
+    640,
+    WindowOptions {
+        resize: false,
+        ..Default::default()
+    },
+)
+.expect(\"open window\");
+window.set_target_fps(60);
+let chars = Arc::new(Mutex::new(Vec::new()));
+window.set_input_callback(Box::new(CharCollector {
+    chars: chars.clone(),
+}));
+let mut buf = vec![0u32; 640 * 640];
+let mut show_hud = true;
+let mut last_mouse = (u16::MAX, u16::MAX);
+let mut last_btns = [false; 3];
+while window.is_open() {
+    while let Ok(e) = net.events.try_recv() {
+        scene.apply_event(e);
+    }
+    if scene.dirty {
+        upload_rgba(&scene.canvas, &mut buf);
+        scene.dirty = false;
+    }
+    for t in &scene.texts {
+        draw_text_item(&mut buf, t);
+    }
+    if show_hud {
+        draw_hud(&mut buf, &scene);
+    }
+    if poll_input(
+        &net,
+        &window,
+        &chars,
+        &mut last_mouse,
+        &mut last_btns,
+        &mut show_hud,
+    ) {
+        scene.dirty = true;
+    }
+    window
+        .update_with_buffer(&buf, 640, 640)
+        .expect(\"update window\");
+}"))
+
   (defun main ()
     (let ((args (rs::raw "std::env::args().collect::<Vec<String>>()")))
       (declare (type (vec :string) args))
       (if-let (cfg (parse-args args))
-          (print-line (dot cfg connect))
+          (run-app cfg)
         (progn
           (print-line (usage-text))
           (rs::raw "std::process::exit(2);"))))))
@@ -565,6 +826,32 @@ impl Drop for Net {
         self.stop.store(true, Ordering::Relaxed);
     }
 }
+")
+    ("src/input.rs" . "use minifb::{Key, MouseButton};
+")
+    ;; NOTE: order is post-split (crate:: becomes lbw_client_pg::).
+    ("src/main.rs" . "use font8x8::{UnicodeFonts, BASIC_FONTS, LATIN_FONTS};
+use crate::input::{btn_table, key_name};
+use crate::net::{net_connect, Net};
+use crate::scene::{hud_text, scene_new, Link, Scene};
+use lbw_common::{ClientMsg, TextItem};
+use minifb::{InputCallback, Key, KeyRepeat, MouseMode, Window, WindowOptions};
+use std::sync::{Arc, Mutex};
+
+/// Collects typed unicode characters from minifb (see poll-input).
+struct CharCollector {
+    chars: Arc<Mutex<Vec<char>>>,
+}
+
+impl InputCallback for CharCollector {
+    fn add_char(&mut self, uni: u32) {
+        if let Some(ch) = char::from_u32(uni)
+            && let Ok(mut chars) = self.chars.lock()
+        {
+            chars.push(ch);
+        }
+    }
+}
 ")))
 
 ;;; ------------------------------------------------------------------
@@ -572,8 +859,10 @@ impl Drop for Net {
 ;;; source01/rust/ (examples/ and tests/ live here as templates).
 ;;; ------------------------------------------------------------------
 
+;;; NOTE: backquoted (not quoted): tests/input.rs rows are spliced
+;;; from +key-table+ below, so table and test cannot drift apart.
 (defparameter *extra-files*
-  '(("rustfmt.toml" . "# Style 2021: the generator formats with rustfmt --edition 2021.
+  `(("rustfmt.toml" . "# Style 2021: the generator formats with rustfmt --edition 2021.
 style_edition = \"2021\"
 ")
     ("tests/config.rs" . "use lbw_client_pg::config::{default_connect, parse_args, usage_text};
@@ -661,6 +950,17 @@ fn link_state_follows_events() {
     assert_eq!(s.link, Link::Down(\"x\".into()));
     s.apply_event(Event::Disconnected(\"y\".into()));
     assert_eq!(s.link, Link::Down(\"x\".into()), \"first disconnect wins\");
+}
+
+#[test]
+fn text_events_mark_dirty() {
+    let mut s = scene_new();
+    s.dirty = false;
+    s.apply_event(Event::AddText(item(\"a\")));
+    assert!(s.dirty);
+    s.dirty = false;
+    s.apply_event(Event::ClearText);
+    assert!(s.dirty);
 }
 
 #[test]
@@ -902,6 +1202,101 @@ fn hello_text_tile_and_reconnect() {
     stub2.join().unwrap();
     drop(net);
 }
+")
+    ("tests/input.rs" . ,(make-input-test))
+    ("examples/probe.rs" . "//! Headless smoke client: connects, waits for text + tile, sends
+//! inputs and reports success. With a second argument it stays N more
+//! seconds connected and reports totals (throughput check). Usage:
+//! `cargo run --release -p lbw-client-pg --example probe -- ADDR [N]`
+
+use std::time::{Duration, Instant};
+
+use lbw_client_pg::net::net_connect;
+use lbw_client_pg::scene::{scene_new, Event};
+use lbw_common::ClientMsg;
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let addr = args.next().unwrap_or_else(|| \"127.0.0.1:7878\".into());
+    let stay: u64 = args.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+    let net = net_connect(&addr);
+    let mut scene = scene_new();
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let mut sent_input = false;
+    let mut connected = false;
+    while Instant::now() < deadline {
+        match net.events.recv_timeout(Duration::from_millis(500)) {
+            Ok(Event::Connected) => {
+                connected = true;
+                println!(\"probe: connected\");
+            }
+            Ok(e) => scene.apply_event(e),
+            Err(_) => {}
+        }
+        let got_text = !scene.texts.is_empty();
+        let got_tile = scene.tiles > 0;
+        if connected && got_tile && !sent_input {
+            net.send(ClientMsg::MouseMove { x: 100, y: 100 });
+            net.send(ClientMsg::Button {
+                button: 1,
+                down: true,
+            });
+            net.send(ClientMsg::Button {
+                button: 1,
+                down: false,
+            });
+            net.send(ClientMsg::Text(\"hi\".into()));
+            net.send(ClientMsg::Key {
+                key: \"Enter\".into(),
+                down: true,
+            });
+            net.send(ClientMsg::Key {
+                key: \"Enter\".into(),
+                down: false,
+            });
+            sent_input = true;
+            println!(\"probe: inputs sent\");
+        }
+        if connected && got_text && got_tile && sent_input {
+            // The net thread needs one loop iteration (<=50 ms) to flush
+            // the inputs just sent, or they die with the process before
+            // the server sees them.
+            std::thread::sleep(Duration::from_secs(1));
+            println!(
+                \"probe: OK ({} texts, {} tiles, {} B)\",
+                scene.texts.len(),
+                scene.tiles,
+                scene.tile_bytes
+            );
+            for t in scene.texts.iter().take(5) {
+                println!(\"probe: text {:?} {:?}\", t.rect, t.text);
+            }
+            if stay == 0 {
+                return;
+            }
+            let end = Instant::now() + Duration::from_secs(stay);
+            while Instant::now() < end {
+                if let Ok(e) = net.events.recv_timeout(Duration::from_millis(500)) {
+                    scene.apply_event(e);
+                }
+            }
+            println!(
+                \"probe: after {stay}s: {} texts, {} tiles, {} B ({} B/s)\",
+                scene.texts.len(),
+                scene.tiles,
+                scene.tile_bytes,
+                scene.tile_bytes / stay.max(1)
+            );
+            return;
+        }
+    }
+    eprintln!(
+        \"probe: TIMEOUT (connected={connected} texts={} tiles={})\",
+        scene.texts.len(),
+        scene.tiles
+    );
+    std::process::exit(1);
+}
 ")))
 
-(defproject lbw-client-pg (:modules config scene av1 net app) (:entry app))
+(defproject lbw-client-pg (:modules config scene av1 net input app) (:entry app))

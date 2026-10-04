@@ -60,6 +60,17 @@ fn link_state_follows_events() {
 }
 
 #[test]
+fn text_events_mark_dirty() {
+    let mut s = scene_new();
+    s.dirty = false;
+    s.apply_event(Event::AddText(item("a")));
+    assert!(s.dirty);
+    s.dirty = false;
+    s.apply_event(Event::ClearText);
+    assert!(s.dirty);
+}
+
+#[test]
 fn tile_updates_counters_and_canvas() {
     let mut s = scene_new();
     s.apply_event(Event::Tile {
