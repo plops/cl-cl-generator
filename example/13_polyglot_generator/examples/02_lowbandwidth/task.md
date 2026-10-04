@@ -82,18 +82,25 @@ Alle Pfade relativ zu `example/13_polyglot_generator/`.
 4. Unit-Anteil: Key-Tabellen-Roundtrip als Test (jede Zeile).
 5. Gates 1–4. Commit `feat(02_lowbandwidth): app-loop und probe`.
 
-## T6. Integration und Härtung
+## T6. Integration und Härtung — DONE (2026-10-04)
 
-1. `cargo upgrade` (neueste Deps; Inkompat-Warnungen ok, s. Prompt),
-   danach Gates 3–4 erneut.
-2. Echten `source7`-Server bauen + starten; `probe` dagegen:
-   Text + Kachel + Eingaben, `--stay 10` für Durchsatz.
-3. GUI-Smoke unter `xvfb`: Client-Fenster öffnet, zeigt Bild,
-   reagiert auf F1 (Screenshot via `import`/`xwd` o. ä. prüfen).
-4. Binary-Größe: `target/release/lbw-client-pg` (ggf. `strip`) vs.
-   `source7`-Client messen und notieren.
-5. Commit `chore(02_lowbandwidth): dependency-upgrade und härte-…`
-   (ggf. aufteilen in `chore` + `test`).
+1. `cargo upgrade`: keine neueren Versionen (minifb 0.29.0,
+   font8x8 0.3.1, rav1d 1.1.0, rav1e 0.8.1, bincode 2.0.1);
+   Gates 3–4 danach erneut grün.
+2. Echter `source7`-Server (Release, `models/` aus `source7_mvp`):
+   unsere `probe` → rc 0, „OK (5 texts, 1 tiles, 557 B)",
+   alle OCR-Texte erkannt; Server-Log zeigt unsere Eingaben
+   (`MouseMove`/`Button`/`Text("hi")`/`Key Enter`).
+3. GUI-Smoke unter `xvfb` (`xwd` + Pixel-Diff): Client-Fenster
+   640×640 rendert Szene; Live-Update nach xterm-Move
+   (262 039 geänderte px); F1 blendet HUD aus (2 555 px,
+   BBox oben) und wieder ein (2 533 px). Hinweis: ohne
+   Window-Manager braucht `xdotool` `key --window …`
+   (`windowactivate` scheitert an `_NET_ACTIVE_WINDOW`).
+4. Binary-Größe gestrippt: 2 200 224 B (2,1 MiB) vs.
+   `source7`-Client 3 283 840 B (3,1 MiB) → −33 %;
+   Lock-Pakete 143 vs. 240. Details in `deps.md`.
+5. Commit `test(02_lowbandwidth): integrationsnachweis …`.
 
 ## T7. Abschluss
 
