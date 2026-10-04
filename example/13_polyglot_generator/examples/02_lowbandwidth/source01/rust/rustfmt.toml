@@ -1,0 +1,2 @@
+# Style 2021: the generator formats with rustfmt --edition 2021.
+style_edition = "2021"
