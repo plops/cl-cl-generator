@@ -293,6 +293,38 @@ Faustregel für die Priorisierung: Eine Form lohnt sich, sobald sie an
 drei oder mehr Stellen einen Raw-String ersetzt — `defenum`, `match`
 und `use` erfüllen das in diesem Port mit Abstand.
 
+### Einfluss auf die anderen Ausgabesprachen
+
+Der Generator hat fünf Backends: Common Lisp, Python, C++, Rust, Go
+(alle in `examples/01_shapes` belegt). Für neue Formen gibt es zwei
+bewährte Strategien: **universelles Lowering** (jede Sprache bekommt
+ihre idiomatische Abbildung, ggf. per Desugar wie bei `cond` →
+if/elif-Kette) oder **Subset-Form** (Backend lehnt mit
+`*unsupported-construct*` ab, Regel R4 — Präzedenz: `rs::raw`,
+`capture :ref` nur für C++/Rust). Neue Formen werden über
+`tests/spec/` spezifiziert; `SUPPORTED_FORMS.md` wird daraus generiert.
+Folgen pro Vorschlag:
+
+| Nr | Form | Abbildung je Backend | Strategie |
+|---|---|---|---|
+| 1 | `defenum` | py: `Enum`; cpp: `enum class`; go: `const`/iota; cl: Symbole | universell; Daten-Varianten brauchen Lowering (`std::variant`, Go-Interface, `defstruct`) |
+| 2 | `match` | py: `match`; go: `switch`; cl: `case`; cpp: if-Kette wie `cond` | universell via Desugar; Exhaustiveness nur wo nativ |
+| 3 | `use` | überall nativ (`import`, `#include`, `use-package`) | universell, trivial; nur Pfad-Mapping je Target |
+| 4 | Methoden + `new` | Präzedenz `const-method`; `new`: `__init__`/Ctor/`New`/`make-instance` | universell, klein |
+| 5 | Trait-Impl, `derive`, `Drop` | Interface-Impl überall (Präzedenz); `derive`: Dataclass/`=default`/manuell | teils Subset: Go hat keine Destruktoren (R4) |
+| 6 | `Result`, `?` | go: `(v, err)`; py: `raise`; cpp: `std::expected`; cl: Conditions | universell, aber Design-Arbeit (Werte vs. Exceptions) |
+| 7 | move-Closure, `spawn` | `lambda` existiert; spawn: `thread`/Goroutine/`Thread` | teils Subset: `move` nur rust/cpp; GIL/Races doku-pflichtig |
+| 8 | `unsafe` | nur rust/cpp sinnvoll (cpp: kein Code nötig) | Subset oder Ablehnung; jenseits Rust wenig Wert |
+| 9 | `as`, Shifts | überall nativ (`T(x)`, `static_cast`, `int()`, `coerce`) | universell, trivial, ohne Risiko |
+| 10 | `if-let` | py: Walrus; cpp: if-Init; go: `if ok`; cl: `if-let` | universell via Desugar; Let-Chains außen vor |
+
+Fazit: Die billigsten Gewinne (3, 9) sind reine Fleißarbeit ohne
+semantisches Risiko. Die Desugar-Gruppe (1, 2, 4, 10) ist universell
+machbar und folgt vorhandenen Mustern. Echte Design-Arbeit steckt in
+6 (Fehlermodell) und 5 (Destruktoren scheitern an Go); 7 und 8 sind
+naturgemäß Subset-Formen — genau dafür existiert der
+R4-Ablehnungsmechanismus.
+
 ## 9. Reproduktion
 
 ```sh
