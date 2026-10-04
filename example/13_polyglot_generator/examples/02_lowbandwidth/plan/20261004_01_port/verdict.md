@@ -1,0 +1,3 @@
+das ergebnis ist ziemlich ernuechternd. grosse bereiche wurden als raw code geschrieben, weil match nicht supported ist...
+
+ich wuerde sagen unbrauchbar
