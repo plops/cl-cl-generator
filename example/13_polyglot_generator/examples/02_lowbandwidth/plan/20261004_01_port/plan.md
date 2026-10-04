@@ -60,12 +60,12 @@ Gruppe A → B → C → D.
 |---|---|
 | `cl-rust-generator/examples/29_lowbandwidth/plan/20261003_03_transpiler/walkthrough.md` | Wie `source7` → `source8` mit `,@`-Splices portiert wurde; Lektionen: flache `let`s, **Splices nur auf oberster Schablonenebene**, kein Byte-Diff (Demo-Freiheit, §2.8), T9-Refactor |
 
-### D. Eigene Arbeitsdateien (dieser Ordner)
+### D. Eigene Arbeitsdateien (dieses Beispiel)
 
 | Datei | Zweck |
 |---|---|
-| `examples/02_lowbandwidth/plan.md` (diese Datei) | Architektur + Lösungen + Vorschläge |
-| `examples/02_lowbandwidth/task.md` | Serielle Phasen mit Gates |
+| `examples/02_lowbandwidth/plan/20261004_01_port/plan.md` (diese Datei) | Architektur + Lösungen + Vorschläge |
+| `examples/02_lowbandwidth/plan/20261004_01_port/task.md` | Serielle Phasen mit Gates |
 | `examples/02_lowbandwidth/deps.md` | Deps in `org/projekt`-Notation |
 | `examples/02_lowbandwidth/project.lisp` | Transpiler-Input (DSL + Raw + Lisp-Tabellen) |
 | `examples/02_lowbandwidth/gen.lisp` | Generierung + Assemblierung der Crate |
@@ -280,7 +280,7 @@ Was im Prompt fehlt oder beachtenswert ist:
    Weglassen und kompilieren lassen; falls nötig, als Template anhängen.
 4. **Windows/macOS sind außer Scope:** `minifb` nur mit `x11`-Feature;
    Wayland/Windows baut diese Crate nicht (bewusst, wegen Binary-Größe).
-5. **Protokoll-Drift verhindern:** `lbw-common`-Version in `deps.md`
+5. **Protokoll-Drift verhindern:** `lbw-common`-Version in `../../deps.md`
    festhalten; Loopback + Probe laufen gegen echte Server-Typen.
 6. **`Cargo.lock` committen:** reproduzierbare Builds (wie `source7`).
 7. **Laufzeit-Flag `--stay N` für Probe** übernehmen (Durchsatzmessung).

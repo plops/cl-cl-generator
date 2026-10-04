@@ -36,7 +36,7 @@ Versionen; alle unten „exakt Locked". Release-Binary gestrippt
 | `clap` | `clap-rs/clap` | Derive nicht im DSL; ein CLI-Flag → Hand-Parsing (15 Zeilen) |
 | `lbw-server` (dev) | — | Zöge `ort`/`enigo` in Dev-Deps; ersetzt durch `rav1e`-Test-Helper |
 
-## DeepWiki-Abfragen (bereits gestellt, Ergebnisse in `plan.md` eingeflossen)
+## DeepWiki-Abfragen (bereits gestellt, Ergebnisse in `plan/20261004_01_port/plan.md` eingeflossen)
 
 - `emoon/rust_minifb`: Fenster, `update_with_buffer`, Maus/Tasten, `InputCallback`/`add_char`, `Key`-Namen.
 - `plops/cl-cl-generator`: Polyglot-Escape-Hatches (`target-case`, `raw`, `rs::`, `defextern`, `define-dsl-macro`), `--targets`.

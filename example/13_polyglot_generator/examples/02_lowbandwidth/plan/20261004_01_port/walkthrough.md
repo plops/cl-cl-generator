@@ -22,7 +22,8 @@ rendert unter Xvfb, folgt Live-Änderungen und toggelt per F1 sein HUD
 ## 1. Implementiert
 
 Eingabe (Hand geschrieben, Lisp): `project.lisp` (~1220 Zeilen),
-`gen.lisp` (Treiber), dazu `plan.md`, `task.md`, `deps.md`.
+`gen.lisp` (Treiber), dazu `plan.md`, `task.md` (gleiches Verzeichnis)
+und `../../deps.md`.
 Ausgabe (generiert, nicht hand-editieren): `source01/rust/` mit
 `Cargo.toml`, `src/*.rs`, `tests/*.rs`, `examples/probe.rs`.
 
@@ -243,7 +244,56 @@ Laufzeit braucht der Client nur `libx11` (via `minifb`-x11).
 - **Xvfb**: X-Server ohne Bildschirm — lässt GUI-Programme im
   Container laufen; `xwd` fotografiert sein Bild.
 
-## 8. Reproduktion
+## 8. Fehlende DSL-Funktionen (Vorschläge)
+
+Bilanz der Fluchtwege: `project.lisp` enthält 26 `rs::raw`-Stellen und
+5 `*append-to*`-Templates; `match` kommt 16-mal nur in Raw-Strings vor.
+Jeder der folgenden Vorschläge würde einen solchen Fluchtweg überflüssig
+machen — sortiert nach Nutzen für diesen Port:
+
+| Prio | Fehlende Form | Heute (Fluchtweg) | Vorschlag (Skizze) |
+|---|---|---|---|
+| 1 | `defenum` | `Link`/`Event` als Append-Template | `(defenum link (connecting up (down string)))` |
+| 2 | `match`-Ausdruck | alles Raw (Verzweigung, Destrukturierung) | `(match e ((connected body…) (_ default)))` |
+| 3 | `use`-Importe mit Pfaden | jede Datei braucht handgeschriebene `use`-Zeilen | `(:import (lbw_common (client-msg text-item)))` in `defmodule` |
+| 4 | `impl`-Methoden mit `Self` | Konstruktoren als freie Funktionen (`scene-new` …) | `(defmethod scene (clear (self) …))` → `impl Scene` |
+| 5 | Trait-Impls + Attribute | `Drop`, `InputCallback`, `#[derive(…)]` als Template | `(defimpl drop (decoder) …)`, `(derive (clone debug))` |
+| 6 | `Result`-Ergonomie | `Ok`/`Err`/`return Err(…)` in Raw-Strings mit `\"`-Escapes | `?`-Operator, `(ok x)`/`(err …)` als Formen |
+| 7 | Closures | `thread::spawn(move || …)` nur raw | `(closure (move) () …)` oder eigene `spawn`-Form |
+| 8 | `unsafe`-Block | `unsafe { … }` nur als String | `(unsafe …)` als eigene Form (sichtbar + grepbar) |
+| 9 | Casts + Shifts | `to-i64`-Intrinsics; `<<` parst nicht | `(as x u32)`, `(shl x 16)` im Parser reparieren |
+| 10 | `if-let`/`while-let` | nur raw (z. B. `CharCollector` mit Let-Chain) | `(if-let ((some ch) …) …)` |
+
+Zwei Beispiele, was das brächte. Statt Template-String:
+
+```lisp
+;; Wunsch: Enum direkt im DSL
+(defenum (derive (clone debug partial-eq eq)) link
+  (connecting) (up) (down (string)))
+;; => #[derive(Clone, Debug, PartialEq, Eq)]
+;;    pub enum Link { Connecting, Up, Down(String) }
+```
+
+```lisp
+;; Wunsch: match statt Raw-String
+(match _e
+  ((connected) (setf (field _scene link) (link-up)))
+  ((disconnected reason) (setf …))
+  (_ (return-nil)))
+```
+
+Bewusst **nicht** vorgeschlagen: `async`/await und Derive-Makros
+wie `clap`/`serde` — das wäre ein Sprung in eine andere
+Transpiler-Klasse (Zustandsautomaten, Makro-Expansion) und sprengt den
+Rahmen eines Ports wie diesem. `for … in`-Iteratoren, Tupel und
+`const`/`static` wären nette Zugaben, wurden hier aber nicht vermisst
+(`dotimes`, Structs und Tabellen reichten).
+
+Faustregel für die Priorisierung: Eine Form lohnt sich, sobald sie an
+drei oder mehr Stellen einen Raw-String ersetzt — `defenum`, `match`
+und `use` erfüllen das in diesem Port mit Abstand.
+
+## 9. Reproduktion
 
 ```sh
 # Generieren + Gates

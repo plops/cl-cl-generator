@@ -24,7 +24,8 @@ Alle Pfade relativ zu `example/13_polyglot_generator/`.
 - GUI-Entscheid: `minifb` (x11-only) + `font8x8`, CLI hand-geparst.
 - DeepWiki befragt: `emoon/rust_minifb` (InputCallback, Key-Namen),
   `plops/cl-cl-generator` (Escape Hatches).
-- Ergebnis: `plan.md`, `task.md`, `deps.md` in diesem Ordner.
+- Ergebnis: `plan.md`, `task.md` (beide heute in `plan/20261004_01_port/`),
+  `deps.md` im Beispiel-Wurzelordner.
 
 ## T1. Gerüst + `config` (§2–§3, §5 in plan.md)
 
@@ -99,13 +100,13 @@ Alle Pfade relativ zu `example/13_polyglot_generator/`.
    (`windowactivate` scheitert an `_NET_ACTIVE_WINDOW`).
 4. Binary-Größe gestrippt: 2 200 224 B (2,1 MiB) vs.
    `source7`-Client 3 283 840 B (3,1 MiB) → −33 %;
-   Lock-Pakete 143 vs. 240. Details in `deps.md`.
+   Lock-Pakete 143 vs. 240. Details in `../../deps.md`.
 5. Commit `test(02_lowbandwidth): integrationsnachweis …`.
 
-## T7. Abschluss
+## T7. Abschluss — DONE (2026-10-04)
 
 1. Alle Gates final grün, `git status` sauber (nur gewollte Files).
-2. `walkthrough.md` in `plan/20261004_01_port/` schreiben
+2. `walkthrough.md` in `examples/02_lowbandwidth/plan/20261004_01_port/` schreiben
    (deutsch, Mermaid, Code-Beispiele; Struktur s. `prompt.txt`:
    implementiert / spontane Architektur-Änderungen / Learnings +
    Erweiterungen / neue Pakete fürs Dockerfile).

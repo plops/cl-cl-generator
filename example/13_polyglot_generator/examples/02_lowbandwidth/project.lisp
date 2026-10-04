@@ -10,7 +10,7 @@
 ;;;;   *extra-files* ........... examples/ and tests/ written from templates
 ;;;;   (defproject ...) ........ module list + entry
 ;;;;
-;;;; Conventions for rs::raw (verified by probe, see plan.md section 4):
+;;;; Conventions for rs::raw (verified by probe, see plan/20261004_01_port/plan.md section 4):
 ;;;;   (1) double colon: rs::raw / rs::type
 ;;;;   (2) raw-only PARAMS are spelled _name in raw
 ;;;;   (3) raw-only LOCALS are spelled name (declare raw-mutated ones in raw)
