@@ -228,6 +228,131 @@ usage: lbw-client-pg [--connect ADDR]")
                    link n-texts tiles tile-bytes)))
 
 ;;; ------------------------------------------------------------------
+;;; av1: AV1 decoder (rav1d) for still-picture tiles. Structs and
+;;; signatures in the DSL, bodies raw (unsafe is fenced here, like in
+;;; source7). Drop + use lines are appended (see *append-to*).
+;;; ------------------------------------------------------------------
+
+(defmodule av1 (:export decoder rgba decoder-new)
+  (defconst +eagain+ :i32 -11)
+
+  (defstruct rgba
+    (w :u32 0) (h :u32 0) (data (vec :u8)))
+
+  (defstruct decoder
+    (ctx (rs::type "Option<Dav1dContext>"))
+
+    (defmethod decode ((d :inout) obu)
+      "Decode one tile (raw OBUs of a still picture) to RGBA8."
+      (declare (type (vec :u8) obu)
+               (values (rs::type "Result<Rgba, String>")))
+      ;; _obu: raw-only param (rule 2); other locals are raw-owned.
+      (rs::raw "if _obu.is_empty() {
+    return Err(\"leere Kachel\".into());
+}
+// Dav1dContext is a Copy handle (raw Arc pointer).
+let ctx = self.ctx;
+let mut data = Dav1dData::default();
+// SAFETY: data is valid to write; the buffer holds _obu.len() bytes.
+unsafe {
+    let p = dav1d_data_create(Some(NonNull::from(&mut data)), _obu.len());
+    if p.is_null() {
+        return Err(\"dav1d_data_create\".into());
+    }
+    std::ptr::copy_nonoverlapping(_obu.as_ptr(), p, _obu.len());
+}
+let mut pic = Dav1dPicture::default();
+let mut got = false;
+// Send until everything is consumed, fetching pictures in between.
+for _ in 0..16 {
+    if data.sz > 0 {
+        // SAFETY: ctx comes from dav1d_open; data is valid.
+        let r = unsafe { dav1d_send_data(ctx, Some(NonNull::from(&mut data))) };
+        if r.0 != 0 && r.0 != EAGAIN {
+            // SAFETY: data is valid.
+            unsafe { dav1d_data_unref(Some(NonNull::from(&mut data))) };
+            return Err(format!(\"dav1d_send_data: {}\", r.0));
+        }
+    }
+    // SAFETY: ctx valid, pic writable.
+    let r = unsafe { dav1d_get_picture(ctx, Some(NonNull::from(&mut pic))) };
+    if r.0 == 0 {
+        got = true;
+        break;
+    }
+    if r.0 != EAGAIN {
+        // SAFETY: data is valid.
+        unsafe { dav1d_data_unref(Some(NonNull::from(&mut data))) };
+        return Err(format!(\"dav1d_get_picture: {}\", r.0));
+    }
+    if data.sz == 0 {
+        break;
+    }
+}
+// SAFETY: data is valid (maybe already empty).
+unsafe { dav1d_data_unref(Some(NonNull::from(&mut data))) };
+if !got {
+    return Err(\"kein Bild dekodiert\".into());
+}
+let out = picture_to_rgba(&pic);
+// SAFETY: pic was filled by dav1d_get_picture.
+unsafe { dav1d_picture_unref(Some(NonNull::from(&mut pic))) };
+out")))
+
+  (defun decoder-new ()
+    "Open rav1d (1 thread is enough for 640x640)."
+    (declare (values (rs::type "Result<Decoder, String>")))
+    (rs::raw "{
+    let mut s = std::mem::MaybeUninit::<Dav1dSettings>::uninit();
+    // SAFETY: s is valid to write; initialized afterwards.
+    let mut s = unsafe {
+        dav1d_default_settings(NonNull::new(s.as_mut_ptr()).unwrap());
+        s.assume_init()
+    };
+    s.n_threads = 1;
+    s.max_frame_delay = 1;
+    let mut ctx: Option<Dav1dContext> = None;
+    // SAFETY: pointers to local, valid values.
+    let r = unsafe { dav1d_open(Some(NonNull::from(&mut ctx)), Some(NonNull::from(&mut s))) };
+    if r.0 != 0 || ctx.is_none() {
+        return Err(format!(\"dav1d_open: {}\", r.0));
+    }
+    Ok(Decoder { ctx })
+}"))
+
+  (defun picture-to-rgba (pic)
+    "Convert a decoded dav1d picture to RGBA8 (private helper)."
+    (declare (type (rs::type "Dav1dPicture") pic)
+             (values (rs::type "Result<Rgba, String>")))
+    ;; _pic: raw-only param (rule 2); other locals are raw-owned.
+    (rs::raw "{
+    let (w, h) = (_pic.p.w as usize, _pic.p.h as usize);
+    if _pic.p.bpc != 8 || _pic.p.layout != DAV1D_PIXEL_LAYOUT_I420 {
+        return Err(format!(
+            \"nicht unterstützt: bpc {} layout {}\",
+            _pic.p.bpc, _pic.p.layout
+        ));
+    }
+    let (ys, cs) = (_pic.stride[0] as usize, _pic.stride[1] as usize);
+    let (ch, cw) = (h.div_ceil(2), w.div_ceil(2));
+    let plane = |i: usize, len: usize| -> Result<&[u8], String> {
+        let p = _pic.data[i].ok_or(\"fehlende Ebene\")?;
+        // SAFETY: dav1d guarantees stride-times-rows valid bytes per plane.
+        Ok(unsafe { std::slice::from_raw_parts(p.as_ptr() as *const u8, len) })
+    };
+    let y = plane(0, ys * (h - 1) + w)?;
+    let u = plane(1, cs * (ch - 1) + cw)?;
+    let v = plane(2, cs * (ch - 1) + cw)?;
+    let mut data = vec![0u8; w * h * 4];
+    lbw_common::yuv::yuv420_to_rgba(y, ys, u, v, cs, w, h, &mut data);
+    Ok(Rgba {
+        w: w as u32,
+        h: h as u32,
+        data,
+    })
+}")))
+
+;;; ------------------------------------------------------------------
 ;;; app: entry module. T1: parse config and print it (T5: run client).
 ;;; ------------------------------------------------------------------
 
@@ -272,6 +397,23 @@ pub enum Event {
         rgba: Vec<u8>,
         bytes: usize,
     },
+}
+")
+    ("src/av1.rs" . "use rav1d::include::dav1d::data::Dav1dData;
+use rav1d::include::dav1d::dav1d::{Dav1dContext, Dav1dSettings};
+use rav1d::include::dav1d::headers::DAV1D_PIXEL_LAYOUT_I420;
+use rav1d::include::dav1d::picture::Dav1dPicture;
+use rav1d::src::lib::{
+    dav1d_close, dav1d_data_create, dav1d_data_unref, dav1d_default_settings, dav1d_get_picture,
+    dav1d_open, dav1d_picture_unref, dav1d_send_data,
+};
+use std::ptr::NonNull;
+
+impl Drop for Decoder {
+    fn drop(&mut self) {
+        // SAFETY: ctx comes from dav1d_open and is closed exactly once here.
+        unsafe { dav1d_close(Some(NonNull::from(&mut self.ctx))) };
+    }
 }
 ")))
 
@@ -395,6 +537,15 @@ fn hud_line() {
     assert!(h.contains(\"7 Kacheln\"), \"{h}\");
     assert!(h.contains(\"100 B\"), \"{h}\");
 }
+")
+    ("tests/av1.rs" . "use lbw_client_pg::av1::decoder_new;
+
+#[test]
+fn garbage_is_an_error_not_a_crash() {
+    let mut d = decoder_new().expect(\"rav1d open\");
+    assert!(d.decode(&[]).is_err());
+    assert!(d.decode(&[0x12, 0x00, 0xff, 0xff, 0x01]).is_err());
+}
 ")))
 
-(defproject lbw-client-pg (:modules config scene app) (:entry app))
+(defproject lbw-client-pg (:modules config scene av1 app) (:entry app))

@@ -24,11 +24,10 @@
 (defvar *extra-files*)
 
 (defun pg-read-file-or-nil (path)
+  ;; NOTE: file-length counts bytes (NUL padding with umlauts!);
+  ;; uiop:read-file-string handles UTF-8 correctly.
   (when (probe-file path)
-    (with-open-file (s path :direction :input :external-format :utf-8)
-      (let ((seq (make-string (file-length s))))
-        (read-sequence seq s)
-        seq))))
+    (uiop:read-file-string path :external-format :utf-8)))
 
 (defun pg-write-if-changed (path text)
   "Write TEXT to PATH unless identical. Returns :written/:unchanged."
