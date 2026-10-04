@@ -353,6 +353,139 @@ out")))
 }")))
 
 ;;; ------------------------------------------------------------------
+;;; net: connection to the server with automatic reconnect. A network
+;;; thread connects (backoff 0.5s to 5s), sends Hello, reads frames,
+;;; decodes AV1 tiles and hands events to the UI. Struct and signatures
+;;; in the DSL, bodies raw (threads/channels). Drop + use lines are
+;;; appended (see *append-to*); short type names resolve through them.
+;;; ------------------------------------------------------------------
+
+(defmodule net (:export net net-connect)
+  (defstruct net
+    (events (rs::type "Receiver<Event>"))
+    (out (rs::type "Sender<ClientMsg>"))
+    (stop (rs::type "Arc<AtomicBool>"))
+
+    (defmethod send ((n :in) m)
+      "Send a message (lost while disconnected)."
+      (declare (type (rs::type "ClientMsg") m) (mode :sink m))
+      (rs::raw "let _ = self.out.send(_m);")))
+
+  (defun net-connect (addr)
+    "Connect to ADDR (reconnect runs in the background)."
+    (declare (type :string addr) (values net))
+    (rs::raw "let (ev_tx, events) = channel();
+let (out, out_rx) = channel();
+let stop = Arc::new(AtomicBool::new(false));
+thread::spawn({
+    let addr = _addr.to_owned();
+    let stop = stop.clone();
+    move || run_loop(addr, ev_tx, out_rx, stop)
+});
+Net { events, out, stop }"))
+
+  (defun run-loop (addr ev out stop)
+    "Network thread: connect with backoff, run sessions until stopped."
+    (declare (type :string addr) (mode :sink addr)
+             (type (rs::type "Sender<Event>") ev) (mode :sink ev)
+             (type (rs::type "Receiver<ClientMsg>") out) (mode :sink out)
+             (type (rs::type "Arc<AtomicBool>") stop) (mode :sink stop))
+    (rs::raw "let mut decoder = match decoder_new() {
+    Ok(d) => d,
+    Err(e) => {
+        let _ = _ev.send(Event::Disconnected(format!(\"rav1d: {e}\")));
+        return;
+    }
+};
+let mut backoff = Duration::from_millis(500);
+while !_stop.load(Ordering::Relaxed) {
+    match TcpStream::connect(_addr.as_str()) {
+        Ok(s) => {
+            backoff = Duration::from_millis(500);
+            session_loop(s, &_ev, &_out, &_stop, &mut decoder);
+            if _stop.load(Ordering::Relaxed) {
+                break;
+            }
+            let _ = _ev.send(Event::Disconnected(\"getrennt\".into()));
+        }
+        Err(e) => {
+            let _ = _ev.send(Event::Disconnected(format!(\"kein Server ({e})\")));
+        }
+    }
+    // Backoff in slices so drop reacts fast.
+    let steps = backoff.as_millis().div_ceil(100);
+    for _ in 0..steps {
+        if _stop.load(Ordering::Relaxed) {
+            return;
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    backoff = (backoff * 2).min(Duration::from_secs(5));
+}"))
+
+  (defun session-loop (s ev out stop dec)
+    "One TCP session: hello, input flush, frame pump."
+    (declare (type (rs::type "TcpStream") s) (mode :sink s)
+             (type (rs::type "Sender<Event>") ev)
+             (type (rs::type "Receiver<ClientMsg>") out)
+             (type (rs::type "Arc<AtomicBool>") stop)
+             (type (rs::type "Decoder") dec) (mode :inout dec))
+    (rs::raw "if _s.set_read_timeout(Some(Duration::from_millis(50))).is_err() {
+    return;
+}
+let mut rd = match _s.try_clone() {
+    Ok(r) => r,
+    Err(_) => return,
+};
+let mut wr = _s;
+if write_msg(&mut wr, &ClientMsg::Hello { version: PROTO_VERSION }).is_err() {
+    return;
+}
+let mut fr = FrameReader::new();
+loop {
+    if _stop.load(Ordering::Relaxed) {
+        return;
+    }
+    while let Ok(m) = _out.try_recv() {
+        if write_msg(&mut wr, &m).is_err() {
+            return;
+        }
+    }
+    match fr.read(&mut rd) {
+        Ok(Read1::Frame(b)) => match decode_msg::<ServerMsg>(&b) {
+            Ok(ServerMsg::Hello) => {
+                let _ = _ev.send(Event::Connected);
+            }
+            Ok(ServerMsg::ClearText) => {
+                let _ = _ev.send(Event::ClearText);
+            }
+            Ok(ServerMsg::AddText(t)) => {
+                let _ = _ev.send(Event::AddText(t));
+            }
+            Ok(ServerMsg::Tile { x, y, data }) => match _dec.decode(&data) {
+                Ok(rgba) => {
+                    let _ = _ev.send(Event::Tile {
+                        x,
+                        y,
+                        w: rgba.w,
+                        h: rgba.h,
+                        rgba: rgba.data,
+                        bytes: data.len(),
+                    });
+                }
+                Err(e) => eprintln!(\"[net] AV1: {e}\"),
+            },
+            Err(e) => {
+                eprintln!(\"[net] Protokoll: {e}\");
+                return;
+            }
+        },
+        Ok(Read1::Idle) => {}
+        Err(_) => return,
+    }
+}")))
+
+;;; ------------------------------------------------------------------
 ;;; app: entry module. T1: parse config and print it (T5: run client).
 ;;; ------------------------------------------------------------------
 
@@ -413,6 +546,23 @@ impl Drop for Decoder {
     fn drop(&mut self) {
         // SAFETY: ctx comes from dav1d_open and is closed exactly once here.
         unsafe { dav1d_close(Some(NonNull::from(&mut self.ctx))) };
+    }
+}
+")
+    ("src/net.rs" . "use crate::av1::{decoder_new, Decoder};
+use crate::scene::Event;
+use lbw_common::framing::{decode_msg, write_msg, FrameReader, Read1};
+use lbw_common::{ClientMsg, ServerMsg, PROTO_VERSION};
+use std::net::TcpStream;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
+
+impl Drop for Net {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
     }
 }
 ")))
@@ -546,6 +696,212 @@ fn garbage_is_an_error_not_a_crash() {
     assert!(d.decode(&[]).is_err());
     assert!(d.decode(&[0x12, 0x00, 0xff, 0xff, 0x01]).is_err());
 }
+")
+    ("tests/loopback.rs" . "//! Loopback: net against a stub server (hello, text, real AV1 tile,
+//! teardown + reconnect). No display, no models.
+
+use std::net::TcpListener;
+use std::time::{Duration, Instant};
+
+use lbw_client_pg::net::{net_connect, Net};
+use lbw_client_pg::scene::Event;
+use lbw_common::framing::{write_msg, FrameReader};
+use lbw_common::{ClientMsg, Rect, ServerMsg, TextItem};
+
+/// AV1 tile encoder for tests. Settings mirrored from the source7
+/// server (server/src/05_av1.rs) so the loopback needs no lbw-server
+/// dev-dependency; keep the two in sync when the server changes.
+fn encode_rgb(rgb: &[u8], w: usize, h: usize, quantizer: usize) -> Result<Vec<u8>, String> {
+    use lbw_common::yuv::rgb_to_yuv420;
+    use rav1e::color::{ChromaSampling, PixelRange};
+    use rav1e::prelude::*;
+    if w < 16 || h < 16 || !w.is_multiple_of(2) || !h.is_multiple_of(2) {
+        return Err(format!(\"bad box {w}x{h}\"));
+    }
+    let yuv = rgb_to_yuv420(rgb, w, h);
+    let mut enc = EncoderConfig::with_speed_preset(10);
+    enc.width = w;
+    enc.height = h;
+    enc.bit_depth = 8;
+    enc.chroma_sampling = ChromaSampling::Cs420;
+    enc.pixel_range = PixelRange::Full;
+    enc.still_picture = true;
+    enc.low_latency = true;
+    enc.quantizer = quantizer.min(255);
+    enc.min_quantizer = quantizer.min(255) as u8;
+    enc.max_key_frame_interval = 1;
+    let cfg = Config::new().with_encoder_config(enc).with_threads(4);
+    let mut ctx: Context<u8> = cfg.new_context().map_err(|e| format!(\"rav1e: {e:?}\"))?;
+    let mut frame = ctx.new_frame();
+    frame.planes[0].copy_from_raw_u8(&yuv.y, w, 1);
+    frame.planes[1].copy_from_raw_u8(&yuv.u, yuv.cw(), 1);
+    frame.planes[2].copy_from_raw_u8(&yuv.v, yuv.cw(), 1);
+    ctx.send_frame(frame)
+        .map_err(|e| format!(\"send_frame: {e:?}\"))?;
+    ctx.flush();
+    let mut out = Vec::new();
+    loop {
+        match ctx.receive_packet() {
+            Ok(pkt) => out.extend_from_slice(&pkt.data),
+            Err(EncoderStatus::Encoded) => {}
+            Err(EncoderStatus::LimitReached) => break,
+            Err(e) => return Err(format!(\"receive_packet: {e:?}\")),
+        }
+    }
+    if out.is_empty() {
+        return Err(\"rav1e produced no packet\".into());
+    }
+    Ok(out)
+}
+
+fn item() -> TextItem {
+    TextItem {
+        rect: Rect::new(8, 8, 32, 16),
+        fg: [0; 3],
+        bg: [255; 3],
+        text: \"hi\".into(),
+    }
+}
+
+/// Stub: read hello, send hello + text + tile, then read `expect`
+/// client messages and return them. Closing drops the client to EOF.
+fn stub(
+    listener: TcpListener,
+    tile: Vec<u8>,
+    expect: usize,
+) -> std::thread::JoinHandle<Vec<ClientMsg>> {
+    std::thread::spawn(move || {
+        let (mut s, _) = listener.accept().unwrap();
+        let mut fr = FrameReader::new();
+        s.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+        assert!(matches!(
+            fr.read_msg::<ClientMsg>(&mut s).unwrap(),
+            Some(ClientMsg::Hello { version: 1 })
+        ));
+        write_msg(&mut s, &ServerMsg::Hello).unwrap();
+        write_msg(&mut s, &ServerMsg::ClearText).unwrap();
+        write_msg(&mut s, &ServerMsg::AddText(item())).unwrap();
+        write_msg(
+            &mut s,
+            &ServerMsg::Tile {
+                x: 0,
+                y: 0,
+                data: tile,
+            },
+        )
+        .unwrap();
+        let mut got = Vec::new();
+        while got.len() < expect {
+            match fr.read_msg::<ClientMsg>(&mut s).unwrap() {
+                Some(m) => got.push(m),
+                None => panic!(\"timeout waiting for client messages\"),
+            }
+        }
+        got
+    })
+}
+
+fn recv_until(net: &Net, until: Instant, want: &mut dyn FnMut(Event) -> bool) {
+    while Instant::now() < until {
+        if let Ok(e) = net.events.recv_timeout(Duration::from_millis(200))
+            && want(e)
+        {
+            return;
+        }
+    }
+}
+
+#[test]
+fn hello_text_tile_and_reconnect() {
+    let rgb = [40u8, 80, 160].repeat(64 * 64);
+    let tile = encode_rgb(&rgb, 64, 64, 180).unwrap();
+
+    let listener = TcpListener::bind(\"127.0.0.1:0\").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let addr = format!(\"127.0.0.1:{port}\");
+    let sent = vec![
+        ClientMsg::MouseMove { x: 10, y: 20 },
+        ClientMsg::Button {
+            button: 1,
+            down: true,
+        },
+        ClientMsg::Button {
+            button: 1,
+            down: false,
+        },
+        ClientMsg::Text(\"ab\".into()),
+    ];
+    let stub1 = stub(listener, tile, sent.len());
+
+    let net = net_connect(&addr);
+
+    // First connection: hello, clear, text, tile.
+    let (mut connected, mut clear, mut texts, mut tiles) = (0, 0, 0, 0);
+    recv_until(&net, Instant::now() + Duration::from_secs(10), &mut |e| {
+        match e {
+            Event::Connected => connected += 1,
+            Event::Disconnected(_) => {}
+            Event::ClearText => clear += 1,
+            Event::AddText(t) => {
+                assert_eq!(t.text, \"hi\");
+                texts += 1;
+            }
+            Event::Tile {
+                x,
+                y,
+                w,
+                h,
+                rgba,
+                bytes,
+            } => {
+                assert_eq!((x, y), (0, 0));
+                assert_eq!((w, h), (64, 64));
+                assert_eq!(rgba.len(), 64 * 64 * 4);
+                assert!(bytes > 0);
+                // Flat tile: source color everywhere, alpha 255.
+                assert!(rgba.chunks(4).all(|p| p[3] == 255));
+                for (got, want) in rgba[0..3].iter().zip([40, 80, 160]) {
+                    assert!(got.abs_diff(want) <= 3, \"{rgba:?}\");
+                }
+                tiles += 1;
+            }
+        }
+        connected >= 1 && clear >= 1 && texts >= 1 && tiles >= 1
+    });
+    assert_eq!((connected, clear, texts, tiles), (1, 1, 1, 1));
+
+    // Other direction: send must arrive complete at the server.
+    for m in &sent {
+        net.send(m.clone());
+    }
+    assert_eq!(stub1.join().unwrap(), sent);
+
+    // Notice the teardown, reconnect.
+    let mut down = false;
+    recv_until(&net, Instant::now() + Duration::from_secs(5), &mut |e| {
+        if matches!(e, Event::Disconnected(_)) {
+            down = true;
+            return true;
+        }
+        false
+    });
+    assert!(down, \"teardown must arrive as event\");
+
+    let listener2 = TcpListener::bind(&addr).unwrap();
+    let tile2 = encode_rgb(&rgb, 64, 64, 180).unwrap();
+    let stub2 = stub(listener2, tile2, 0);
+    let mut reconnected = false;
+    recv_until(&net, Instant::now() + Duration::from_secs(10), &mut |e| {
+        if matches!(e, Event::Connected) {
+            reconnected = true;
+            return true;
+        }
+        false
+    });
+    assert!(reconnected, \"client must reconnect\");
+    stub2.join().unwrap();
+    drop(net);
+}
 ")))
 
-(defproject lbw-client-pg (:modules config scene av1 app) (:entry app))
+(defproject lbw-client-pg (:modules config scene av1 net app) (:entry app))
