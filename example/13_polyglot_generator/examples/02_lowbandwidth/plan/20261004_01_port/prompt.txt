@@ -1,0 +1,162 @@
+schau dir den Rust code in
+/workspace/src/cl-rust-generator/examples/29_lowbandwidth/source7_mvp/client/
+an. dies ist ein minimaler client fuer eine remote desktop anwendung,
+die mit minimaler bandbreite funktioniert.
+
+deine aufgabe ist diesen code mittels des transpilers in
+/workspace/src/cl-cl-generator/example/13_polyglot_generator
+auszudruecken
+
+lies die beschreibungen
+/workspace/src/cl-cl-generator/example/13_polyglot_generator/polyglot-generator.md
+/workspace/src/cl-cl-generator/example/13_polyglot_generator/SUPPORTED_FORMS.md
+/workspace/src/cl-cl-generator/example/13_polyglot_generator/README.md
+um zu verstehen was der transpiler unterstuetzt
+
+im dokument
+/workspace/src/cl-rust-generator/examples/29_lowbandwidth/plan/20261003_03_transpiler/walkthrough.md
+gibt es bereits eine beschreibung der portierung der rust clienten und
+servers auf einen anderen transpiler namens cl-rust-generator. nimm
+dir daran ein beispiel, wie man den code refactoren kann mit ,@(loop
+...) slices in der lisp input sprache und lisp funktionen die zur
+transpile zeit expandiert werden.
+
+das ziel ist das der transpiler input moeglichst kurz, kompakt und gut
+verstaendlich ist. obwohl wir einen polyglot transpiler einsetzen,
+wollen wir fuer diese aufgabe nur rust output erzeugen. als zweites
+ziel wollen wir moeglichst wenig rust abhaengigkeiten. und als drittes
+eine kleine binaeroutput datei. d.h. falls es eine rust library gibt
+um eine aufgabe einfach auszudruecken, dann nimm diese library. der
+source7_mvp gibt bereits einen gutes beispiel vor (denke ich). falls
+du vom original source7_mvp code abweichen must ist das okay.
+
+in diesem plan sollst du zunaechst nur den client code schreiben und
+mit dem server in
+/workspace/src/cl-rust-generator/examples/29_lowbandwidth/source7_mvp/server/
+die funktion validieren.
+
+dein output soll unterhalb vom ordner
+/workspace/src/cl-cl-generator/example/13_polyglot_generator/examples/02_lowbandwidth
+gespeichert werden.
+
+beruecksichtige, dass die jetzige aufgabe erstmal nur den client code
+portiert um anhand eines kleinen beispiels die vorgehensweise zu verstehen.
+
+spaeter werden wir auch den server in den transpiler input portieren.
+
+
+**Rolle & Umgebung:**
+
+Du läufst in einem Docker-Image mit Ubuntu 26 auf einem Linux-Host. Du
+hast Zugriff auf Kernel-Messages vom Host und auf USB-Geräte.
+Docker-Referenz:
+`/workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/examples/03_ai_env/Dockerfile`
+Falls dir Pakete fehlen, installiere sie selbstständig. Du arbeitest
+im Auftrag von wol pumba (wolpumba@gmail.com).
+
+## Code Anforderungen
+
+ich moechte kleinen/uebersichtlichen und effizienten code und
+moeglichst wenig abhaengigkeiten (aber baue nichts neu, was es besser
+in einer abhaengigkeit gibt).
+
+nutze die vorteile des transpilers aus. d.h. faktorisiere repetitiven
+oder komplizierten code mittels lisp funktionen (die zur transpile
+zeit in transpiler input expandiert werden) oder benutze lisp slices
+wie ,@(loop for e in *settings* collect ...) um sich wiederholende
+code stuecke leichter wartbar zu machen oder aus definitionen oben in
+der input datei zu nehmen.
+
+fuers testen kannst du xvfb installiern
+
+in deps.md sollst du die pfade der abhaengigkeiten auf github in der
+<organization>/<projekt> notation auflisten. dies kannst du benutzen
+um in deepwiki mcp nach weiteren informationen zu suchen / fragen.
+
+ordnerstruktur: arbeite im ordner
+/workspace/src/cl-cl-generator/example/13_polyglot_generator/examples/02_lowbandwidth
+
+### umgang mit klammern
+
+es kann vorkommen, dass du dich beim schreiben des lisp input mit den
+klammern verhedderst. sei vorsichtig wenn du neuen code generierst und
+checke oft mit sbcl ob die klammern noch valide sind. wenn du nicht in
+zwei schritten die korrektur findest stoppe und frage mich nach der
+loesung. ich werde mit emacs klammern highlighting und paredit die
+datei reparieren.
+
+### anforderungen an den generierten rust code
+
+vorgehensweise: arbeite mit dem neuesten rust (2024). nutze tools um
+konsistenten und aufgeraeumten quellcode zu gewaehrleisten (also
+`cargo fmt` um formatierung zu normalisieren, `cargo clippy` um
+moegliche fehler oder verbesserungen zu finden, cargo-edit mit `cargo
+upgrade` um bei den abhaengigkeiten die neueste version zu verwenden,
+...)
+
+
+### zusatz dokumentation mit deepwiki
+
+Schaue dir den Quellcode an und die Architektur dieser Software. Nutze
+deepwiki mcp fuer plops/cl-cl-generator (fuer den transpiler frage
+nach dem polyglot generator) um dokumentation zu bekommen und fragen
+beantworten zu lassen. falls abhaengigkeiten eingefuehrt werden sind
+diese mitsamt ihrer github organisation in deps.md aufzuschreiben, so
+dass wir spaeter einfach die deepwiki abfragen konstruieren
+koennen. nutze rust tools um auf die neueste vorhandene version zu
+switchen (auch wenn vor kompatibilitaet gewarnt wird, wenn wir gerade
+eine dependency einfuehren ist es wichtig, die neueste version zu
+nehmen) und schon vorab usage examples in den plan aufzunehmen (mit
+deepwiki mcp zu erfragen)
+
+### gelegentlicher review
+
+Schlage vor, wie wir dieses Feature implementieren können. Habe ich
+alle Requirements aufgelistet, die wichtig sind, oder kannst du dir
+vorstellen, dass noch andere Dinge werden sollen? Liste mir diese auf
+Vorschlägen, was man am besten umsetzen könnte.
+
+Schreibe einen Implementierungsplan. Dieser Implementierungsplan soll
+einen unabhängigen AI-Agenten dazu befähigen, selbstständig einen
+Kontext aufzubauen, der die wesentlichen quellen beinhaltet.  Das
+heißt, der Implementierungsplan hat eine Liste von Dateien, die sich
+der Agent sich anschauen sollte, mit einer kurzen Beschreibung für
+jede Datei.  Weiterhin soll der Implementierungsplan eine Erklärung
+Commit Messages sendet werden sollen. Und zwar sollen diese mit einer
+umfassenden Beschreibung und als Conventional Commit format ausgeführt
+werden.
+
+Neue Unit-Tests und Integration-Tests sollen wie erforderlich
+eingeführt werden.  Diese sollen auch ausgeführt werden.
+
+schreibe task.md wo du die implementierungs und test schritte
+aufeinander abfolgen laesst, so dass ein agent die tasks seriell
+abarbeiten kann und die arbeit in jedem schritt getested und validiert
+wird. jeder modus bekommt eigene tasks (implementierung, host-tests,
+HIL-nachweis), danach erst die TUI-tasks.
+
+
+### dokumentation nach abschluss der arbeiten
+
+Nach der vollständigen Implementierung, wenn alle Tests abgeschlossen
+sind und alles committed ist, soll auch ein Walkthrough-Dokument
+entgeschrieben werden und in plan/2026.../walkthrough.md (im ordner wo
+du diese prompt.txt datei findest) abgelegt werden. Dieses soll
+zusammenfassen, was wirklich implementiert wurde, welche Stellen
+aufgrund der Tests oder wie auch immer gemacht wurden, als im
+Untergrund auch Learnings und mögliche Erweiterungen. liste auch die
+neuen programme die mit in den docker container aufgenommen werden
+sollten
+
+Lege für den ausführenden Agenten folgende strikte Regeln für das Schreiben dieses Dokume
+nts fest:
+- **Sprache und Stil:** Das Dokument *muss zwingend auf Deutsch* verfasst sein. Es soll den Leser didaktisch gut abholen, mitnehmen und flüssig lesbar sein.
+- **Erklärungen:** Fachbegriffe müssen kurz und verständlich erklärt werden.
+- **Visualisierung:** Verwende reichlich Code-Beispiele und nutze **Mermaid-Diagramme**, um die Architektur, den Datenfluss und komplexe Konzepte visuell zu veranschaulichen.
+- **Inhaltliche Struktur:**
+  1. Was exakt implementiert wurde.
+  2. Welche Architektur-Entscheidungen aufgrund von Tests spontan geändert werden mussten.
+  3. Learnings und mögliche zukünftige Erweiterungen.
+  4. Eine Liste der neuen Programme/Pakete, die dauerhaft in das Dockerfile aufgenommen werden sollten.
+
+
