@@ -67,7 +67,7 @@ wie ,@(loop for e in *settings* collect ...) um sich wiederholende
 code stuecke leichter wartbar zu machen oder aus definitionen oben in
 der input datei zu nehmen.
 
-fuers testen kannst du xvfb installiern
+fuers testen kannst du xvfb installieren.
 
 in deps.md sollst du die pfade der abhaengigkeiten auf github in der
 <organization>/<projekt> notation auflisten. dies kannst du benutzen
@@ -94,7 +94,6 @@ moegliche fehler oder verbesserungen zu finden, cargo-edit mit `cargo
 upgrade` um bei den abhaengigkeiten die neueste version zu verwenden,
 ...)
 
-
 ### zusatz dokumentation mit deepwiki
 
 Schaue dir den Quellcode an und die Architektur dieser Software. Nutze
@@ -113,43 +112,42 @@ deepwiki mcp zu erfragen)
 
 Schlage vor, wie wir dieses Feature implementieren können. Habe ich
 alle Requirements aufgelistet, die wichtig sind, oder kannst du dir
-vorstellen, dass noch andere Dinge werden sollen? Liste mir diese auf
-Vorschlägen, was man am besten umsetzen könnte.
+vorstellen, dass noch andere Dinge beachtet werden sollen? Liste mir diese auf
+als Vorschläge, was man am besten umsetzen könnte.
 
-Schreibe einen Implementierungsplan. Dieser Implementierungsplan soll
-einen unabhängigen AI-Agenten dazu befähigen, selbstständig einen
-Kontext aufzubauen, der die wesentlichen quellen beinhaltet.  Das
-heißt, der Implementierungsplan hat eine Liste von Dateien, die sich
-der Agent sich anschauen sollte, mit einer kurzen Beschreibung für
-jede Datei.  Weiterhin soll der Implementierungsplan eine Erklärung
-Commit Messages sendet werden sollen. Und zwar sollen diese mit einer
-umfassenden Beschreibung und als Conventional Commit format ausgeführt
-werden.
+Schreibe einen Implementierungsplan (z.B. in `plan.md`).
+Dieser Implementierungsplan soll einen unabhängigen AI-Agenten dazu befähigen,
+selbstständig einen Kontext aufzubauen, der die wesentlichen Quellen beinhaltet.
+Das heißt, der Implementierungsplan hat eine Liste von Dateien, die sich der Agent
+anschauen sollte, mit einer kurzen Beschreibung für jede Datei.
+Weiterhin soll der Plan die Architektur und Lösungsansätze skizzieren und
+Code-Beispiele (z.B. für Lisp-Makros) zeigen, ohne jedoch den kompletten Code
+vorwegzunehmen. Zudem soll der Plan erklären, wie Commit Messages formuliert
+werden sollen: Diese müssen eine umfassende Beschreibung haben und im
+"Conventional Commits"-Format verfasst werden.
+
+Schreibe zusätzlich eine `task.md`. Diese Datei hat eine orthogonale Aufgabe zum
+Implementierungsplan. In der `task.md` sollst du die Implementierungs- und Test-Schritte
+seriell aufeinander abfolgen lassen, sodass ein Agent die Tasks nacheinander
+abarbeiten kann und die Arbeit in jedem Schritt getestet und validiert wird.
+Die `task.md` referenziert die Abschnitte des Implementierungsplans.
+Jede Phase bekommt eigene Tasks (z. B. Lisp-Codegenerierung, lokaler Rust-Build,
+GUI-Tests mit xvfb, Netzwerk-Integration gegen den bereitgestellten Server).
 
 Neue Unit-Tests und Integration-Tests sollen wie erforderlich
-eingeführt werden.  Diese sollen auch ausgeführt werden.
-
-schreibe task.md wo du die implementierungs und test schritte
-aufeinander abfolgen laesst, so dass ein agent die tasks seriell
-abarbeiten kann und die arbeit in jedem schritt getested und validiert
-wird. jeder modus bekommt eigene tasks (implementierung, host-tests,
-HIL-nachweis), danach erst die TUI-tasks.
-
+eingeführt werden. Diese sollen auch ausgeführt werden.
 
 ### dokumentation nach abschluss der arbeiten
 
 Nach der vollständigen Implementierung, wenn alle Tests abgeschlossen
-sind und alles committed ist, soll auch ein Walkthrough-Dokument
-entgeschrieben werden und in plan/2026.../walkthrough.md (im ordner wo
-du diese prompt.txt datei findest) abgelegt werden. Dieses soll
-zusammenfassen, was wirklich implementiert wurde, welche Stellen
-aufgrund der Tests oder wie auch immer gemacht wurden, als im
-Untergrund auch Learnings und mögliche Erweiterungen. liste auch die
-neuen programme die mit in den docker container aufgenommen werden
-sollten
+sind und alles committed ist, soll auch ein Walkthrough-Dokument geschrieben
+werden und als `walkthrough.md` in dem Ordner abgelegt werden, in dem
+du diese `prompt.txt` Datei findest. Dieses Dokument soll zusammenfassen,
+was wirklich implementiert wurde, welche Architektur-Entscheidungen aufgrund von
+Tests spontan geändert werden mussten, sowie Learnings und mögliche
+Erweiterungen für die Zukunft.
 
-Lege für den ausführenden Agenten folgende strikte Regeln für das Schreiben dieses Dokume
-nts fest:
+Lege für den ausführenden Agenten folgende strikte Regeln für das Schreiben dieses Dokuments fest:
 - **Sprache und Stil:** Das Dokument *muss zwingend auf Deutsch* verfasst sein. Es soll den Leser didaktisch gut abholen, mitnehmen und flüssig lesbar sein.
 - **Erklärungen:** Fachbegriffe müssen kurz und verständlich erklärt werden.
 - **Visualisierung:** Verwende reichlich Code-Beispiele und nutze **Mermaid-Diagramme**, um die Architektur, den Datenfluss und komplexe Konzepte visuell zu veranschaulichen.
@@ -157,6 +155,4 @@ nts fest:
   1. Was exakt implementiert wurde.
   2. Welche Architektur-Entscheidungen aufgrund von Tests spontan geändert werden mussten.
   3. Learnings und mögliche zukünftige Erweiterungen.
-  4. Eine Liste der neuen Programme/Pakete, die dauerhaft in das Dockerfile aufgenommen werden sollten.
-
-
+  4. Eine Liste der neuen Linux-Programme/Pakete, die dauerhaft in das Dockerfile aufgenommen werden sollten.
