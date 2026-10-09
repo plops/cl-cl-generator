@@ -10,8 +10,10 @@ enable_graphics=0
 enable_display=0
 enable_usb=0
 enable_source_isolation=1
+enable_host_network=0
 kirocrew_host_port=5476
 kirocrew_publish_port=1
+kirocrew_port_explicit=0
 kirocrew_seccomp_profile=""
 gpus_spec="all"
 verbose=0
@@ -38,11 +40,13 @@ Options:
                  Mount only the configured project sources (default).
   --no-source-isolation
                  Mount the complete source root at /workspace/src.
-  --docker-sock  Bind mount the host Docker socket. This grants the container
-                 root-equivalent control over the host Docker daemon.
+  --docker-sock  Bind mount the host Docker socket and add its numeric group.
+                 This grants root-equivalent control over the host Docker daemon.
   --kirocrew-port PORT
                  Use PORT on host loopback for container port 5476 (default 5476).
                  The container still starts in Bash (1-65535).
+  --host-network  Share the host network for login flows that need host localhost.
+                 KiroCrew port publishing is unavailable in this mode.
   --kirocrew-sandbox-profile FILE
                  Use KiroCrew's seccomp profile and AppArmor opt-out so its
                  inner user-namespace sandbox can run.
@@ -56,7 +60,8 @@ Environment:
   WORKSPACE_SRC_ROOT  Fallback source root override.
 
 Example:
-  ./setup02_run.sh --gpu --host-kmsg --usb --no-source-isolation --docker-sock
+  ./setup02_run.sh --gpu --host-kmsg --usb --no-source-isolation --docker-sock --x11 --graphics
+  ./setup02_run.sh --gpu --host-kmsg --usb --source-isolation --docker-sock --x11 --graphics
 EOF
 }
 
@@ -104,7 +109,11 @@ while [ "$#" -gt 0 ]; do
       fi
       kirocrew_host_port=$2
       kirocrew_publish_port=1
+      kirocrew_port_explicit=1
       shift
+      ;;
+    --host-network)
+      enable_host_network=1
       ;;
     --kirocrew-sandbox-profile)
       if [ "$#" -lt 2 ]; then
@@ -139,6 +148,10 @@ if [ "$kirocrew_publish_port" -eq 1 ]; then
     exit 1
   fi
 fi
+if [ "$enable_host_network" -eq 1 ] && [ "$kirocrew_port_explicit" -eq 1 ]; then
+  echo "--kirocrew-port cannot be used with --host-network; use gateway --port inside the container." >&2
+  exit 1
+fi
 if [ -n "$kirocrew_seccomp_profile" ] && [ ! -r "$kirocrew_seccomp_profile" ]; then
   echo "KiroCrew sandbox profile is not readable: $kirocrew_seccomp_profile" >&2
   exit 1
@@ -161,6 +174,7 @@ fi
 image_name=${IMAGE_NAME:-my-ai-env:latest}
 host_uid=$(id -u)
 host_gid=$(id -g)
+host_user_name=root #$(id -un)
 
 mkdir -p "$HOME/.gemini"
 mkdir -p "$HOME/.kiro"
@@ -182,7 +196,7 @@ mkdir -p "$HOME/.config/muse"
 mkdir -p "$HOME/.cache/huggingface"
 mkdir -p "$HOME/.cache/uv"
 
-
+export DHOME=/root #home/ubuntu/
 
 if [ ! -f "$env_file" ]; then
   echo "Missing env file: $env_file" >&2
@@ -190,42 +204,53 @@ if [ ! -f "$env_file" ]; then
   exit 1
 fi
 
-# `--network host` needed for codex login
-
-set -- docker run -it --network host \
+set -- docker run -it \
   --env-file "$env_file" \
-  -e KIROCREW_HOME=/root/.kiro/crew-yolo \
+  -e HOME=$DHOME \
+  -e USER="$host_user_name" \
+  -e LOGNAME="$host_user_name" \
+  -e KIROCREW_HOME=$DHOME/.kiro/crew-yolo \
   -e ANTIGRAVITY_PLAINTEXT_AUTH=1 \
-  -e AZURE_CONFIG_DIR=/root/.azure \
-  -v "$HOME/.gemini:/root/.gemini" \
-  -v "$HOME/.kiro:/root/.kiro" \
-  -v "$HOME/.kiro/crew-yolo:/root/.kiro/crew-yolo" \
-  -v "$HOME/.local/share/kiro-cli:/root/.local/share/kiro-cli" \
-  -v "$HOME/.local/share/muse:/root/.local/share/muse" \
-  -v "$HOME/.aws:/root/.aws" \
-  -v "$HOME/.azure:/root/.azure" \
-  -v "$HOME/.copilot:/root/.copilot" \
-  -v "$HOME/.openai:/root/.openai" \
-  -v "$HOME/.codex:/root/.codex" \
-  -v "$HOME/.conan2:/root/.conan2" \
-  -v "$HOME/.ssh:/root/.ssh" \
-  -v "$HOME/.config/tc:/root/.config/tc" \
-  -v "$HOME/.config/github-copilot:/root/.config/github-copilot" \
-  -v "$HOME/.config/openai:/root/.config/openai" \
-  -v "$HOME/.config/codex:/root/.config/codex" \
-  -v "$HOME/.config/muse:/root/.config/muse" \
-  -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
-  -v "$HOME/.cache/uv:/root/.cache/uv" \
-  -v my-ai-env-cargo-cache:/root/.cargo
+  -e AZURE_CONFIG_DIR=$DHOME/.azure \
+  -v "$HOME/.gemini:$DHOME/.gemini" \
+  -v "$HOME/.kiro:$DHOME/.kiro" \
+  -v "$HOME/.kiro/crew-yolo:$DHOME/.kiro/crew-yolo" \
+  -v "$HOME/.local/share/kiro-cli:$DHOME/.local/share/kiro-cli" \
+  -v "$HOME/.local/share/muse:$DHOME/.local/share/muse" \
+  -v "$HOME/.aws:$DHOME/.aws" \
+  -v "$HOME/.azure:$DHOME/.azure" \
+  -v "$HOME/.copilot:$DHOME/.copilot" \
+  -v "$HOME/.openai:$DHOME/.openai" \
+  -v "$HOME/.codex:$DHOME/.codex" \
+  -v "$HOME/.conan2:$DHOME/.conan2" \
+  -v "$HOME/.ssh:$DHOME/.ssh" \
+  -v "$HOME/.config/tc:$DHOME/.config/tc" \
+  -v "$HOME/.config/github-copilot:$DHOME/.config/github-copilot" \
+  -v "$HOME/.config/openai:$DHOME/.config/openai" \
+  -v "$HOME/.config/codex:$DHOME/.config/codex" \
+  -v "$HOME/.config/muse:$DHOME/.config/muse" \
+  -v "$HOME/.cache/huggingface:$DHOME/.cache/huggingface" \
+  -v "$HOME/.cache/uv:$DHOME/.cache/uv" \
+  -v my-ai-env-cargo-cache:$DHOME/.cargo
 
-if [ "$kirocrew_publish_port" -eq 1 ]; then
-  set -- "$@" -p "127.0.0.1:${kirocrew_host_port}:5476"
+if [ "$enable_host_network" -eq 1 ]; then
+  set -- "$@" --network host -e KIROCREW_BIND=127.0.0.1
+elif [ "$kirocrew_publish_port" -eq 1 ]; then
+  set -- "$@" -e KIROCREW_BIND=0.0.0.0 -p "127.0.0.1:${kirocrew_host_port}:5476"
 fi
 if [ -n "$kirocrew_seccomp_profile" ]; then
   set -- "$@" --security-opt "seccomp=$kirocrew_seccomp_profile" --security-opt apparmor=unconfined
 fi
 
-set -- "$@" --user "$host_uid:$host_gid"
+set -- "$@" --user 0:0 #"$host_uid:$host_gid"
+
+# Preserve the invoking user's supplementary numeric groups for bind mounts.
+# Docker's --user UID:GID alone drops these groups.
+for host_group in $(id -G); do
+  if [ "$host_group" != "$host_gid" ]; then
+    set -- "$@" --group-add "$host_group"
+  fi
+done
 
 if [ "$enable_source_isolation" -eq 1 ]; then
   set -- "$@" \
@@ -238,7 +263,11 @@ if [ "$enable_source_isolation" -eq 1 ]; then
     -v "/home/kiel/stage/rs_disk_treemap:/workspace/src/rs_disk_treemap" \
     -v "/home/kiel/stage/pge_treemap:/workspace/src/pge_treemap" \
     -v "/home/kiel/stage/transpiled_treemap:/workspace/src/transpiled_treemap" \
-    -v "/home/kiel/stage/parenmedic:/workspace/src/parenmedic"
+    -v "/home/kiel/stage/parenmedic:/workspace/src/parenmedic" \
+    -v "/home/kiel/stage/mbti:/workspace/src/mbti" \
+    -v "/home/kiel/stage/github:/workspace/src/github" \
+    -v "/home/kiel/stage/plops.github.io:/workspace/src/plops.github.io" \
+    -v "/home/kiel/stage/copernicus-radar:/workspace/src/copernicus-radar"
 else
   set -- "$@" -v "$host_src_root:/workspace/src"
 fi
@@ -293,7 +322,7 @@ if [ "$enable_display" -eq 1 ] || [ "$enable_graphics" -eq 1 ]; then
   # Forward Xauthority for X11 authentication over SSH or local session
   xauth_file="${XAUTHORITY:-${HOME:-/root}/.Xauthority}"
   if [ -f "$xauth_file" ]; then
-    set -- "$@" -v "$xauth_file:/root/.Xauthority:ro" -e XAUTHORITY=/root/.Xauthority
+    set -- "$@" -v "$xauth_file:$DHOME/.Xauthority:ro" -e XAUTHORITY=$DHOME/.Xauthority
   fi
 fi
 
@@ -302,7 +331,13 @@ if [ "$enable_docker_sock" -eq 1 ]; then
     echo "Docker socket is not available at /var/run/docker.sock" >&2
     exit 1
   fi
-  set -- "$@" -v /var/run/docker.sock:/var/run/docker.sock
+  docker_socket_gid=$(stat -c '%g' /var/run/docker.sock)
+  case " $(id -G) " in
+    *" $docker_socket_gid "*) ;;
+    *) set -- "$@" --group-add "$docker_socket_gid" ;;
+  esac
+  set -- "$@" -e DOCKER_HOST=unix:///var/run/docker.sock \
+    -v /var/run/docker.sock:/var/run/docker.sock
 fi
 
 # Pass through currently attached serial adapters from the host.

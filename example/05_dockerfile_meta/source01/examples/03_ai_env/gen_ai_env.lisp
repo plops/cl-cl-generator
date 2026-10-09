@@ -11,12 +11,12 @@
 		   (speed 1)))
 
 ;; Toggle NVIDIA / CUDA GPU Support
-(defparameter *enable-cuda* nil
+(defparameter *enable-cuda* t
   "When true, configure the image with NVIDIA CUDA support.")
 
 ;; Suggested for `uv pip install cuml`: :runtime (1.81 GB)
 ;; Pre-built RAPIDS wheels package their own math/cuml libraries, needing only the runtime.
-(defparameter *cuda-flavor* :devel
+(defparameter *cuda-flavor* :cudnn-devel
   "CUDA image variant (amd64 compressed sizes for 13.4.1):
    - :cudnn-devel   : 4.74 GB | AI dev (NVCC, CUDA headers, cuDNN headers & libs)
    - :devel         : 4.25 GB | GPU dev (NVCC, CUDA headers - needed if compiling cuML from source)
@@ -48,22 +48,22 @@
   "Minimal base image for CLI builder stages to save build time and memory.")
 
 ;; Enable or disable components to build minimal images
-(defparameter *install-gcc* nil)
+(defparameter *install-gcc* t)
 (defparameter *install-sbcl* t)
-(defparameter *install-quicklisp* nil
+(defparameter *install-quicklisp* t
   "Install Quicklisp when SBCL is enabled; disable for a small validation image.")
 (defparameter *install-emacs* nil)
 (defparameter *install-python* t)
 (defparameter *install-python-libs* t) ; google-antigravity SDK
 (defparameter *install-docker-cli* t
   "Install the Docker CLI for use with an optionally mounted host Docker socket.")
-(defparameter *install-arm-none-eabi* nil
+(defparameter *install-arm-none-eabi* t
   "Install the Arm GNU bare-metal toolchain used by the fountain firmware.")
 (defparameter *arm-none-eabi-version* "15.3.rel1")
 (defparameter *arm-none-eabi-toolchain*
   (format nil "arm-gnu-toolchain-~a-x86_64-arm-none-eabi"
           *arm-none-eabi-version*))
-(defparameter *install-jlink* nil
+(defparameter *install-jlink* t
   "Install the SEGGER J-Link command-line tools used to flash and debug firmware.")
 (defparameter *jlink-version* "9.30")
 (defparameter *jlink-version-code*
@@ -150,7 +150,7 @@
 ;; Toggle AI CLI tools
 (defparameter *install-agy* nil)
 (defparameter *install-codex* t)
-(defparameter *install-copilot* nil)
+(defparameter *install-copilot* t)
 (defparameter *install-kiro-cli* t)
 (defparameter *install-kirocrew* t
   "Install KiroCrew and its managed Python runtime.")
@@ -159,7 +159,7 @@
 (defparameter *install-azure-cli* nil)
 (defparameter *install-teamcity-cli* nil)
 (defparameter *install-grok* nil)
-(defparameter *install-muse* nil
+(defparameter *install-muse* t
   "Install Meta's Muse Code CLI.")
 (defparameter *install-devin-cli* nil)
 ;; Toggle code-quality tools used by Habit Hooks.
@@ -168,8 +168,8 @@
 (defparameter *install-jscpd* nil)
 
 ;; Toggle Rust support
-(defparameter *install-rust* nil)
-(defparameter *install-probe-rs* nil)
+(defparameter *install-rust* t)
+(defparameter *install-probe-rs* t)
 (defparameter *rust-cache-volume* t)
 (defparameter *install-difftastic* t
   "Requires *install-rust* to be true.")
