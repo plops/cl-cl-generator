@@ -14,6 +14,9 @@ enable_host_network=0
 kirocrew_host_port=5476
 kirocrew_publish_port=1
 kirocrew_port_explicit=0
+lbw_host_port=7878
+lbw_publish_port=1
+lbw_port_explicit=0
 kirocrew_seccomp_profile=""
 gpus_spec="all"
 verbose=0
@@ -45,6 +48,10 @@ Options:
   --kirocrew-port PORT
                  Use PORT on host loopback for container port 5476 (default 5476).
                  The container still starts in Bash (1-65535).
+  --lbw-port PORT
+                 Use PORT on host loopback for container port 7878 (default 7878).
+                 Publishes the lbw-server port; the server must listen on
+                 0.0.0.0 inside the container (1-65535).
   --host-network  Share the host network for login flows that need host localhost.
                  KiroCrew port publishing is unavailable in this mode.
   --kirocrew-sandbox-profile FILE
@@ -112,6 +119,16 @@ while [ "$#" -gt 0 ]; do
       kirocrew_port_explicit=1
       shift
       ;;
+    --lbw-port)
+      if [ "$#" -lt 2 ]; then
+        echo "--lbw-port requires a port number." >&2
+        exit 1
+      fi
+      lbw_host_port=$2
+      lbw_publish_port=1
+      lbw_port_explicit=1
+      shift
+      ;;
     --host-network)
       enable_host_network=1
       ;;
@@ -150,6 +167,19 @@ if [ "$kirocrew_publish_port" -eq 1 ]; then
 fi
 if [ "$enable_host_network" -eq 1 ] && [ "$kirocrew_port_explicit" -eq 1 ]; then
   echo "--kirocrew-port cannot be used with --host-network; use gateway --port inside the container." >&2
+  exit 1
+fi
+if [ "$lbw_publish_port" -eq 1 ]; then
+  case "$lbw_host_port" in
+    ''|*[!0-9]*) echo "lbw host port must be an integer from 1 to 65535." >&2; exit 1 ;;
+  esac
+  if [ "$lbw_host_port" -lt 1 ] || [ "$lbw_host_port" -gt 65535 ]; then
+    echo "lbw host port must be an integer from 1 to 65535." >&2
+    exit 1
+  fi
+fi
+if [ "$enable_host_network" -eq 1 ] && [ "$lbw_port_explicit" -eq 1 ]; then
+  echo "--lbw-port cannot be used with --host-network; bind the server to 127.0.0.1 inside the container." >&2
   exit 1
 fi
 if [ -n "$kirocrew_seccomp_profile" ] && [ ! -r "$kirocrew_seccomp_profile" ]; then
@@ -237,6 +267,9 @@ if [ "$enable_host_network" -eq 1 ]; then
   set -- "$@" --network host -e KIROCREW_BIND=127.0.0.1
 elif [ "$kirocrew_publish_port" -eq 1 ]; then
   set -- "$@" -e KIROCREW_BIND=0.0.0.0 -p "127.0.0.1:${kirocrew_host_port}:5476"
+fi
+if [ "$enable_host_network" -eq 0 ] && [ "$lbw_publish_port" -eq 1 ]; then
+  set -- "$@" -p "127.0.0.1:${lbw_host_port}:7878"
 fi
 if [ -n "$kirocrew_seccomp_profile" ]; then
   set -- "$@" --security-opt "seccomp=$kirocrew_seccomp_profile" --security-opt apparmor=unconfined
