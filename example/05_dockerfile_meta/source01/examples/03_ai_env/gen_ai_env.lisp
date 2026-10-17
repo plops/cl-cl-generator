@@ -152,7 +152,7 @@
 (defparameter *install-codex* t)
 (defparameter *install-copilot* t)
 (defparameter *install-kiro-cli* t)
-(defparameter *install-kirocrew* t
+(defparameter *install-kirocrew* nil
   "Install KiroCrew and its managed Python runtime.")
 (defparameter *kirocrew-version* "0.7.2"
   "Signed KiroCrew release verified by the gateway and CLI integration tests.")
@@ -658,7 +658,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                (comment "Rename the original binary and install a wrapper that bypasses approvals and sandboxing by default")
                (run "mv /usr/local/bin/codex /usr/local/bin/codex.real")
                (copy :heredoc "/usr/local/bin/codex"
-                     ,(agent-wrapper-script "/usr/local/bin/codex.real" "--dangerously-bypass-approvals-and-sandbox"))
+                     ,(agent-wrapper-script "/usr/local/bin/codex.real" "--dangerously-bypass-approvals-and-sandbox --no-daemon"))
                (run "chmod +x /usr/local/bin/codex")))
           ,@(when *install-copilot*
              `((copy "/usr/local/bin/copilot" "/usr/local/bin/copilot" :from builder-copilot :link t :chmod "755")

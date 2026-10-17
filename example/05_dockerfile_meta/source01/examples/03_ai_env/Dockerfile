@@ -40,26 +40,11 @@ RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-
  && chmod +x /tmp/kirocli-extracted/kirocli/install.sh \
  && KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh \
  && rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted
-# ====================================================================
-# Stage: KiroCrew signed wheel installation
-# ====================================================================
-FROM ubuntu:26.04 AS builder-kirocrew
-ENV DEBIAN_FRONTEND=noninteractive
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl openssl python3-full
-# Use KiroCrew's official signed-channel installer; it verifies the release manifest and wheel checksum
-RUN curl -fsSL https://download.crew.kiro.dev/cli.sh -o /tmp/kirocrew-install.sh \
- && KIROCREW_HOME=/root/.kiro/crew-yolo KIROCREW_VENV=/opt/kirocrew-venv KIROCREW_PYTHON_DIR=/opt/kirocrew-python sh /tmp/kirocrew-install.sh --managed-python --version 0.7.2 \
- && ln -s /root/.local/bin/kirocrew /usr/local/bin/kirocrew \
- && rm -f /tmp/kirocrew-install.sh
 # =====================================================================
 # Stage 2: Insulated Runtime Runner
 # =====================================================================
 FROM nvidia/cuda:13.4.1-cudnn-devel-ubuntu26.04 AS runner
 ENV DEBIAN_FRONTEND=noninteractive
-ENV KIROCREW_BIND=0.0.0.0 \
-    KIROCREW_HOME=/root/.kiro/crew-yolo \
-    KIROCREW_KIRO_BIN=/usr/local/bin/kiro-cli.real
 # Configure NVIDIA Container Toolkit runtime and CUDA development paths
 ENV NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility \
@@ -70,39 +55,6 @@ ENV NVIDIA_VISIBLE_DEVICES=all \
     LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 WORKDIR /workspace
 RUN chmod 755 /root
-# Copy the signed KiroCrew installation and its managed Python 3.12 runtime
-COPY --from=builder-kirocrew --link /opt/kirocrew-venv /opt/kirocrew-venv
-COPY --from=builder-kirocrew --link /opt/kirocrew-venv-current /opt/kirocrew-venv-current
-COPY --from=builder-kirocrew --link /opt/kirocrew-python /opt/kirocrew-python
-COPY --from=builder-kirocrew --link --chmod=755 /root/.local/bin/kirocrew /usr/local/bin/kirocrew
-RUN mv /usr/local/bin/kirocrew /usr/local/bin/kirocrew.real
-COPY <<'EOF' /usr/local/bin/kirocrew
-#!/usr/bin/env bash
-set -euo pipefail
-case "${1:-}" in
-  "")
-    exec /usr/local/bin/kirocrew.real gateway --approval yolo --no-open
-    ;;
-  gateway)
-    shift
-    gateway_args=()
-    while (($#)); do
-      case "$1" in
-        --approval) shift; (($#)) && shift ;;
-        --approval=*) shift ;;
-        *) gateway_args+=("$1"); shift ;;
-      esac
-    done
-    exec /usr/local/bin/kirocrew.real gateway --approval yolo "${gateway_args[@]}"
-    ;;
-  *)
-    exec /usr/local/bin/kirocrew.real "$@"
-    ;;
-esac
-
-EOF
-RUN chmod +x /usr/local/bin/kirocrew
-ENV KIROCREW_BIND=0.0.0.0
 # Copy the modern uv binary directly from Astral's official release container
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV UV_TOOL_BIN_DIR=/usr/local/bin
@@ -143,7 +95,7 @@ RUN mv /usr/local/bin/codex /usr/local/bin/codex.real
 COPY <<'EOF' /usr/local/bin/codex
 #!/usr/bin/env bash
 set -euo pipefail
-exec /usr/local/bin/codex.real --dangerously-bypass-approvals-and-sandbox "$@"
+exec /usr/local/bin/codex.real --dangerously-bypass-approvals-and-sandbox --no-daemon "$@"
 
 EOF
 RUN chmod +x /usr/local/bin/codex
@@ -220,18 +172,6 @@ exec /usr/local/bin/muse.real --yolo "$@"
 
 EOF
 RUN chmod +x /usr/local/bin/muse /usr/local/bin/muse.real
-# Smoke test KiroCrew CLI and its chat/gateway commands
-RUN <<'EOF'
-set -eu
-kirocrew --help > /tmp/kirocrew-help.txt
-grep -q 'chat' /tmp/kirocrew-help.txt
-grep -q 'gateway' /tmp/kirocrew-help.txt
-kirocrew chat --help > /tmp/kirocrew-chat-help.txt
-grep -q 'Interactive mode' /tmp/kirocrew-chat-help.txt
-kirocrew gateway --help > /tmp/kirocrew-gateway-help.txt
-grep -q -- '--port' /tmp/kirocrew-gateway-help.txt
-
-EOF
 # Smoke test Kiro CLI ACP command
 RUN <<'EOF'
 set -eu
