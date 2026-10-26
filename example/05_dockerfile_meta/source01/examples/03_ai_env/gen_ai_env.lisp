@@ -59,7 +59,7 @@
   "Install the Docker CLI for use with an optionally mounted host Docker socket.")
 (defparameter *install-arm-none-eabi* t
   "Install the Arm GNU bare-metal toolchain used by the fountain firmware.")
-(defparameter *arm-none-eabi-version* "15.3.rel1")
+(defparameter *arm-none-eabi-version* "15.3.rel2")
 (defparameter *arm-none-eabi-toolchain*
   (format nil "arm-gnu-toolchain-~a-x86_64-arm-none-eabi"
           *arm-none-eabi-version*))
@@ -104,8 +104,8 @@
   (remove-duplicates
    (append
     (when *install-gcc*
-      '(;"clang-format"
-	;"clang-tidy"
+      '("clang-format"
+	"clang-tidy"
 	;"clangd"
 	"ninja-build"
 	"cmake"
@@ -120,7 +120,7 @@
       "procps"
       "psmisc"
       "iproute2"
-					; "iputils-ping"
+      "iputils-ping"
 					;"dnsutils"
       "ripgrep"
       "fd-find"

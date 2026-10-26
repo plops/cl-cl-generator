@@ -60,7 +60,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV UV_TOOL_BIN_DIR=/usr/local/bin
 # Install the essential tool belt for agents
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates jq ninja-build cmake build-essential pkg-config less file findutils tree man-db procps psmisc iproute2 ripgrep fd-find yq picocom git usbutils sudo libusb-1.0-0-dev moreutils tmux fzf git-lfs openssh-client parallel unzip zip xz-utils
+ && apt-get install -y --no-install-recommends curl ca-certificates jq clang-format clang-tidy ninja-build cmake build-essential pkg-config less file findutils tree man-db procps psmisc iproute2 iputils-ping ripgrep fd-find yq picocom git usbutils sudo libusb-1.0-0-dev moreutils tmux fzf git-lfs openssh-client parallel unzip zip xz-utils
 # Install component dependencies in separate layers for caching
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
  && apt-get install -y --no-install-recommends build-essential gcc
@@ -133,10 +133,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
  && apt-get update \
  && apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin
 # Install the Arm GNU bare-metal toolchain used by fountain firmware
-RUN curl -fL https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.3.rel1/arm-gnu-toolchain-15.3.rel1-x86_64-arm-none-eabi.tar.xz -o /tmp/arm-none-eabi.tar.xz \
+RUN curl -fL https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.3.rel2/arm-gnu-toolchain-15.3.rel2-x86_64-arm-none-eabi.tar.xz -o /tmp/arm-none-eabi.tar.xz \
  && tar -xJf /tmp/arm-none-eabi.tar.xz -C /opt \
  && rm /tmp/arm-none-eabi.tar.xz
-ENV PATH=/opt/arm-gnu-toolchain-15.3.rel1-x86_64-arm-none-eabi/bin:$PATH
+ENV PATH=/opt/arm-gnu-toolchain-15.3.rel2-x86_64-arm-none-eabi/bin:$PATH
 # Install SEGGER J-Link tools (the download accepts SEGGER's license terms)
 RUN curl -fL --data 'accept_license_agreement=accepted&non_eu_market=true' https://www.segger.com/downloads/jlink/JLink_Linux_V930_x86_64.tgz -o /tmp/jlink.tgz \
  && tar -xzf /tmp/jlink.tgz -C /opt \
