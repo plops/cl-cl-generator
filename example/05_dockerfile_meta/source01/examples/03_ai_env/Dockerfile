@@ -1,7 +1,7 @@
 # ====================================================================
 # Stage: Python Dependencies (runs in parallel with other builders)
 # ====================================================================
-FROM nvidia/cuda:13.4.1-cudnn-devel-ubuntu26.04 AS builder-python
+FROM nvidia/cuda:13.4.3-cudnn-devel-ubuntu26.04 AS builder-python
 ENV DEBIAN_FRONTEND=noninteractive
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
@@ -43,7 +43,7 @@ RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-
 # =====================================================================
 # Stage 2: Insulated Runtime Runner
 # =====================================================================
-FROM nvidia/cuda:13.4.1-cudnn-devel-ubuntu26.04 AS runner
+FROM nvidia/cuda:13.4.3-cudnn-devel-ubuntu26.04 AS runner
 ENV DEBIAN_FRONTEND=noninteractive
 # Configure NVIDIA Container Toolkit runtime and CUDA development paths
 ENV NVIDIA_VISIBLE_DEVICES=all \
@@ -60,7 +60,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV UV_TOOL_BIN_DIR=/usr/local/bin
 # Install the essential tool belt for agents
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates jq clang-format clang-tidy ninja-build cmake build-essential pkg-config less file findutils tree man-db procps psmisc iproute2 iputils-ping ripgrep fd-find yq picocom git usbutils sudo libusb-1.0-0-dev moreutils tmux fzf git-lfs openssh-client parallel unzip zip xz-utils
+ && apt-get install -y --no-install-recommends curl ca-certificates jq clang-format clang-tidy ninja-build cmake build-essential pkg-config gdb less file findutils tree man-db procps psmisc iproute2 iputils-ping ripgrep fd-find yq picocom git usbutils sudo libusb-1.0-0-dev moreutils tmux fzf git-lfs openssh-client parallel unzip zip xz-utils
 # Install component dependencies in separate layers for caching
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
  && apt-get install -y --no-install-recommends build-essential gcc
@@ -138,10 +138,10 @@ RUN curl -fL https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for
  && rm /tmp/arm-none-eabi.tar.xz
 ENV PATH=/opt/arm-gnu-toolchain-15.3.rel2-x86_64-arm-none-eabi/bin:$PATH
 # Install SEGGER J-Link tools (the download accepts SEGGER's license terms)
-RUN curl -fL --data 'accept_license_agreement=accepted&non_eu_market=true' https://www.segger.com/downloads/jlink/JLink_Linux_V930_x86_64.tgz -o /tmp/jlink.tgz \
+RUN curl -fL --data 'accept_license_agreement=accepted&non_eu_market=true' https://www.segger.com/downloads/jlink/JLink_Linux_V992_x86_64.tgz -o /tmp/jlink.tgz \
  && tar -xzf /tmp/jlink.tgz -C /opt \
  && rm /tmp/jlink.tgz
-ENV PATH=/opt/JLink_Linux_V930_x86_64:$PATH
+ENV PATH=/opt/JLink_Linux_V992_x86_64:$PATH
 # Download and install Quicklisp
 RUN curl -O https://beta.quicklisp.org/quicklisp.lisp \
  && sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)" \

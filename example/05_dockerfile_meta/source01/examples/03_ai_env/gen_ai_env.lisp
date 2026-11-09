@@ -25,7 +25,7 @@
    - :base          : 211 MB  | Minimal driver-linking only (usually too stripped for cuML)
    * Note: TensorRT flavors are omitted as they are arm64-only in this release.")
 
-(defparameter *cuda-version* "13.4.1"
+(defparameter *cuda-version* "13.4.3"
   "NVIDIA CUDA version tag.")
 
 (defparameter *cuda-ubuntu-version* "ubuntu26.04"
@@ -65,7 +65,7 @@
           *arm-none-eabi-version*))
 (defparameter *install-jlink* t
   "Install the SEGGER J-Link command-line tools used to flash and debug firmware.")
-(defparameter *jlink-version* "9.30")
+(defparameter *jlink-version* "9.92")
 (defparameter *jlink-version-code*
   (format nil "V~a" (remove #\. *jlink-version*)))
 (defparameter *jlink-directory*
@@ -111,6 +111,7 @@
 	"cmake"
 	"build-essential"
 	"pkg-config"
+	"gdb"
 	))
     '("less"
       "file"
