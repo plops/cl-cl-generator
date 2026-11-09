@@ -20,6 +20,7 @@ lbw_port_explicit=0
 kirocrew_seccomp_profile=""
 gpus_spec="all"
 verbose=0
+dry_run=0
 
 usage() {
   cat <<EOF
@@ -57,6 +58,11 @@ Options:
   --kirocrew-sandbox-profile FILE
                  Use KiroCrew's seccomp profile and AppArmor opt-out so its
                  inner user-namespace sandbox can run.
+  -n, --dry-run  Do not start a container. Print only the docker run options
+                 (without "docker run -it" and without the image name) as one
+                 shell-quoted line on stdout, e.g. for the CLion Docker
+                 toolchain "Container settings" field. The image name is
+                 printed to stderr.
   -v, --verbose  Print the executed commands.
   -h, --help     Show this help text and exit.
 
@@ -69,6 +75,7 @@ Environment:
 Example:
   ./setup02_run.sh --gpu --host-kmsg --usb --no-source-isolation --docker-sock --x11 --graphics
   ./setup02_run.sh --gpu --host-kmsg --usb --source-isolation --docker-sock --x11 --graphics
+  ./setup02_run.sh --dry-run --gpu --host-kmsg --usb --source-isolation --docker-sock --x11 --graphics
 EOF
 }
 
@@ -142,6 +149,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     -v|--verbose)
       verbose=1
+      ;;
+    -n|--dry-run)
+      dry_run=1
       ;;
     -h|--help)
       usage
@@ -234,7 +244,9 @@ if [ ! -f "$env_file" ]; then
   exit 1
 fi
 
-set -- docker run -it \
+# Collect only the docker run options here; "docker run -it" and the image
+# name are added at the end so --dry-run can print the bare options.
+set -- \
   --env-file "$env_file" \
   -e HOME=$DHOME \
   -e USER="$host_user_name" \
@@ -380,9 +392,34 @@ for dev in /dev/ttyUSB* /dev/ttyACM*; do
   fi
 done
 
-if [ "$verbose" -eq 1 ]; then
-  echo "+ $* $image_name" >&2
+# Quote a single argument for POSIX shells; plain arguments stay unquoted.
+shell_quote() {
+  case "$1" in
+    ''|*[!A-Za-z0-9_./:=,@%+-]*)
+      printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+      ;;
+    *)
+      printf '%s' "$1"
+      ;;
+  esac
+}
+
+if [ "$dry_run" -eq 1 ]; then
+  sep=""
+  for arg in "$@"; do
+    printf '%s' "$sep"
+    shell_quote "$arg"
+    sep=" "
+  done
+  printf '\n'
+  echo "Image: $image_name" >&2
+  exit 0
 fi
 
-set -- "$@" "$image_name"
+set -- docker run -it "$@" "$image_name"
+
+if [ "$verbose" -eq 1 ]; then
+  echo "+ $*" >&2
+fi
+
 exec "$@"
