@@ -25,7 +25,7 @@
    - :base          : 211 MB  | Minimal driver-linking only (usually too stripped for cuML)
    * Note: TensorRT flavors are omitted as they are arm64-only in this release.")
 
-(defparameter *cuda-version* "13.4.3"
+(defparameter *cuda-version* "13.3.1" ;; "13.5.0"
   "NVIDIA CUDA version tag.")
 
 (defparameter *cuda-ubuntu-version* "ubuntu26.04"
@@ -163,6 +163,8 @@
 (defparameter *install-muse* t
   "Install Meta's Muse Code CLI.")
 (defparameter *install-devin-cli* nil)
+(defparameter *install-conan* t
+  "Install the Conan C/C++ package manager as an isolated uv tool.")
 ;; Toggle code-quality tools used by Habit Hooks.
 (defparameter *install-habit-hooks* nil)
 (defparameter *install-deptry* nil)
@@ -291,13 +293,13 @@ kiro-cli --help > /tmp/kiro-cli-help.txt
 [ -s /tmp/kiro-cli-help.txt ]
 grep -qi "kiro" /tmp/kiro-cli-help.txt
 
-kiro-cli-chat --help > /tmp/kiro-cli-chat-help.txt
-[ -s /tmp/kiro-cli-chat-help.txt ]
-grep -qi "kiro" /tmp/kiro-cli-chat-help.txt
+#kiro-cli-chat --help > /tmp/kiro-cli-chat-help.txt
+#[ -s /tmp/kiro-cli-chat-help.txt ]
+#grep -qi "kiro" /tmp/kiro-cli-chat-help.txt
 
-kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
-[ -s /tmp/kiro-cli-term-help.txt ]
-grep -qi "kiro" /tmp/kiro-cli-term-help.txt
+#kiro-cli-term --help > /tmp/kiro-cli-term-help.txt
+#[ -s /tmp/kiro-cli-term-help.txt ]
+#grep -qi "kiro" /tmp/kiro-cli-term-help.txt
 |)
     (*install-grok* "Grok Build by checking the CLI version"
                     #r|set -eu
@@ -594,6 +596,10 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
         `((comment "Install Deptry as an isolated CLI tool")
           (run :mount "type=cache,target=/root/.cache/uv"
                "uv tool install deptry")))
+    ,@(when *install-conan*
+        `((comment "Install Conan as an isolated CLI tool")
+          (run :mount "type=cache,target=/root/.cache/uv"
+               "uv tool install conan")))
     ,@(when *install-jscpd*
         `((comment "Install JSCPD globally so it is available in every mounted project")
           (run :mount "type=cache,target=/root/.npm"
@@ -670,8 +676,8 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                (run "chmod +x /usr/local/bin/copilot")))
           ,@(when *install-kiro-cli*
               `((copy "/root/.local/bin/kiro-cli" "/usr/local/bin/kiro-cli" :from builder-kiro :link t :chmod "755")
-                (copy "/root/.local/bin/kiro-cli-chat" "/usr/local/bin/kiro-cli-chat" :from builder-kiro :link t :chmod "755")
-                (copy "/root/.local/bin/kiro-cli-term" "/usr/local/bin/kiro-cli-term" :from builder-kiro :link t :chmod "755")
+                ;(copy "/root/.local/bin/kiro-cli-chat" "/usr/local/bin/kiro-cli-chat" :from builder-kiro :link t :chmod "755")
+                ;(copy "/root/.local/bin/kiro-cli-term" "/usr/local/bin/kiro-cli-term" :from builder-kiro :link t :chmod "755")
                 (comment "Rename the original binary and install a wrapper that skips confirmation for init")
                 (run "mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real")
                 (copy :heredoc "/usr/local/bin/kiro-cli"

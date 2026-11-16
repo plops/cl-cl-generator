@@ -1,7 +1,7 @@
 # ====================================================================
 # Stage: Python Dependencies (runs in parallel with other builders)
 # ====================================================================
-FROM nvidia/cuda:13.4.3-cudnn-devel-ubuntu26.04 AS builder-python
+FROM nvidia/cuda:13.3.1-cudnn-devel-ubuntu26.04 AS builder-python
 ENV DEBIAN_FRONTEND=noninteractive
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
@@ -43,7 +43,7 @@ RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-
 # =====================================================================
 # Stage 2: Insulated Runtime Runner
 # =====================================================================
-FROM nvidia/cuda:13.4.3-cudnn-devel-ubuntu26.04 AS runner
+FROM nvidia/cuda:13.3.1-cudnn-devel-ubuntu26.04 AS runner
 ENV DEBIAN_FRONTEND=noninteractive
 # Configure NVIDIA Container Toolkit runtime and CUDA development paths
 ENV NVIDIA_VISIBLE_DEVICES=all \
@@ -72,6 +72,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
  && apt-get install -y --no-install-recommends nodejs npm
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
  && apt-get install -y --no-install-recommends gnupg
+# Install Conan as an isolated CLI tool
+RUN --mount=type=cache,target=/root/.cache/uv uv tool install conan
 # Install rustup and stable Rust toolchain
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
  && chmod -R a+w /root/.rustup
@@ -110,8 +112,6 @@ exec /usr/local/bin/copilot.real --allow-all "$@"
 EOF
 RUN chmod +x /usr/local/bin/copilot
 COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli
-COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-chat
-COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli-term /usr/local/bin/kiro-cli-term
 # Rename the original binary and install a wrapper that skips confirmation for init
 RUN mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real
 COPY <<'EOF' /usr/local/bin/kiro-cli
