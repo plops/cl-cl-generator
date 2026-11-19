@@ -226,6 +226,7 @@ mkdir -p "$HOME/.azure"
 mkdir -p "$HOME/.copilot"
 mkdir -p "$HOME/.openai"
 mkdir -p "$HOME/.codex"
+mkdir -p "$HOME/.claude"
 mkdir -p "$HOME/.conan2"
 mkdir -p "$HOME/.ssh"
 mkdir -p "$HOME/.config/tc"
@@ -264,6 +265,8 @@ set -- \
   -v "$HOME/.copilot:$DHOME/.copilot" \
   -v "$HOME/.openai:$DHOME/.openai" \
   -v "$HOME/.codex:$DHOME/.codex" \
+  -v "$HOME/.claude:$DHOME/.claude" \
+  -e CLAUDE_CONFIG_DIR=$DHOME/.claude \
   -v "$HOME/.conan2:$DHOME/.conan2" \
   -v "$HOME/.ssh:$DHOME/.ssh" \
   -v "$HOME/.config/tc:$DHOME/.config/tc" \

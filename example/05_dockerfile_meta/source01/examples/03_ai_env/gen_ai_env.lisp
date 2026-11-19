@@ -25,6 +25,7 @@
    - :base          : 211 MB  | Minimal driver-linking only (usually too stripped for cuML)
    * Note: TensorRT flavors are omitted as they are arm64-only in this release.")
 
+;; https://hub.docker.com/r/nvidia/cuda/tags
 (defparameter *cuda-version* "13.3.1" ;; "13.5.0"
   "NVIDIA CUDA version tag.")
 
@@ -57,6 +58,7 @@
 (defparameter *install-python-libs* t) ; google-antigravity SDK
 (defparameter *install-docker-cli* t
   "Install the Docker CLI for use with an optionally mounted host Docker socket.")
+;; https://gitlab.arm.com/tooling/gnu-toolchains-for-arm/
 (defparameter *install-arm-none-eabi* t
   "Install the Arm GNU bare-metal toolchain used by the fountain firmware.")
 (defparameter *arm-none-eabi-version* "15.3.rel2")
@@ -152,6 +154,9 @@
 (defparameter *install-agy* nil)
 (defparameter *install-codex* t)
 (defparameter *install-copilot* t)
+(defparameter *install-claude* t
+  "Install Anthropic's Claude Code CLI (native build). Credentials and state
+live in CLAUDE_CONFIG_DIR=/root/.claude, which setup02_run.sh bind-mounts from the host.")
 (defparameter *install-kiro-cli* t)
 (defparameter *install-kirocrew* nil
   "Install KiroCrew and its managed Python runtime.")
@@ -470,6 +475,24 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                 "PREFIX=/usr/local VERSION=latest bash copilot-install.sh"
                 "rm copilot-install.sh")))))
 
+(defun builder-claude-stage ()
+  (when *install-claude*
+    `((comment "====================================================================" )
+      (comment "Stage: Claude Code CLI Download")
+      (comment "====================================================================" )
+      (from ,*builder-base-image* :as builder-claude)
+      (env DEBIAN_FRONTEND "noninteractive")
+      (run :mount ("type=cache,target=/var/cache/apt,sharing=locked" "type=cache,target=/var/lib/apt/lists,sharing=locked")
+           (and "apt-get update"
+                "apt-get install -y --no-install-recommends ca-certificates curl"))
+      (workdir "/workspace")
+      (comment "Install Claude Code with Anthropic's native installer and resolve the launcher symlink to a standalone binary")
+      (run (and "curl -fsSL https://claude.ai/install.sh -o claude-install.sh"
+                "bash claude-install.sh"
+                "cp -L /root/.local/bin/claude /usr/local/bin/claude"
+                "/usr/local/bin/claude --version"
+                "rm claude-install.sh")))))
+
 (defun builder-kiro-stage ()
   (when *install-kiro-cli*
     `((comment "====================================================================" )
@@ -656,7 +679,7 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                     #r|echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc|))))
     
     ;; 3. Install and wrap other CLI tools if enabled
-    ,@(when (or *install-codex* *install-copilot* *install-kiro-cli* *install-teamcity-cli*)
+    ,@(when (or *install-codex* *install-copilot* *install-claude* *install-kiro-cli* *install-teamcity-cli*)
         `((comment "Install or copy other AI CLI tools")
           ,@(when *install-codex*
              `((comment "Install the newest Codex release directly in the runner image")
@@ -674,6 +697,17 @@ emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
                (copy :heredoc "/usr/local/bin/copilot"
                      ,(agent-wrapper-script "/usr/local/bin/copilot.real" "--allow-all"))
                (run "chmod +x /usr/local/bin/copilot")))
+          ,@(when *install-claude*
+             `((copy "/usr/local/bin/claude" "/usr/local/bin/claude.real" :from builder-claude :link t :chmod "755")
+               (comment "Keep all Claude state (incl. .claude.json and .credentials.json) in one bind-mountable directory.")
+               (comment "IS_SANDBOX allows --dangerously-skip-permissions as root; the binary is image-managed, so no self-updates.")
+               (env CLAUDE_CONFIG_DIR "/root/.claude"
+                    IS_SANDBOX "1"
+                    DISABLE_AUTOUPDATER "1")
+               (comment "Install a wrapper that skips permission prompts by default")
+               (copy :heredoc "/usr/local/bin/claude"
+                     ,(agent-wrapper-script "/usr/local/bin/claude.real" "--dangerously-skip-permissions"))
+               (run "chmod +x /usr/local/bin/claude")))
           ,@(when *install-kiro-cli*
               `((copy "/root/.local/bin/kiro-cli" "/usr/local/bin/kiro-cli" :from builder-kiro :link t :chmod "755")
                 ;(copy "/root/.local/bin/kiro-cli-chat" "/usr/local/bin/kiro-cli-chat" :from builder-kiro :link t :chmod "755")
@@ -813,6 +847,7 @@ exec /usr/local/bin/agent.real "$@"
                ,@(builder-python-stage)
                ,@(builder-agy-stage)
                ,@(builder-copilot-stage)
+               ,@(builder-claude-stage)
                ,@(builder-kiro-stage)
                ,@(builder-kirocrew-stage)
                ,@(builder-teamcity-stage)

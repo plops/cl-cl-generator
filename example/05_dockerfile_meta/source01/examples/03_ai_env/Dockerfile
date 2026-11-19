@@ -27,6 +27,20 @@ RUN curl -fsSL https://gh.io/copilot-install -o copilot-install.sh \
  && PREFIX=/usr/local VERSION=latest bash copilot-install.sh \
  && rm copilot-install.sh
 # ====================================================================
+# Stage: Claude Code CLI Download
+# ====================================================================
+FROM ubuntu:26.04 AS builder-claude
+ENV DEBIAN_FRONTEND=noninteractive
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl
+WORKDIR /workspace
+# Install Claude Code with Anthropic's native installer and resolve the launcher symlink to a standalone binary
+RUN curl -fsSL https://claude.ai/install.sh -o claude-install.sh \
+ && bash claude-install.sh \
+ && cp -L /root/.local/bin/claude /usr/local/bin/claude \
+ && /usr/local/bin/claude --version \
+ && rm claude-install.sh
+# ====================================================================
 # Stage: Kiro CLI Download
 # ====================================================================
 FROM ubuntu:26.04 AS builder-kiro
@@ -111,6 +125,20 @@ exec /usr/local/bin/copilot.real --allow-all "$@"
 
 EOF
 RUN chmod +x /usr/local/bin/copilot
+COPY --from=builder-claude --link --chmod=755 /usr/local/bin/claude /usr/local/bin/claude.real
+# Keep all Claude state (incl. .claude.json and .credentials.json) in one bind-mountable directory.
+# IS_SANDBOX allows --dangerously-skip-permissions as root; the binary is image-managed, so no self-updates.
+ENV CLAUDE_CONFIG_DIR=/root/.claude \
+    IS_SANDBOX=1 \
+    DISABLE_AUTOUPDATER=1
+# Install a wrapper that skips permission prompts by default
+COPY <<'EOF' /usr/local/bin/claude
+#!/usr/bin/env bash
+set -euo pipefail
+exec /usr/local/bin/claude.real --dangerously-skip-permissions "$@"
+
+EOF
+RUN chmod +x /usr/local/bin/claude
 COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli
 # Rename the original binary and install a wrapper that skips confirmation for init
 RUN mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real
