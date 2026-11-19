@@ -142,7 +142,7 @@ To avoid authenticating every time you run a new container and to persist chat h
 - `/root/.grok` (holds Grok auth, downloads, and completions)
 - `/root/.cargo` (holds Cargo's downloaded crates, indexes, and git repositories, preventing re-downloads)
 
-`setup02_run.sh` starts the container with the invoking host user's numeric UID, GID and supplementary groups. This is important for bind mounts: files created or modified below `/workspace/src` are therefore owned by the host user instead of container `root`. With `--docker-sock`, it also passes the socket's numeric group. The generator makes `/root` traversable so the existing credential mounts below `/root` remain usable by that numeric user. Run the container through `setup02_run.sh` rather than calling `docker run` without `--user`.
+`setup02_run.sh` runs the container as root (`--user 0:0`, `HOME=/root`); running with the host UID did not work reliably with the installed tools. Consequently, files created below `/workspace/src` from inside the container are owned by root on the host (unless Docker runs rootless). The host credential directories are bind-mounted below `/root`. Containers are started with `--rm` and named `ai-env-<pid>` (override with `CONTAINER_NAME`).
 
 ### How to Run
 
@@ -186,7 +186,8 @@ Keep the file out of git; `.gitignore` already excludes `.env` and `.env.*` file
 
 - `setup00_generate_dockerfile.sh` regenerates `Dockerfile` from `gen_ai_env.lisp`. It is the only script that needs SBCL and is mainly for maintainers.
 - `setup01_build.sh` builds the image from the checked-in `Dockerfile`. It only needs Docker and a shell, and it creates a temporary `.emacs` if needed for the build context.
-- `setup02_run.sh` starts the image with portable defaults. Override `ENV_FILE`, `HOST_SRC_ROOT`, or `IMAGE_NAME` if you need a different env file, source mount, or tag. Pass `--gpus all` (or `--gpu`) to enable NVIDIA GPU passthrough, `--usb` for privileged J-Link USB access, and `--docker-sock` to mount the host Docker socket. `--host-opt` exposes host `/opt` read-only at `/host/opt`; it deliberately does not replace the image's `/opt` because CUDA's entrypoint lives there.
+- `setup02_run.sh` starts the image with portable defaults. Override `ENV_FILE`, `HOST_SRC_ROOT`, `SOURCE_REPOS` or `IMAGE_NAME` if you need a different env file, source mount, or tag. With `--source-isolation` (default) only the repos in `SOURCE_REPOS` below `HOST_SRC_ROOT` are mounted; missing ones are skipped with a warning. Pass `--gpus all` (or `--gpu`) to enable NVIDIA GPU passthrough; if Docker has no NVIDIA support (no NVIDIA Container Toolkit/CDI, e.g. on an Intel/AMD laptop) the script warns and starts without GPUs (`FORCE_NVIDIA=1` skips the check). `--graphics` passes `/dev/dri`, X11 and `--ipc=host`. `--usb`/`--host-kmsg` run privileged (all host devices visible), `--docker-sock` mounts the host Docker socket. `--host-opt` exposes host `/opt` read-only at `/host/opt`; it deliberately does not replace the image's `/opt` because CUDA's entrypoint lives there.
+- `setup02_run.sh --host-ssh` (default off) lets the container ssh into the host: it creates a temporary ed25519 key, appends it to `~/.ssh/authorized_keys` restricted with `from="<docker bridge subnet>,127.0.0.1,::1"`, maps the private key to `/root/.ssh/id_host` and installs `/etc/ssh/ssh_config.d/00-ai-env-host.conf`, so `ssh host` works inside the container. The host's own host keys are pinned (`StrictHostKeyChecking yes`). Key and `authorized_keys` entry are removed when the container exits. The alias lives in `ssh_config.d` rather than `/root/.ssh/config`, because `/root/.ssh` is the bind-mounted host `~/.ssh` (a change there would alter the host config, and OpenSSH rejects a user config not owned by root). Requires a running sshd that listens on the Docker bridge; `HOST_SSH_PORT`/`HOST_SSH_USER` override port and user.
 - `setup03_save.sh` exports the image with `docker save`. It writes a tar file next to the script by default and also creates a `.zst` copy when `zstd` is installed.
 - `setup04_cleanup.sh` performs targeted cleanup for this example: it stops and removes containers created from `IMAGE_NAME`, removes that image tag, can optionally remove the Cargo cache volume or prune dangling images, can suggest cleanup command variants with estimated reclaimable space, and can list or remove other local images sorted by size or age.
 
@@ -291,101 +292,7 @@ Mit `*install-kirocrew* t` enthält das Image KiroCrew 0.7.2 (Default: aus). Der
 Release-Meldung und den SHA-256-Prüfwert des Wheels und richtet CPython 3.12
 mit dem von KiroCrew gepinnten `uv` ein.
 
-
-Zum Start des regulären Arbeitscontainers mit Zugriff auf den Docker-Daemon:
-
-```sh
-./setup02_run.sh --docker-sock --no-source-isolation
-```
-
-Falls das vorhandene Image Codex oder Docker-CLI noch nicht enthält, vorher
-neu bauen:
-
-```sh
-./setup00_generate_dockerfile.sh
-./setup01_build.sh
-./setup02_run.sh --docker-sock --no-source-isolation
-```
-
-Das reguläre Image enthält weiterhin den Codex-Launcher. Das oben erzeugte
-kleine `kirocrew-validation:local` ist ausschließlich das Prüfimage und enthält
-keinen Codex-Launcher. Es wird vom Integrationstest automatisch gestartet.
-Der normale Generator ist derzeit ohne CUDA konfiguriert. Der separate
-KiroCrew-Validierungsbuild ist ebenfalls CUDA-frei und schaltet weitere große
-Komponenten gezielt ab.
-
-`setup02_run.sh` führt die Programme im Container als Root aus und setzt
-`HOME=/root`. Die Credential-Verzeichnisse des Host-Benutzers werden dort
-eingehängt. Ein Lauf mit Host-UID 1000 (`kiel`) war das gewünschte Ziel,
-funktionierte mit den installierten Programmen aber nicht zuverlässig; daher
-bleibt Root der geprüfte Betriebsmodus. Mit `--docker-sock` wird zusätzlich
-der Docker-Socket eingebunden und seine numerische Gruppe ergänzt. Dadurch
-kann die Docker-CLI im Container den Host-Daemon ansprechen; diese Option
-verleiht weitreichende Host-Rechte. Prüfe nach dem Start `id`, `docker info`
-und `kirocrew --version`.
-
-`setup02_run.sh` startet den Container immer in Bash. `kirocrew` startet danach
-manuell das Gateway mit `--approval yolo`; `kirocrew gateway` erzwingt denselben
-Modus auch dann, wenn ein anderes `--approval` angegeben wurde. Der geprüfte
-KiroCrew-Release 0.7.2 bietet für `kirocrew chat` keinen YOLO-Schalter; dieser
-Befehl bleibt deshalb unverändert beim interaktiven Freigabeverhalten. Für
-YOLO-Betrieb `kirocrew` oder `kirocrew gateway` verwenden.
-
-```sh
-./setup02_run.sh
-# In der Bash des Containers: startet das Gateway mit YOLO.
-kirocrew
-```
-
-Port 5476 ist standardmäßig auf `127.0.0.1` des Hosts veröffentlicht.
-Der Container bleibt in Bash; Gateway startest du danach im Container wie oben.
-Mit `--kirocrew-port` lässt sich der Host-Port ändern:
-
-```sh
-./setup02_run.sh --kirocrew-port 15476
-# Im Container: kirocrew gateway --no-open --port 5476 --approval interactive
-# Der Wrapper setzt die Approval-Option dennoch auf yolo.
-```
-
-Der Browser öffnet `http://localhost:15476/`. Das Gateway bindet im Container
-an `0.0.0.0`, während das Host-Mapping nur `127.0.0.1` verwendet.
-Das Startskript verwendet hierfür Docker-Bridge-Netzwerk. Für Anmeldeabläufe,
-die ausdrücklich Host-`localhost` benötigen, gibt es `--host-network`.
-In diesem Modus entfällt das Docker-Portmapping; `--kirocrew-port` ist damit
-nicht kombinierbar. Das Skript setzt `KIROCREW_BIND=127.0.0.1`, sodass das
-Gateway auf dem Host nur an dessen Loopback-Adresse auf Port 5476 lauscht.
-
-Die Login-Konfiguration von kiro-cli bleibt auf dem Host unter
-`~/.local/share/kiro-cli`. KiroCrew-Konfiguration, Sessions und Gedächtnis
-liegen persistent unter `~/.kiro/crew-yolo`; `setup02_run.sh` bindet beide
-Verzeichnisse ein. Der getrennte KiroCrew-Pfad ist erforderlich, damit der
-Gateway-YOLO-Modus als expliziter, vom Standard isolierter Datenpfad erkannt
-wird. AWS-SSO-Daten bleiben zusätzlich unter `~/.aws` erhalten.
-
-Einmalig im laufenden Container anmelden:
-
-```sh
-kiro-cli login
-```
-
-Das Dashboard benötigt einen Token. Erzeuge im Container einen kurzlebigen
-Link und öffne ihn zeitnah im Browser:
-
-```sh
-kirocrew token --ttl 2h
-```
-
-Für LAN-Zugriff ist eine passende Dashboard-Origin-Konfiguration erforderlich;
-für entfernte Nutzung sollte ein TLS-Reverse-Proxy davorstehen. YOLO erlaubt
-Tool-Aufrufe ohne Rückfrage. Die Agent-Ausführung kann dennoch fail-closed
-bleiben, wenn die innere Sandbox nicht verfügbar ist. Das Containerstartskript
-aktiviert weder `--privileged` noch unsandboxierte Ausführung. KiroCrew 0.7.2
-verweigert Agent-Prozesse ohne Sandbox-Backend standardmäßig. Für die innere
-Linux-Namespace-Sandbox kann ein KiroCrew-kompatibles Seccomp-Profil mit
-`--kirocrew-sandbox-profile /pfad/kirocrew-seccomp.json` aktiviert werden;
-das Startskript setzt dabei auch `apparmor=unconfined`. Das offizielle Profil
-liegt in KiroCrews Repository unter `docker/seccomp/kirocrew-seccomp.json`.
-Falls der Betreiber bewusst auf die innere Sandbox verzichtet, ist die
-explizite KiroCrew-Konfigurationsoption
-`agent.sandbox_allow_unsandboxed_exec=true` erforderlich. In diesem Fall sind
-die eingehängten Host-Verzeichnisse für Agent-Prozesse zugänglich.
+`setup02_run.sh` unterstützt KiroCrew nicht mehr: es gibt kein Portmapping für 5476,
+kein `KIROCREW_HOME`/`KIROCREW_BIND` und keine `--kirocrew-*`-Optionen. Wer KiroCrew
+trotzdem nutzt, muss Port, Datenpfad (`~/.kiro/crew-yolo`) und ggf. Seccomp-Profil
+selbst an `docker run` übergeben.
