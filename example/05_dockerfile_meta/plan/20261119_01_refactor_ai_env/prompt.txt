@@ -1,0 +1,85 @@
+**Rolle & Umgebung:**
+
+Du läufst in einem Docker-Image mit Ubuntu 26 auf einem Linux-Host.
+Docker-Referenz:
+`/workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/examples/03_ai_env/Dockerfile`
+Falls dir Pakete fehlen, installiere sie selbstständig (Python-Abhängigkeiten mit `uv`).
+
+**Aufgabe:**
+
+Refaktoriere
+`/workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/examples/03_ai_env/gen_ai_env.lisp`.
+Ziele, in dieser Priorität:
+1. Duplizierten Code vermeiden.
+2. Wartbarkeit: ein neues Tool/Feature soll mit möglichst wenigen, nahe beieinander liegenden
+   Änderungen hinzugefügt werden können.
+3. Leichte Lesbarkeit: kurze, benannte Funktionen, klare Layer-Reihenfolge, keine toten Schalter,
+   keine veralteten Kommentare.
+
+Lies zuerst:
+- `review.md` in diesem Ordner. Es enthält die Befunde F1–F12 (Fehler), D1–D8 (Duplikate)
+  und die vorgeschlagene Zielstruktur.
+- `task.md` in diesem Ordner. Dort stehen die seriell abzuarbeitenden Schritte.
+- `/workspace/src/cl-cl-generator/example/05_dockerfile_meta/source01/skills/cl_dockerfile_generator/SKILL.md`
+- `/workspace/src/cl-cl-generator/example/05_dockerfile_meta/gen.lisp` und `source01/dock.lisp`
+- `source01/examples/03_ai_env/README.md` und die `test_kirocrew_*.sh`-Skripte
+- die früheren Pläne unter `source01/examples/03_ai_env/plan/2026*/` (prompt.txt, walkthrough.md)
+
+Pass auf, dass du dich nicht mit den Klammern verhedderst, wenn du Lisp schreibst. Nach jeder
+Änderung muss die Datei mit `sbcl` fehlerfrei laden. Achte auf `:invert`-readtable-case und `#r`-Strings.
+Semikolons in normalen Lisp-Strings sind kein Kommentar. Prüfe nach dem Editieren trotzdem, dass
+C/CUDA/Rust-Testcode seine Semikolons behält (siehe F2).
+
+**Harte Regeln:**
+
+- **Golden-Diff zuerst:** Bevor du irgendetwas änderst, erzeuge Referenz-Dockerfiles für eine
+  Variantenmatrix (mindestens: Default, alles an, alles aus, CUDA aus, KiroCrew an). Lege sie
+  unter `plan/20261119_01_refactor_ai_env/golden/` ab. Jeder reine Refactoring-Commit muss für
+  alle Varianten **byte-identische** Dockerfiles erzeugen. Hinweis: Wegen F4 musst du die
+  Varianten vor dem Fix durch Setzen der Flags *vor* dem Laden erzeugen, oder durch Neuladen
+  der Datei mit vorbelegten Variablen. Dokumentiere die Methode.
+- **Verhaltensänderungen getrennt:** Bugfixes (F1–F12) kommen jeweils in eigene Commits. In der
+  Commit-Nachricht steht der erwartete Golden-Diff. Danach werden die Golden-Files bewusst
+  aktualisiert.
+- Ändere **keine** Default-Werte der Feature-Schalter, keine CUDA-Defaults, keine Installationsquellen
+  und keine Versionen. Ausnahme: ein Befund in review.md verlangt es ausdrücklich.
+- `setup02_run.sh` startet den Container absichtlich als root. Ändere das nicht.
+- Die Layer-Reihenfolge im Runner bestimmt den Docker-Cache. Ändere sie nur bewusst und dokumentiert.
+- Halte die bestehenden Tests grün: `test_kirocrew_generation.sh`, `test_kirocrew_variants.sh`
+  und die DSL-Unit-Tests (`run_tests.lisp`, Aufruf siehe SKILL.md). Passe die Tests an, falls sich
+  die API ändert (z. B. `generate-ai-env` mit `&key`).
+- Wenn du `dock.lisp` erweiterst (z. B. `copy :heredoc` mit `:chmod`), ändere **`gen.lisp`**
+  und erzeuge `dock.lisp` daraus neu. Editiere `dock.lisp` nie direkt. Ergänze dazu einen Unit-Test.
+- Ein Docker-Build des vollständigen CUDA-Images ist nicht erforderlich. Für die reaktivierten
+  Smoke-Tests (F1/F2) baue ein kleines CUDA-freies Testimage (`*enable-cuda* nil`, nur die
+  nötigen Features), damit die Testskripte wirklich ausgeführt werden. Den CUDA-nvcc-Test prüfst
+  du nur generativ (Inhalt des Dockerfiles), außer eine GPU ist verfügbar.
+- Committe nach jedem abgeschlossenen Task aus `task.md`.
+
+**README:**
+
+Bringe die Parametertabellen in `source01/examples/03_ai_env/README.md` mit dem Code in Einklang
+(F10). Ideal ist es, wenn jeder `defparameter` einen Docstring hat und ein kleiner Lisp-Helfer
+die Tabelle aus den Docstrings und Default-Werten erzeugen oder zumindest prüfen kann. Dann
+kann die Tabelle nicht wieder veralten.
+
+**Walkthrough:**
+
+Nach der vollständigen Implementierung, wenn alle Tests abgeschlossen sind und alles committed
+ist, schreibe ein Walkthrough-Dokument nach
+`plan/20261119_01_refactor_ai_env/walkthrough.md` (im Ordner, in dem diese prompt.txt liegt).
+
+Regeln für dieses Dokument:
+- **Sprache und Stil:** Das Dokument *muss zwingend auf Deutsch* verfasst sein. Es soll den Leser
+  didaktisch gut abholen, mitnehmen und flüssig lesbar sein.
+- **Erklärungen:** Fachbegriffe (z. B. Backquote/Splicing, BuildKit-Cache-Mount, Golden-Test,
+  Heredoc) kurz und verständlich erklären.
+- **Visualisierung:** reichlich Vorher/Nachher-Code-Beispiele. Verwende **Mermaid-Diagramme** für
+  die neue Struktur von `gen_ai_env.lisp` (Konfiguration → Helfer → Stages → Dockerfile)
+  und für den Stage-Graphen des erzeugten Dockerfiles.
+- **Inhaltliche Struktur:**
+  1. Was exakt geändert wurde (mit Zeilenbilanz vorher/nachher).
+  2. Welche Befunde aus review.md behoben wurden, welche bewusst nicht, und warum.
+  3. Welche Entscheidungen aufgrund von Tests geändert werden mussten.
+  4. Anleitung: „So fügst du ein neues Tool hinzu“ (Schritt für Schritt mit Beispiel).
+  5. Learnings und mögliche Erweiterungen (z. B. Feature-Registry, Pinning von Versionen).
