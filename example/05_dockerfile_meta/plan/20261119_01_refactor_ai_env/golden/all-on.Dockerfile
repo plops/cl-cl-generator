@@ -141,7 +141,6 @@ esac
 
 EOF
 RUN chmod +x /usr/local/bin/kirocrew
-ENV KIROCREW_BIND=0.0.0.0
 # Copy the modern uv binary directly from Astral's official release container
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV UV_TOOL_BIN_DIR=/usr/local/bin

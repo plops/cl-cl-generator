@@ -79,8 +79,6 @@
   "probe-rs embedded debugging tools. Requires *INSTALL-RUST*.")
 (defparameter *install-difftastic* t
   "difftastic, configured as git's external diff. Requires *INSTALL-RUST*.")
-(defparameter *rust-cache-volume* t
-  "Declare /root/.cargo as a VOLUME (setup02_run.sh mounts a named volume there).")
 (defparameter *install-conan* t
   "Install the Conan C/C++ package manager as an isolated uv tool.")
 (defparameter *install-docker-cli* t
@@ -607,8 +605,8 @@ grep -qi 'acp' /tmp/kiro-cli-acp-help.txt
                PATH "/usr/local/cuda/bin:$PATH"
                LD_LIBRARY_PATH "/usr/local/cuda/lib64:$LD_LIBRARY_PATH")))
     (workdir "/workspace")
-    ;; The run script supplies the host UID/GID. Keep /root traversable so
-    ;; bind-mounted credential directories remain usable by that user.
+    ;; setup02_run.sh runs the container as root (deliberately). Keeping /root
+    ;; traversable lets an optional non-root user reach bind-mounted credentials.
     (run "chmod 755 /root")))
 
 (defun runner-kirocrew ()
@@ -617,8 +615,7 @@ grep -qi 'acp' /tmp/kiro-cli-acp-help.txt
       ,@(loop for dir in '("/opt/kirocrew-venv" "/opt/kirocrew-venv-current" "/opt/kirocrew-python")
               collect `(copy ,dir ,dir :from builder-kirocrew :link t))
       (copy "/root/.local/bin/kirocrew" ,(bin-path "kirocrew") :from builder-kirocrew :link t :chmod "755")
-      ,@(wrap-binary "kirocrew" (kirocrew-wrapper-script (real-path "kirocrew")))
-      (env KIROCREW_BIND "0.0.0.0"))))
+      ,@(wrap-binary "kirocrew" (kirocrew-wrapper-script (real-path "kirocrew"))))))
 
 (defun runner-apt ()
   `((comment "Copy the modern uv binary directly from Astral's official release container")
