@@ -287,21 +287,10 @@ NVIDIA's CUDA 13.3.1 (Ubuntu 26.04) Docker images offer varying sizes based on b
 For production, prioritize the runtime or cudnn-runtime images, while the devel options are recommended for compilation.
 # KiroCrew
 
-Das Image enthält KiroCrew 0.7.2. Der offizielle Installer prüft eine signierte
+Mit `*install-kirocrew* t` enthält das Image KiroCrew 0.7.2 (Default: aus). Der offizielle Installer prüft eine signierte
 Release-Meldung und den SHA-256-Prüfwert des Wheels und richtet CPython 3.12
 mit dem von KiroCrew gepinnten `uv` ein.
 
-Für einen kleinen Integrations-Build ohne CUDA und ohne die übrigen AI-Tools:
-
-```sh
-./test_kirocrew_minimal_build.sh
-```
-
-Der Test erzeugt vorübergehend ein Ubuntu-26-Image mit KiroCrew, kiro-cli,
-Docker-CLI, Python und SBCL, baut es und prüft Gateway,
-Authentisierungsgrenze und Persistenz. CUDA, weitere AI-Tools, schwere
-Python-Bibliotheken und Quicklisp fehlen in dieser Variante.
-Voraussetzungen sind `sbcl`, `uv` und Zugriff auf einen Docker-Daemon.
 
 Zum Start des regulären Arbeitscontainers mit Zugriff auf den Docker-Daemon:
 
