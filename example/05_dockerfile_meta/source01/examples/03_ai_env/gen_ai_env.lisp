@@ -250,8 +250,8 @@ matplotlib scipy tqdm xarray nbdev scikit-learn seaborn.")
 (defun apt-install (packages)
   (apt-run "apt-get update" (apt-get-install packages)))
 
-(defun stage-header (title &optional (width 68))
-  (let ((rule (make-string width :initial-element #\=)))
+(defun stage-header (title)
+  (let ((rule (make-string 68 :initial-element #\=)))
     `((comment ,rule) (comment ,title) (comment ,rule))))
 
 (defun uv-copy ()
@@ -277,16 +277,24 @@ matplotlib scipy tqdm xarray nbdev scikit-learn seaborn.")
   "Wrapper script that runs REAL-BINARY with DEFAULT-ARGS prepended."
   (bash-script (format nil "exec ~a ~@[~a ~]\"$@\"" real-binary default-args)))
 
-(defun install-wrapper (name script)
-  "Write SCRIPT to /usr/local/bin/NAME and make it executable."
-  `((copy :heredoc ,(bin-path name) ,script)
-    (run ,(format nil "chmod +x ~a" (bin-path name)))))
+;; Every agent CLI follows one scheme: the upstream binary lives in
+;; /usr/local/bin/NAME.real, and /usr/local/bin/NAME is a wrapper script.
 
-(defun wrap-binary (name script &key comment)
-  "Move /usr/local/bin/NAME to NAME.real and install SCRIPT as NAME."
+(defun install-wrapper (name script &key comment)
+  "Write SCRIPT as the executable /usr/local/bin/NAME in a single layer."
   `(,@(when comment `((comment ,comment)))
-    (run ,(format nil "mv ~a ~a" (bin-path name) (real-path name)))
-    ,@(install-wrapper name script)))
+    (copy :heredoc ,(bin-path name) ,script :chmod "755")))
+
+(defun wrap-binary (name script &key (from (bin-path name)) (operation "mv") comment)
+  "Move (or copy, with OPERATION \"cp\") an installed binary FROM to NAME.real,
+then install SCRIPT as NAME."
+  `((run ,(format nil "~a ~a ~a" operation from (real-path name)))
+    ,@(install-wrapper name script :comment comment)))
+
+(defun copy-wrapped-binary (name stage src script &key comment)
+  "Copy SRC from builder STAGE directly to NAME.real, then install SCRIPT as NAME."
+  `((copy ,src ,(real-path name) :from ,stage :link t :chmod "755")
+    ,@(install-wrapper name script :comment comment)))
 
 (defun installer-builder-stage (stage title &key (packages '("ca-certificates" "curl"))
                                                  (workdir "/workspace") comment commands)
@@ -644,7 +652,7 @@ rm -rf "$tmpdir"
 ;;; ===================================================================
 
 (defun runner-base ()
-  `(,@(stage-header "Stage 2: Insulated Runtime Runner" 69)
+  `(,@(stage-header "Stage: Runner (final image)")
     (from ,(base-image) :as runner)
     (env DEBIAN_FRONTEND "noninteractive")
     ,@(when *install-kirocrew*
@@ -670,8 +678,9 @@ rm -rf "$tmpdir"
     `((comment "Copy the signed KiroCrew installation and its managed Python 3.12 runtime")
       ,@(loop for dir in '("/opt/kirocrew-venv" "/opt/kirocrew-venv-current" "/opt/kirocrew-python")
               collect `(copy ,dir ,dir :from builder-kirocrew :link t))
-      (copy "/root/.local/bin/kirocrew" ,(bin-path "kirocrew") :from builder-kirocrew :link t :chmod "755")
-      ,@(wrap-binary "kirocrew" (kirocrew-wrapper-script (real-path "kirocrew"))))))
+      ,@(copy-wrapped-binary "kirocrew" 'builder-kirocrew "/root/.local/bin/kirocrew"
+                             (kirocrew-wrapper-script (real-path "kirocrew"))
+                             :comment "Install a wrapper that starts the gateway with YOLO approval"))))
 
 (defun runner-apt ()
   `((comment "Copy the modern uv binary directly from Astral's official release container")
@@ -734,10 +743,10 @@ rm -rf "$tmpdir"
 
 (defun runner-agy ()
   (when *install-agy*
-    `((comment "Copy the actual agy CLI tool from the builder's local path to system binaries")
-      (copy "/root/.local/bin/agy" ,(bin-path "agy") :from builder-agy :link t :chmod "755")
-      ,@(wrap-binary "agy" (exec-wrapper (real-path "agy") "--dangerously-skip-permissions")
-                     :comment "Rename the original binary and install a wrapper that skips permissions by default")
+    `((comment "Copy the Antigravity CLI from the builder image")
+      ,@(copy-wrapped-binary "agy" 'builder-agy "/root/.local/bin/agy"
+                             (exec-wrapper (real-path "agy") "--dangerously-skip-permissions")
+                             :comment "Install a wrapper that skips permissions by default")
       (comment "Add the Antigravity clean environment tweaks to .bashrc")
       (run (and #r|echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1="\$ "; fi' >> /root/.bashrc|
                 #r|echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc|)))))
@@ -747,41 +756,38 @@ rm -rf "$tmpdir"
     `(,@(npm-global-install "@openai/codex@$(npm view @openai/codex version)"
                             "Install the newest Codex release directly in the runner image")
       ,@(wrap-binary "codex" (exec-wrapper (real-path "codex") "--dangerously-bypass-approvals-and-sandbox --no-daemon")
-                     :comment "Rename the original binary and install a wrapper that bypasses approvals and sandboxing by default"))))
+                     :comment "Install a wrapper that bypasses approvals and sandboxing by default"))))
 
 (defun runner-copilot ()
   (when *install-copilot*
-    `((copy ,(bin-path "copilot") ,(bin-path "copilot") :from builder-copilot :link t :chmod "755")
-      ,@(wrap-binary "copilot" (exec-wrapper (real-path "copilot") "--allow-all")
-                     :comment "Rename the original binary and install a wrapper that allows all actions by default"))))
+    `((comment "Copy GitHub Copilot CLI from the builder image")
+      ,@(copy-wrapped-binary "copilot" 'builder-copilot (bin-path "copilot")
+                             (exec-wrapper (real-path "copilot") "--allow-all")
+                             :comment "Install a wrapper that allows all actions by default"))))
 
 (defun runner-claude ()
   (when *install-claude*
-    `((copy ,(bin-path "claude") ,(real-path "claude") :from builder-claude :link t :chmod "755")
-      (comment "Keep all Claude state (incl. .claude.json and .credentials.json) in one bind-mountable directory.")
+    `((comment "Keep all Claude state (incl. .claude.json and .credentials.json) in one bind-mountable directory.")
       (comment "IS_SANDBOX allows --dangerously-skip-permissions as root; the binary is image-managed, so no self-updates.")
       (env CLAUDE_CONFIG_DIR "/root/.claude"
            IS_SANDBOX "1"
            DISABLE_AUTOUPDATER "1")
-      (comment "Install a wrapper that skips permission prompts by default")
-      ,@(install-wrapper "claude" (exec-wrapper (real-path "claude") "--dangerously-skip-permissions")))))
+      (comment "Copy Claude Code from the builder image")
+      ,@(copy-wrapped-binary "claude" 'builder-claude (bin-path "claude")
+                             (exec-wrapper (real-path "claude") "--dangerously-skip-permissions")
+                             :comment "Install a wrapper that skips permission prompts by default"))))
 
 (defun runner-kiro-cli ()
   (when *install-kiro-cli*
-    `((copy "/root/.local/bin/kiro-cli" ,(bin-path "kiro-cli") :from builder-kiro :link t :chmod "755")
-      ,@(wrap-binary "kiro-cli" (kiro-cli-wrapper-script (real-path "kiro-cli"))
-                     :comment "Rename the original binary and install a wrapper that skips confirmation for init"))))
+    `((comment "Copy Kiro CLI from the builder image")
+      ,@(copy-wrapped-binary "kiro-cli" 'builder-kiro "/root/.local/bin/kiro-cli"
+                             (kiro-cli-wrapper-script (real-path "kiro-cli"))
+                             :comment "Install a wrapper that skips confirmation for init"))))
 
 (defun runner-teamcity ()
   (when *install-teamcity-cli*
     `((comment "Copy TeamCity CLI from the builder image")
       (copy ,(bin-path "teamcity") ,(bin-path "teamcity") :from builder-teamcity :link t :chmod "755"))))
-
-(defun runner-agent-clis ()
-  (let ((forms (append (runner-codex) (runner-copilot) (runner-claude)
-                       (runner-kiro-cli) (runner-teamcity))))
-    (when forms
-      `((comment "Install or copy other AI CLI tools") ,@forms))))
 
 (defun runner-azure-cli ()
   (when *install-azure-cli*
@@ -861,30 +867,26 @@ rm -rf "$tmpdir"
       (run (and "curl -fsSL https://x.ai/cli/install.sh -o grok-install.sh"
                 "bash grok-install.sh"
                 "rm grok-install.sh"))
-      (comment "Move the installed Grok binaries out of ~/.grok so they survive optional auth volume mounts")
-      (run ,(format nil "cp /root/.grok/bin/grok ~a" (real-path "grok")))
-      (run ,(format nil "cp /root/.grok/bin/agent ~a" (real-path "agent")))
-      (copy :heredoc ,(bin-path "grok") ,(exec-wrapper (real-path "grok") "--always-approve"))
-      (copy :heredoc ,(bin-path "agent") ,(exec-wrapper (real-path "agent")))
-      (run ,(format nil "chmod +x ~{~a~^ ~}"
-                    (list (bin-path "grok") (real-path "grok") (bin-path "agent") (real-path "agent")))))))
+      (comment "Copy the Grok binaries out of ~/.grok so they survive optional auth volume mounts")
+      ,@(wrap-binary "grok" (exec-wrapper (real-path "grok") "--always-approve")
+                     :from "/root/.grok/bin/grok" :operation "cp")
+      ,@(wrap-binary "agent" (exec-wrapper (real-path "agent"))
+                     :from "/root/.grok/bin/agent" :operation "cp"))))
 
 (defun runner-muse ()
   (when *install-muse*
     `((comment "Install Meta Muse Code from the official installer")
       (run (and "curl -fsSL https://dev.meta.ai/install.sh | MUSE_INSTALL_DIR=/usr/local/bin bash"
                 "command -v muse"))
-      (run ,(format nil "cp ~a ~a" (bin-path "muse") (real-path "muse")))
-      (copy :heredoc ,(bin-path "muse") ,(exec-wrapper (real-path "muse") "--yolo"))
-      (run ,(format nil "chmod +x ~a ~a" (bin-path "muse") (real-path "muse"))))))
+      ,@(wrap-binary "muse" (exec-wrapper (real-path "muse") "--yolo")
+                     :comment "Install a wrapper that runs Muse in YOLO mode by default"))))
 
 (defun runner-devin ()
   (when *install-devin-cli*
     `((comment "Install Devin CLI from the official installer")
       (run "curl -fsSL https://cli.devin.ai/install.sh | XDG_DATA_HOME=/usr/local/share bash || true # tries to run `devin setup` which fails")
-      (run ,(format nil "mv /usr/local/share/devin/cli/_versions/current/bin/devin ~a" (real-path "devin")))
-      (copy :heredoc ,(bin-path "devin") ,(exec-wrapper (real-path "devin") "--permission-mode bypass"))
-      (run ,(format nil "chmod +x ~a ~a" (bin-path "devin") (real-path "devin"))))))
+      ,@(wrap-binary "devin" (exec-wrapper (real-path "devin") "--permission-mode bypass")
+                     :from "/usr/local/share/devin/cli/_versions/current/bin/devin"))))
 
 (defun emacs-packages ()
   "SLIME is only useful (and only tested) together with SBCL."
@@ -913,7 +915,11 @@ rm -rf "$tmpdir"
           (runner-rust)
           (runner-python)
           (runner-agy)
-          (runner-agent-clis)
+          (runner-codex)
+          (runner-copilot)
+          (runner-claude)
+          (runner-kiro-cli)
+          (runner-teamcity)
           (runner-azure-cli)
           (runner-docker-cli)
           (runner-firmware)

@@ -91,9 +91,9 @@ RUN curl -fsSL https://jb.gg/tc/install -o /tmp/teamcity-install.sh \
  && bash /tmp/teamcity-install.sh \
  && rm -f /tmp/teamcity-install.sh \
  && command -v teamcity >/dev/null
-# =====================================================================
-# Stage 2: Insulated Runtime Runner
-# =====================================================================
+# ====================================================================
+# Stage: Runner (final image)
+# ====================================================================
 FROM nvidia/cuda:13.3.1-cudnn-devel-ubuntu26.04 AS runner
 ENV DEBIAN_FRONTEND=noninteractive
 ENV KIROCREW_BIND=0.0.0.0 \
@@ -113,9 +113,9 @@ RUN chmod 755 /root
 COPY --from=builder-kirocrew --link /opt/kirocrew-venv /opt/kirocrew-venv
 COPY --from=builder-kirocrew --link /opt/kirocrew-venv-current /opt/kirocrew-venv-current
 COPY --from=builder-kirocrew --link /opt/kirocrew-python /opt/kirocrew-python
-COPY --from=builder-kirocrew --link --chmod=755 /root/.local/bin/kirocrew /usr/local/bin/kirocrew
-RUN mv /usr/local/bin/kirocrew /usr/local/bin/kirocrew.real
-COPY <<'EOF' /usr/local/bin/kirocrew
+COPY --from=builder-kirocrew --link --chmod=755 /root/.local/bin/kirocrew /usr/local/bin/kirocrew.real
+# Install a wrapper that starts the gateway with YOLO approval
+COPY --chmod=755 <<'EOF' /usr/local/bin/kirocrew
 #!/usr/bin/env bash
 set -euo pipefail
 case "${1:-}" in
@@ -140,7 +140,6 @@ case "${1:-}" in
 esac
 
 EOF
-RUN chmod +x /usr/local/bin/kirocrew
 # Copy the modern uv binary directly from Astral's official release container
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ENV UV_TOOL_BIN_DIR=/usr/local/bin
@@ -196,60 +195,55 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/probe-rs/probe-rs/r
 # Copy the isolated Python environment
 COPY --from=builder-python --link /workspace/.venv /workspace/.venv
 ENV PATH=/workspace/.venv/bin:$PATH
-# Copy the actual agy CLI tool from the builder's local path to system binaries
-COPY --from=builder-agy --link --chmod=755 /root/.local/bin/agy /usr/local/bin/agy
-# Rename the original binary and install a wrapper that skips permissions by default
-RUN mv /usr/local/bin/agy /usr/local/bin/agy.real
-COPY <<'EOF' /usr/local/bin/agy
+# Copy the Antigravity CLI from the builder image
+COPY --from=builder-agy --link --chmod=755 /root/.local/bin/agy /usr/local/bin/agy.real
+# Install a wrapper that skips permissions by default
+COPY --chmod=755 <<'EOF' /usr/local/bin/agy
 #!/usr/bin/env bash
 set -euo pipefail
 exec /usr/local/bin/agy.real --dangerously-skip-permissions "$@"
 
 EOF
-RUN chmod +x /usr/local/bin/agy
 # Add the Antigravity clean environment tweaks to .bashrc
 RUN echo 'if [[ -n "$ANTIGRAVITY_AGENT" ]]; then export TERM=dumb; export DEBIAN_FRONTEND=noninteractive; unalias -a; export PS1="\$ "; fi' >> /root/.bashrc \
  && echo "alias agy='agy --dangerously-skip-permissions'" >> /root/.bashrc
-# Install or copy other AI CLI tools
 # Install the newest Codex release directly in the runner image
 RUN --mount=type=cache,target=/root/.npm npm install -g @openai/codex@$(npm view @openai/codex version)
-# Rename the original binary and install a wrapper that bypasses approvals and sandboxing by default
 RUN mv /usr/local/bin/codex /usr/local/bin/codex.real
-COPY <<'EOF' /usr/local/bin/codex
+# Install a wrapper that bypasses approvals and sandboxing by default
+COPY --chmod=755 <<'EOF' /usr/local/bin/codex
 #!/usr/bin/env bash
 set -euo pipefail
 exec /usr/local/bin/codex.real --dangerously-bypass-approvals-and-sandbox --no-daemon "$@"
 
 EOF
-RUN chmod +x /usr/local/bin/codex
-COPY --from=builder-copilot --link --chmod=755 /usr/local/bin/copilot /usr/local/bin/copilot
-# Rename the original binary and install a wrapper that allows all actions by default
-RUN mv /usr/local/bin/copilot /usr/local/bin/copilot.real
-COPY <<'EOF' /usr/local/bin/copilot
+# Copy GitHub Copilot CLI from the builder image
+COPY --from=builder-copilot --link --chmod=755 /usr/local/bin/copilot /usr/local/bin/copilot.real
+# Install a wrapper that allows all actions by default
+COPY --chmod=755 <<'EOF' /usr/local/bin/copilot
 #!/usr/bin/env bash
 set -euo pipefail
 exec /usr/local/bin/copilot.real --allow-all "$@"
 
 EOF
-RUN chmod +x /usr/local/bin/copilot
-COPY --from=builder-claude --link --chmod=755 /usr/local/bin/claude /usr/local/bin/claude.real
 # Keep all Claude state (incl. .claude.json and .credentials.json) in one bind-mountable directory.
 # IS_SANDBOX allows --dangerously-skip-permissions as root; the binary is image-managed, so no self-updates.
 ENV CLAUDE_CONFIG_DIR=/root/.claude \
     IS_SANDBOX=1 \
     DISABLE_AUTOUPDATER=1
+# Copy Claude Code from the builder image
+COPY --from=builder-claude --link --chmod=755 /usr/local/bin/claude /usr/local/bin/claude.real
 # Install a wrapper that skips permission prompts by default
-COPY <<'EOF' /usr/local/bin/claude
+COPY --chmod=755 <<'EOF' /usr/local/bin/claude
 #!/usr/bin/env bash
 set -euo pipefail
 exec /usr/local/bin/claude.real --dangerously-skip-permissions "$@"
 
 EOF
-RUN chmod +x /usr/local/bin/claude
-COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli
-# Rename the original binary and install a wrapper that skips confirmation for init
-RUN mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real
-COPY <<'EOF' /usr/local/bin/kiro-cli
+# Copy Kiro CLI from the builder image
+COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli.real
+# Install a wrapper that skips confirmation for init
+COPY --chmod=755 <<'EOF' /usr/local/bin/kiro-cli
 #!/usr/bin/env bash
 set -euo pipefail
 case "${1:-}" in
@@ -258,7 +252,6 @@ case "${1:-}" in
 esac
 
 EOF
-RUN chmod +x /usr/local/bin/kiro-cli
 # Copy TeamCity CLI from the builder image
 COPY --from=builder-teamcity --link --chmod=755 /usr/local/bin/teamcity /usr/local/bin/teamcity
 # Install Azure CLI from Microsoft's official apt repository
@@ -313,43 +306,41 @@ RUN sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quicklo
 RUN curl -fsSL https://x.ai/cli/install.sh -o grok-install.sh \
  && bash grok-install.sh \
  && rm grok-install.sh
-# Move the installed Grok binaries out of ~/.grok so they survive optional auth volume mounts
+# Copy the Grok binaries out of ~/.grok so they survive optional auth volume mounts
 RUN cp /root/.grok/bin/grok /usr/local/bin/grok.real
-RUN cp /root/.grok/bin/agent /usr/local/bin/agent.real
-COPY <<'EOF' /usr/local/bin/grok
+COPY --chmod=755 <<'EOF' /usr/local/bin/grok
 #!/usr/bin/env bash
 set -euo pipefail
 exec /usr/local/bin/grok.real --always-approve "$@"
 
 EOF
-COPY <<'EOF' /usr/local/bin/agent
+RUN cp /root/.grok/bin/agent /usr/local/bin/agent.real
+COPY --chmod=755 <<'EOF' /usr/local/bin/agent
 #!/usr/bin/env bash
 set -euo pipefail
 exec /usr/local/bin/agent.real "$@"
 
 EOF
-RUN chmod +x /usr/local/bin/grok /usr/local/bin/grok.real /usr/local/bin/agent /usr/local/bin/agent.real
 # Install Meta Muse Code from the official installer
 RUN curl -fsSL https://dev.meta.ai/install.sh | MUSE_INSTALL_DIR=/usr/local/bin bash \
  && command -v muse
-RUN cp /usr/local/bin/muse /usr/local/bin/muse.real
-COPY <<'EOF' /usr/local/bin/muse
+RUN mv /usr/local/bin/muse /usr/local/bin/muse.real
+# Install a wrapper that runs Muse in YOLO mode by default
+COPY --chmod=755 <<'EOF' /usr/local/bin/muse
 #!/usr/bin/env bash
 set -euo pipefail
 exec /usr/local/bin/muse.real --yolo "$@"
 
 EOF
-RUN chmod +x /usr/local/bin/muse /usr/local/bin/muse.real
 # Install Devin CLI from the official installer
 RUN curl -fsSL https://cli.devin.ai/install.sh | XDG_DATA_HOME=/usr/local/share bash || true # tries to run `devin setup` which fails
 RUN mv /usr/local/share/devin/cli/_versions/current/bin/devin /usr/local/bin/devin.real
-COPY <<'EOF' /usr/local/bin/devin
+COPY --chmod=755 <<'EOF' /usr/local/bin/devin
 #!/usr/bin/env bash
 set -euo pipefail
 exec /usr/local/bin/devin.real --permission-mode bypass "$@"
 
 EOF
-RUN chmod +x /usr/local/bin/devin /usr/local/bin/devin.real
 # Pre-install Emacs packages
 RUN emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(setq custom-file null-device)" --eval "(dolist (pkg '(compat cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (setq package-selected-packages nil) (package-install pkg))"
 # Recompile installed Emacs packages with their dependencies available

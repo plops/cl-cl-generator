@@ -54,9 +54,9 @@ RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-
  && chmod +x /tmp/kirocli-extracted/kirocli/install.sh \
  && KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh \
  && rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted
-# =====================================================================
-# Stage 2: Insulated Runtime Runner
-# =====================================================================
+# ====================================================================
+# Stage: Runner (final image)
+# ====================================================================
 FROM nvidia/cuda:13.3.1-cudnn-devel-ubuntu26.04 AS runner
 ENV DEBIAN_FRONTEND=noninteractive
 # Configure NVIDIA Container Toolkit runtime and CUDA development paths
@@ -103,46 +103,43 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/probe-rs/probe-rs/r
 # Copy the isolated Python environment
 COPY --from=builder-python --link /workspace/.venv /workspace/.venv
 ENV PATH=/workspace/.venv/bin:$PATH
-# Install or copy other AI CLI tools
 # Install the newest Codex release directly in the runner image
 RUN --mount=type=cache,target=/root/.npm npm install -g @openai/codex@$(npm view @openai/codex version)
-# Rename the original binary and install a wrapper that bypasses approvals and sandboxing by default
 RUN mv /usr/local/bin/codex /usr/local/bin/codex.real
-COPY <<'EOF' /usr/local/bin/codex
+# Install a wrapper that bypasses approvals and sandboxing by default
+COPY --chmod=755 <<'EOF' /usr/local/bin/codex
 #!/usr/bin/env bash
 set -euo pipefail
 exec /usr/local/bin/codex.real --dangerously-bypass-approvals-and-sandbox --no-daemon "$@"
 
 EOF
-RUN chmod +x /usr/local/bin/codex
-COPY --from=builder-copilot --link --chmod=755 /usr/local/bin/copilot /usr/local/bin/copilot
-# Rename the original binary and install a wrapper that allows all actions by default
-RUN mv /usr/local/bin/copilot /usr/local/bin/copilot.real
-COPY <<'EOF' /usr/local/bin/copilot
+# Copy GitHub Copilot CLI from the builder image
+COPY --from=builder-copilot --link --chmod=755 /usr/local/bin/copilot /usr/local/bin/copilot.real
+# Install a wrapper that allows all actions by default
+COPY --chmod=755 <<'EOF' /usr/local/bin/copilot
 #!/usr/bin/env bash
 set -euo pipefail
 exec /usr/local/bin/copilot.real --allow-all "$@"
 
 EOF
-RUN chmod +x /usr/local/bin/copilot
-COPY --from=builder-claude --link --chmod=755 /usr/local/bin/claude /usr/local/bin/claude.real
 # Keep all Claude state (incl. .claude.json and .credentials.json) in one bind-mountable directory.
 # IS_SANDBOX allows --dangerously-skip-permissions as root; the binary is image-managed, so no self-updates.
 ENV CLAUDE_CONFIG_DIR=/root/.claude \
     IS_SANDBOX=1 \
     DISABLE_AUTOUPDATER=1
+# Copy Claude Code from the builder image
+COPY --from=builder-claude --link --chmod=755 /usr/local/bin/claude /usr/local/bin/claude.real
 # Install a wrapper that skips permission prompts by default
-COPY <<'EOF' /usr/local/bin/claude
+COPY --chmod=755 <<'EOF' /usr/local/bin/claude
 #!/usr/bin/env bash
 set -euo pipefail
 exec /usr/local/bin/claude.real --dangerously-skip-permissions "$@"
 
 EOF
-RUN chmod +x /usr/local/bin/claude
-COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli
-# Rename the original binary and install a wrapper that skips confirmation for init
-RUN mv /usr/local/bin/kiro-cli /usr/local/bin/kiro-cli.real
-COPY <<'EOF' /usr/local/bin/kiro-cli
+# Copy Kiro CLI from the builder image
+COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli.real
+# Install a wrapper that skips confirmation for init
+COPY --chmod=755 <<'EOF' /usr/local/bin/kiro-cli
 #!/usr/bin/env bash
 set -euo pipefail
 case "${1:-}" in
@@ -151,7 +148,6 @@ case "${1:-}" in
 esac
 
 EOF
-RUN chmod +x /usr/local/bin/kiro-cli
 # Install Docker CLI for an optionally mounted host Docker socket
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked install -m 0755 -d /etc/apt/keyrings \
  && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
@@ -192,19 +188,151 @@ RUN sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quicklo
 # Install Meta Muse Code from the official installer
 RUN curl -fsSL https://dev.meta.ai/install.sh | MUSE_INSTALL_DIR=/usr/local/bin bash \
  && command -v muse
-RUN cp /usr/local/bin/muse /usr/local/bin/muse.real
-COPY <<'EOF' /usr/local/bin/muse
+RUN mv /usr/local/bin/muse /usr/local/bin/muse.real
+# Install a wrapper that runs Muse in YOLO mode by default
+COPY --chmod=755 <<'EOF' /usr/local/bin/muse
 #!/usr/bin/env bash
 set -euo pipefail
 exec /usr/local/bin/muse.real --yolo "$@"
 
 EOF
-RUN chmod +x /usr/local/bin/muse /usr/local/bin/muse.real
-# Smoke test Kiro CLI ACP command
+# Smoke test Meta Muse Code by checking the CLI version
 RUN <<'EOF'
 set -eu
+muse --version > /tmp/muse-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/muse-version.txt
+
+EOF
+# Smoke test Claude Code by checking the CLI version through its wrapper
+RUN <<'EOF'
+set -eu
+claude --version > /tmp/claude-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/claude-version.txt
+
+EOF
+# Smoke test Kiro CLI and its ACP command
+RUN <<'EOF'
+set -eu
+kiro-cli --help > /tmp/kiro-cli-help.txt
+grep -qi 'kiro' /tmp/kiro-cli-help.txt
 kiro-cli acp --help > /tmp/kiro-cli-acp-help.txt
 grep -qi 'acp' /tmp/kiro-cli-acp-help.txt
+
+EOF
+# Smoke test GitHub Copilot CLI by checking the CLI version through its wrapper
+RUN <<'EOF'
+set -eu
+copilot --version > /tmp/copilot-version.txt
+grep -Eq '[0-9]+\.[0-9]+' /tmp/copilot-version.txt
+
+EOF
+# Smoke test Codex by checking the CLI version
+RUN <<'EOF'
+set -eu
+codex --version > /tmp/codex-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/codex-version.txt
+
+EOF
+# Smoke test Docker CLI and Buildx by checking their client versions
+RUN <<'EOF'
+set -eu
+docker --version > /tmp/docker-version.txt
+grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
+docker buildx version > /tmp/docker-buildx-version.txt
+grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
+
+EOF
+# Smoke test Conan by checking the CLI version
+RUN <<'EOF'
+set -eu
+conan --version
+
+EOF
+# Smoke test Arm GNU bare-metal toolchain by compiling a Cortex-M7 object
+RUN <<'EOF'
+set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)"
+cat > "$tmpdir/test.c" <<'C_EOF'
+void Reset_Handler(void) {}
+C_EOF
+arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c "$tmpdir/test.c" -o "$tmpdir/test.o"
+arm-none-eabi-readelf -h "$tmpdir/test.o" > "$tmpdir/readelf.txt"
+grep -Eq 'Machine.+ARM' "$tmpdir/readelf.txt"
+rm -rf "$tmpdir"
+
+EOF
+# Smoke test SEGGER J-Link command-line tools by checking their pinned version
+RUN <<'EOF'
+set -eu
+JLinkGDBServerCLExe -version > /tmp/jlink-version.txt || true
+grep -F 'V9.92 ' /tmp/jlink-version.txt
+command -v JLinkExe >/dev/null
+
+EOF
+# Smoke test CUDA nvcc compiler by compiling a test CUDA kernel
+RUN <<'EOF'
+set -eu
+nvcc --version
+tmpdir="$(mktemp -d /tmp/ai-env-cuda.XXXXXX)"
+cat > "$tmpdir/test.cu" <<'CU_EOF'
+#include <stdio.h>
+__global__ void test_kernel(void) {}
+int main(void) {
+  test_kernel<<<1, 1>>>();
+  puts("cuda-build-ok");
+  return 0;
+}
+CU_EOF
+nvcc "$tmpdir/test.cu" -o "$tmpdir/test"
+rm -rf "$tmpdir"
+
+EOF
+# Smoke test GCC by compiling and running a tiny C program
+RUN <<'EOF'
+set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-gcc.XXXXXX)"
+cat > "$tmpdir/test.c" <<'C_EOF'
+#include <stdio.h>
+int main(void) {
+  puts("gcc-ok");
+  return 0;
+}
+C_EOF
+gcc "$tmpdir/test.c" -o "$tmpdir/test"
+"$tmpdir/test" | grep -qx 'gcc-ok'
+rm -rf "$tmpdir"
+
+EOF
+# Smoke test Rust by compiling and running a tiny program
+RUN <<'EOF'
+set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-rust.XXXXXX)"
+cat > "$tmpdir/test.rs" <<'R_EOF'
+fn main() {
+    println!("rust-ok");
+}
+R_EOF
+rustc "$tmpdir/test.rs" -o "$tmpdir/test"
+"$tmpdir/test" | grep -qx 'rust-ok'
+rm -rf "$tmpdir"
+
+EOF
+# Smoke test Python by running a tiny script
+RUN <<'EOF'
+set -eu
+python3 -c 'print("python-ok")' | grep -qx 'python-ok'
+
+EOF
+# Smoke test the Python virtual environment by importing its packages
+RUN <<'EOF'
+set -eu
+python3 -c 'import numpy, pandas, loguru, requests, ruff, polars, pyarrow'
+
+EOF
+# Smoke test SBCL by evaluating a simple expression
+RUN <<'EOF'
+set -eu
+sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)' | grep -q 3
 
 EOF
 # Default to launching a bash shell

@@ -36,7 +36,7 @@ check_not "$s" "setf *enable-cuda* nil -> no CUDA" -F 'nvidia/cuda'
 check_not "$s" "no CUDA python extras"             -F 'polars'
 check_not "$s" "setf *install-gcc* nil -> no gdb"  -w 'gdb'
 for tool in muse claude kiro-cli copilot; do
-  check "$d" "$tool wrapper installed" -F "COPY <<'EOF' /usr/local/bin/$tool"
+  check "$d" "$tool wrapper installed" -F "COPY --chmod=755 <<'EOF' /usr/local/bin/$tool"
   check "$d" "$tool wrapper calls .real binary" -F "exec /usr/local/bin/$tool.real"
 done
 check "$d" "muse runs with --yolo"                  -F 'muse.real --yolo "$@"'
