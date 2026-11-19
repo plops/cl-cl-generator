@@ -877,12 +877,15 @@ grep -qi 'acp' /tmp/kiro-cli-acp-help.txt
   "Directory of this generator; the default Dockerfile is written here.")
 
 (defun generate-ai-env (&optional (output-path (merge-pathnames "Dockerfile" *ai-env-directory*)))
-  "Write the Dockerfile for the current configuration to OUTPUT-PATH."
+  "Write the Dockerfile for the current configuration to OUTPUT-PATH.
+The file is only rewritten when its content changes, so its mtime stays stable."
   (write-df output-path
             `(toplevel
                ,@(builder-stages)
-               ,@(runner-stage))
-            t))
+               ,@(runner-stage))))
 
-(let ((path (generate-ai-env)))
-  (format t "Generated Dockerfile in ~a successfully.~%" (directory-namestring path)))
+;; Set AI_ENV_NO_AUTOGEN=1 to load the generator without writing ./Dockerfile,
+;; e.g. to change switches with SETF and call GENERATE-AI-ENV with another path.
+(unless (uiop:getenv "AI_ENV_NO_AUTOGEN")
+  (let ((path (generate-ai-env)))
+    (format t "Generated Dockerfile in ~a successfully.~%" (directory-namestring path))))
