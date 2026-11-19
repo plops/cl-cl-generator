@@ -1,0 +1,2643 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from smoke-no-cuda-emacs.Dockerfile
+#1 transferring dockerfile: 16.93kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/ubuntu:26.04
+#2 ...
+
+#3 [internal] load metadata for ghcr.io/astral-sh/uv:latest
+#3 DONE 0.4s
+
+#2 [internal] load metadata for docker.io/library/ubuntu:26.04
+#2 DONE 0.5s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [internal] preparing inline document
+#5 DONE 0.0s
+
+#6 [internal] preparing inline document
+#6 DONE 0.0s
+
+#7 [internal] preparing inline document
+#7 DONE 0.0s
+
+#8 [internal] preparing inline document
+#8 DONE 0.0s
+
+#9 [internal] preparing inline document
+#9 DONE 0.0s
+
+#10 [internal] preparing inline document
+#10 DONE 0.0s
+
+#11 [internal] load build context
+#11 transferring context: 28B done
+#11 DONE 0.0s
+
+#12 [builder-kiro 1/4] FROM docker.io/library/ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
+#12 resolve docker.io/library/ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db 0.1s done
+#12 DONE 0.1s
+
+#13 FROM ghcr.io/astral-sh/uv:latest@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d
+#13 resolve ghcr.io/astral-sh/uv:latest@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d
+#13 resolve ghcr.io/astral-sh/uv:latest@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d 0.1s done
+#13 DONE 0.1s
+
+#10 [internal] preparing inline document
+#10 CACHED
+
+#14 [builder-python 5/5] RUN --mount=type=cache,target=/root/.cache/uv uv venv .venv  && uv pip install numpy pandas loguru requests ruff
+#14 CACHED
+
+#15 [runner 18/55] RUN --mount=type=cache,target=/root/.npm npm install -g @openai/codex@$(npm view @openai/codex version)
+#15 CACHED
+
+#16 [runner  5/55] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update  && apt-get install -y --no-install-recommends curl ca-certificates jq clang-format clang-tidy ninja-build cmake build-essential pkg-config gdb less file findutils tree man-db procps psmisc iproute2 iputils-ping ripgrep fd-find yq picocom git usbutils sudo libusb-1.0-0-dev moreutils tmux fzf git-lfs openssh-client parallel unzip zip xz-utils
+#16 CACHED
+
+#17 [runner  8/55] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update  && apt-get install -y --no-install-recommends emacs-nox
+#17 CACHED
+
+#18 [builder-python 2/5] COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+#18 CACHED
+
+#19 [runner 16/55] RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/probe-rs/probe-rs/releases/latest/download/probe-rs-tools-installer.sh | sh  && chmod -R a+w /root/.cargo/bin/probe-rs
+#19 CACHED
+
+#20 [builder-python 3/5] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update  && apt-get install -y --no-install-recommends python3-pip python3-venv python3-dev build-essential ca-certificates
+#20 CACHED
+
+#21 [runner 13/55] RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable  && chmod -R a+w /root/.rustup
+#21 CACHED
+
+#22 [runner 12/55] RUN --mount=type=cache,target=/root/.cache/uv uv tool install conan
+#22 CACHED
+
+#23 [runner 11/55] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update  && apt-get install -y --no-install-recommends gnupg
+#23 CACHED
+
+#24 [runner 17/55] COPY --from=builder-python --link /workspace/.venv /workspace/.venv
+#24 CACHED
+
+#25 [runner  4/55] COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+#25 CACHED
+
+#26 [runner 15/55] RUN git config --global diff.external difft
+#26 CACHED
+
+#27 [runner  6/55] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update  && apt-get install -y --no-install-recommends build-essential gcc
+#27 CACHED
+
+#28 [runner  9/55] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update  && apt-get install -y --no-install-recommends python3-full
+#28 CACHED
+
+#29 [runner  7/55] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update  && apt-get install -y --no-install-recommends sbcl rlwrap
+#29 CACHED
+
+#30 [runner 14/55] RUN --mount=type=cache,target=/root/.cargo/registry --mount=type=cache,target=/root/.cargo/git cargo install difftastic  && ln -sf /root/.cargo/bin/difft /usr/local/bin/difft
+#30 CACHED
+
+#31 [runner  2/55] WORKDIR /workspace
+#31 CACHED
+
+#32 [builder-python 4/5] WORKDIR /workspace
+#32 CACHED
+
+#33 [runner  3/55] RUN chmod 755 /root
+#33 CACHED
+
+#34 [runner 10/55] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update  && apt-get install -y --no-install-recommends nodejs npm
+#34 CACHED
+
+#5 [internal] preparing inline document
+#5 CACHED
+
+#35 [runner 19/55] RUN mv /usr/local/bin/codex /usr/local/bin/codex.real
+#35 CACHED
+
+#6 [internal] preparing inline document
+#6 CACHED
+
+#8 [internal] preparing inline document
+#8 CACHED
+
+#7 [internal] preparing inline document
+#7 CACHED
+
+#12 [builder-kiro 1/4] FROM docker.io/library/ubuntu:26.04@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
+#12 CACHED
+
+#9 [internal] preparing inline document
+#9 CACHED
+
+#36 [runner 20/55] COPY --chmod=755 <<EOF /usr/local/bin/codex
+#36 DONE 1.9s
+
+#37 [builder-kiro 2/4] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update  && apt-get install -y --no-install-recommends ca-certificates curl unzip
+#37 ...
+
+#38 [builder-claude 2/4] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update  && apt-get install -y --no-install-recommends ca-certificates curl
+#38 2.077 Hit:1 http://security.ubuntu.com/ubuntu resolute-security InRelease
+#38 2.149 Hit:2 http://archive.ubuntu.com/ubuntu resolute InRelease
+#38 2.239 Hit:3 http://archive.ubuntu.com/ubuntu resolute-updates InRelease
+#38 2.329 Hit:4 http://archive.ubuntu.com/ubuntu resolute-backports InRelease
+#38 2.340 Reading package lists...
+#38 2.716 Reading package lists...
+#38 3.085 Building dependency tree...
+#38 3.170 Reading state information...
+#38 3.190 Solving dependencies...
+#38 3.269 The following additional packages will be installed:
+#38 3.269   libbrotli1 libcurl4t64 libffi8 libgnutls30t64 libgssapi-krb5-2
+#38 3.269   libhogweed6t64 libidn2-0 libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0
+#38 3.269   libldap-common libldap2 libnettle8t64 libnghttp2-14 libp11-kit0 libpsl5t64
+#38 3.270   librtmp1 libsasl2-2 libsasl2-modules-db libssh2-1t64 libtasn1-6
+#38 3.270   libunistring5 openssl
+#38 3.271 Suggested packages:
+#38 3.271   gnutls-bin krb5-doc krb5-user
+#38 3.271 Recommended packages:
+#38 3.271   bash-completion krb5-locales publicsuffix libsasl2-modules
+#38 3.299 The following NEW packages will be installed:
+#38 3.299   ca-certificates curl libbrotli1 libcurl4t64 libffi8 libgnutls30t64
+#38 3.299   libgssapi-krb5-2 libhogweed6t64 libidn2-0 libk5crypto3 libkeyutils1
+#38 3.299   libkrb5-3 libkrb5support0 libldap-common libldap2 libnettle8t64
+#38 3.299   libnghttp2-14 libp11-kit0 libpsl5t64 librtmp1 libsasl2-2 libsasl2-modules-db
+#38 3.300   libssh2-1t64 libtasn1-6 libunistring5 openssl
+#38 3.366 0 upgraded, 26 newly installed, 0 to remove and 4 not upgraded.
+#38 3.366 Need to get 6181 kB of archives.
+#38 3.366 After this operation, 17.1 MB of additional disk space will be used.
+#38 3.366 Get:1 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 openssl amd64 3.5.5-1ubuntu3.7 [1243 kB]
+#38 3.391 Get:2 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 ca-certificates all 20260816ubuntu0.26.04.2 [138 kB]
+#38 3.400 Get:3 http://archive.ubuntu.com/ubuntu resolute/main amd64 libffi8 amd64 3.5.2-4 [26.3 kB]
+#38 3.414 Get:4 http://archive.ubuntu.com/ubuntu resolute/main amd64 libnettle8t64 amd64 3.10.2-1 [185 kB]
+#38 3.431 Get:5 http://archive.ubuntu.com/ubuntu resolute/main amd64 libhogweed6t64 amd64 3.10.2-1 [201 kB]
+#38 3.455 Get:6 http://archive.ubuntu.com/ubuntu resolute/main amd64 libunistring5 amd64 1.3-2build1 [610 kB]
+#38 3.469 Get:7 http://archive.ubuntu.com/ubuntu resolute/main amd64 libidn2-0 amd64 2.3.8-4build1 [67.6 kB]
+#38 3.485 Get:8 http://archive.ubuntu.com/ubuntu resolute/main amd64 libp11-kit0 amd64 0.26.2-2 [313 kB]
+#38 3.495 Get:9 http://archive.ubuntu.com/ubuntu resolute/main amd64 libtasn1-6 amd64 4.21.0-2 [45.3 kB]
+#38 3.531 Get:10 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libgnutls30t64 amd64 3.8.12-2ubuntu1.1 [1029 kB]
+#38 3.541 Get:11 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libkrb5support0 amd64 1.22.1-2ubuntu4.1 [33.5 kB]
+#38 3.554 Get:12 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libk5crypto3 amd64 1.22.1-2ubuntu4.1 [82.0 kB]
+#38 3.563 Get:13 http://archive.ubuntu.com/ubuntu resolute/main amd64 libkeyutils1 amd64 1.6.3-6ubuntu3 [10.6 kB]
+#38 3.583 Get:14 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libkrb5-3 amd64 1.22.1-2ubuntu4.1 [361 kB]
+#38 3.595 Get:15 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libgssapi-krb5-2 amd64 1.22.1-2ubuntu4.1 [147 kB]
+#38 3.606 Get:16 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libnghttp2-14 amd64 1.68.0-2ubuntu0.2 [71.0 kB]
+#38 3.617 Get:17 http://archive.ubuntu.com/ubuntu resolute/main amd64 libpsl5t64 amd64 0.21.2-1.1build2 [59.5 kB]
+#38 3.639 Get:18 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libbrotli1 amd64 1.2.0-3ubuntu0.1 [343 kB]
+#38 3.647 Get:19 http://archive.ubuntu.com/ubuntu resolute/main amd64 libsasl2-modules-db amd64 2.1.28+dfsg1-9ubuntu3 [21.1 kB]
+#38 3.663 Get:20 http://archive.ubuntu.com/ubuntu resolute/main amd64 libsasl2-2 amd64 2.1.28+dfsg1-9ubuntu3 [54.0 kB]
+#38 3.673 Get:21 http://archive.ubuntu.com/ubuntu resolute/main amd64 libldap-common all 2.6.10+dfsg-1ubuntu5 [36.0 kB]
+#38 3.686 Get:22 http://archive.ubuntu.com/ubuntu resolute/main amd64 libldap2 amd64 2.6.10+dfsg-1ubuntu5 [204 kB]
+#38 3.698 Get:23 http://archive.ubuntu.com/ubuntu resolute/main amd64 librtmp1 amd64 2.4+20151223.gitfa8646d.1-3 [59.0 kB]
+#38 3.710 Get:24 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libssh2-1t64 amd64 1.11.1-1ubuntu0.26.04.4 [138 kB]
+#38 3.729 Get:25 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libcurl4t64 amd64 8.18.0-1ubuntu2.8 [430 kB]
+#38 3.744 Get:26 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 curl amd64 8.18.0-1ubuntu2.8 [273 kB]
+#38 4.165 Preconfiguring packages ...
+#38 4.209 Fetched 6181 kB in 0s (14.1 MB/s)
+#38 4.226 Selecting previously unselected package openssl.
+#38 4.226 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7789 files and directories currently installed.)
+#38 4.229 Preparing to unpack .../00-openssl_3.5.5-1ubuntu3.7_amd64.deb ...
+#38 4.234 Unpacking openssl (3.5.5-1ubuntu3.7) ...
+#38 4.274 Selecting previously unselected package ca-certificates.
+#38 4.275 Preparing to unpack .../01-ca-certificates_20260816ubuntu0.26.04.2_all.deb ...
+#38 4.278 Unpacking ca-certificates (20260816ubuntu0.26.04.2) ...
+#38 4.315 Selecting previously unselected package libffi8:amd64.
+#38 4.315 Preparing to unpack .../02-libffi8_3.5.2-4_amd64.deb ...
+#38 4.320 Unpacking libffi8:amd64 (3.5.2-4) ...
+#38 4.343 Selecting previously unselected package libnettle8t64:amd64.
+#38 4.344 Preparing to unpack .../03-libnettle8t64_3.10.2-1_amd64.deb ...
+#38 4.345 Unpacking libnettle8t64:amd64 (3.10.2-1) ...
+#38 4.371 Selecting previously unselected package libhogweed6t64:amd64.
+#38 4.371 Preparing to unpack .../04-libhogweed6t64_3.10.2-1_amd64.deb ...
+#38 4.376 Unpacking libhogweed6t64:amd64 (3.10.2-1) ...
+#38 4.398 Selecting previously unselected package libunistring5:amd64.
+#38 4.399 Preparing to unpack .../05-libunistring5_1.3-2build1_amd64.deb ...
+#38 4.402 Unpacking libunistring5:amd64 (1.3-2build1) ...
+#38 4.432 Selecting previously unselected package libidn2-0:amd64.
+#38 4.433 Preparing to unpack .../06-libidn2-0_2.3.8-4build1_amd64.deb ...
+#38 4.437 Unpacking libidn2-0:amd64 (2.3.8-4build1) ...
+#38 4.462 Selecting previously unselected package libp11-kit0:amd64.
+#38 4.463 Preparing to unpack .../07-libp11-kit0_0.26.2-2_amd64.deb ...
+#38 4.465 Unpacking libp11-kit0:amd64 (0.26.2-2) ...
+#38 4.491 Selecting previously unselected package libtasn1-6:amd64.
+#38 4.492 Preparing to unpack .../08-libtasn1-6_4.21.0-2_amd64.deb ...
+#38 4.496 Unpacking libtasn1-6:amd64 (4.21.0-2) ...
+#38 4.524 Selecting previously unselected package libgnutls30t64:amd64.
+#38 4.524 Preparing to unpack .../09-libgnutls30t64_3.8.12-2ubuntu1.1_amd64.deb ...
+#38 4.527 Unpacking libgnutls30t64:amd64 (3.8.12-2ubuntu1.1) ...
+#38 4.555 Selecting previously unselected package libkrb5support0:amd64.
+#38 4.556 Preparing to unpack .../10-libkrb5support0_1.22.1-2ubuntu4.1_amd64.deb ...
+#38 4.559 Unpacking libkrb5support0:amd64 (1.22.1-2ubuntu4.1) ...
+#38 4.585 Selecting previously unselected package libk5crypto3:amd64.
+#38 4.585 Preparing to unpack .../11-libk5crypto3_1.22.1-2ubuntu4.1_amd64.deb ...
+#38 4.588 Unpacking libk5crypto3:amd64 (1.22.1-2ubuntu4.1) ...
+#38 4.612 Selecting previously unselected package libkeyutils1:amd64.
+#38 4.613 Preparing to unpack .../12-libkeyutils1_1.6.3-6ubuntu3_amd64.deb ...
+#38 4.616 Unpacking libkeyutils1:amd64 (1.6.3-6ubuntu3) ...
+#38 4.650 Selecting previously unselected package libkrb5-3:amd64.
+#38 4.650 Preparing to unpack .../13-libkrb5-3_1.22.1-2ubuntu4.1_amd64.deb ...
+#38 4.652 Unpacking libkrb5-3:amd64 (1.22.1-2ubuntu4.1) ...
+#38 4.678 Selecting previously unselected package libgssapi-krb5-2:amd64.
+#38 4.679 Preparing to unpack .../14-libgssapi-krb5-2_1.22.1-2ubuntu4.1_amd64.deb ...
+#38 4.680 Unpacking libgssapi-krb5-2:amd64 (1.22.1-2ubuntu4.1) ...
+#38 4.699 Selecting previously unselected package libnghttp2-14:amd64.
+#38 4.700 Preparing to unpack .../15-libnghttp2-14_1.68.0-2ubuntu0.2_amd64.deb ...
+#38 4.702 Unpacking libnghttp2-14:amd64 (1.68.0-2ubuntu0.2) ...
+#38 4.719 Selecting previously unselected package libpsl5t64:amd64.
+#38 4.720 Preparing to unpack .../16-libpsl5t64_0.21.2-1.1build2_amd64.deb ...
+#38 4.721 Unpacking libpsl5t64:amd64 (0.21.2-1.1build2) ...
+#38 4.740 Selecting previously unselected package libbrotli1:amd64.
+#38 4.741 Preparing to unpack .../17-libbrotli1_1.2.0-3ubuntu0.1_amd64.deb ...
+#38 4.742 Unpacking libbrotli1:amd64 (1.2.0-3ubuntu0.1) ...
+#38 4.761 Selecting previously unselected package libsasl2-modules-db:amd64.
+#38 4.761 Preparing to unpack .../18-libsasl2-modules-db_2.1.28+dfsg1-9ubuntu3_amd64.deb ...
+#38 4.763 Unpacking libsasl2-modules-db:amd64 (2.1.28+dfsg1-9ubuntu3) ...
+#38 4.780 Selecting previously unselected package libsasl2-2:amd64.
+#38 4.780 Preparing to unpack .../19-libsasl2-2_2.1.28+dfsg1-9ubuntu3_amd64.deb ...
+#38 4.782 Unpacking libsasl2-2:amd64 (2.1.28+dfsg1-9ubuntu3) ...
+#38 4.799 Selecting previously unselected package libldap-common.
+#38 4.799 Preparing to unpack .../20-libldap-common_2.6.10+dfsg-1ubuntu5_all.deb ...
+#38 4.801 Unpacking libldap-common (2.6.10+dfsg-1ubuntu5) ...
+#38 4.819 Selecting previously unselected package libldap2:amd64.
+#38 4.819 Preparing to unpack .../21-libldap2_2.6.10+dfsg-1ubuntu5_amd64.deb ...
+#38 4.821 Unpacking libldap2:amd64 (2.6.10+dfsg-1ubuntu5) ...
+#38 4.840 Selecting previously unselected package librtmp1:amd64.
+#38 4.841 Preparing to unpack .../22-librtmp1_2.4+20151223.gitfa8646d.1-3_amd64.deb ...
+#38 4.843 Unpacking librtmp1:amd64 (2.4+20151223.gitfa8646d.1-3) ...
+#38 4.858 Selecting previously unselected package libssh2-1t64:amd64.
+#38 4.859 Preparing to unpack .../23-libssh2-1t64_1.11.1-1ubuntu0.26.04.4_amd64.deb ...
+#38 4.861 Unpacking libssh2-1t64:amd64 (1.11.1-1ubuntu0.26.04.4) ...
+#38 4.880 Selecting previously unselected package libcurl4t64:amd64.
+#38 4.880 Preparing to unpack .../24-libcurl4t64_8.18.0-1ubuntu2.8_amd64.deb ...
+#38 4.882 Unpacking libcurl4t64:amd64 (8.18.0-1ubuntu2.8) ...
+#38 4.898 Selecting previously unselected package curl.
+#38 4.899 Preparing to unpack .../25-curl_8.18.0-1ubuntu2.8_amd64.deb ...
+#38 4.901 Unpacking curl (8.18.0-1ubuntu2.8) ...
+#38 4.924 Setting up libkeyutils1:amd64 (1.6.3-6ubuntu3) ...
+#38 4.930 Setting up libbrotli1:amd64 (1.2.0-3ubuntu0.1) ...
+#38 4.935 Setting up libnghttp2-14:amd64 (1.68.0-2ubuntu0.2) ...
+#38 4.940 Setting up libldap-common (2.6.10+dfsg-1ubuntu5) ...
+#38 4.947 Setting up libkrb5support0:amd64 (1.22.1-2ubuntu4.1) ...
+#38 4.952 Setting up libsasl2-modules-db:amd64 (2.1.28+dfsg1-9ubuntu3) ...
+#38 4.957 Setting up libnettle8t64:amd64 (3.10.2-1) ...
+#38 4.963 Setting up libunistring5:amd64 (1.3-2build1) ...
+#38 4.967 Setting up libk5crypto3:amd64 (1.22.1-2ubuntu4.1) ...
+#38 4.973 Setting up libsasl2-2:amd64 (2.1.28+dfsg1-9ubuntu3) ...
+#38 4.978 Setting up libffi8:amd64 (3.5.2-4) ...
+#38 4.983 Setting up libhogweed6t64:amd64 (3.10.2-1) ...
+#38 4.988 Setting up libtasn1-6:amd64 (4.21.0-2) ...
+#38 4.993 Setting up libkrb5-3:amd64 (1.22.1-2ubuntu4.1) ...
+#38 4.998 Setting up libssh2-1t64:amd64 (1.11.1-1ubuntu0.26.04.4) ...
+#38 5.003 Setting up openssl (3.5.5-1ubuntu3.7) ...
+#38 5.011 Setting up libldap2:amd64 (2.6.10+dfsg-1ubuntu5) ...
+#38 5.016 Setting up libidn2-0:amd64 (2.3.8-4build1) ...
+#38 5.021 Setting up ca-certificates (20260816ubuntu0.26.04.2) ...
+#38 5.312 Updating certificates in /etc/ssl/certs...
+#38 6.165 120 added, 0 removed; done.
+#38 6.165 Running hooks in /etc/ca-certificates/update.d...
+#38 6.166 done.
+#38 6.183 Setting up libp11-kit0:amd64 (0.26.2-2) ...
+#38 6.188 Setting up libgssapi-krb5-2:amd64 (1.22.1-2ubuntu4.1) ...
+#38 6.194 Setting up libgnutls30t64:amd64 (3.8.12-2ubuntu1.1) ...
+#38 6.201 Setting up libpsl5t64:amd64 (0.21.2-1.1build2) ...
+#38 6.206 Setting up librtmp1:amd64 (2.4+20151223.gitfa8646d.1-3) ...
+#38 6.211 Setting up libcurl4t64:amd64 (8.18.0-1ubuntu2.8) ...
+#38 6.217 Setting up curl (8.18.0-1ubuntu2.8) ...
+#38 6.222 Processing triggers for libc-bin (2.43-2ubuntu2.4) ...
+#38 DONE 6.3s
+
+#37 [builder-kiro 2/4] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update  && apt-get install -y --no-install-recommends ca-certificates curl unzip
+#37 ...
+
+#39 [builder-claude 3/4] WORKDIR /workspace
+#39 DONE 0.0s
+
+#40 [builder-claude 4/4] RUN curl -fsSL https://claude.ai/install.sh -o claude-install.sh  && bash claude-install.sh  && cp -L /root/.local/bin/claude /usr/local/bin/claude  && /usr/local/bin/claude --version  && rm claude-install.sh
+#40 ...
+
+#37 [builder-kiro 2/4] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked apt-get update  && apt-get install -y --no-install-recommends ca-certificates curl unzip
+#37 6.750 Hit:1 http://security.ubuntu.com/ubuntu resolute-security InRelease
+#37 6.866 Hit:2 http://archive.ubuntu.com/ubuntu resolute InRelease
+#37 6.955 Hit:3 http://archive.ubuntu.com/ubuntu resolute-updates InRelease
+#37 7.045 Hit:4 http://archive.ubuntu.com/ubuntu resolute-backports InRelease
+#37 7.056 Reading package lists...
+#37 7.442 Reading package lists...
+#37 7.805 Building dependency tree...
+#37 7.894 Reading state information...
+#37 7.916 Solving dependencies...
+#37 7.993 The following additional packages will be installed:
+#37 7.993   libbrotli1 libcurl4t64 libffi8 libgnutls30t64 libgssapi-krb5-2
+#37 7.993   libhogweed6t64 libidn2-0 libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0
+#37 7.993   libldap-common libldap2 libnettle8t64 libnghttp2-14 libp11-kit0 libpsl5t64
+#37 7.994   librtmp1 libsasl2-2 libsasl2-modules-db libssh2-1t64 libtasn1-6
+#37 7.994   libunistring5 openssl
+#37 7.994 Suggested packages:
+#37 7.994   gnutls-bin krb5-doc krb5-user zip
+#37 7.994 Recommended packages:
+#37 7.994   bash-completion krb5-locales publicsuffix libsasl2-modules
+#37 8.021 The following NEW packages will be installed:
+#37 8.022   ca-certificates curl libbrotli1 libcurl4t64 libffi8 libgnutls30t64
+#37 8.022   libgssapi-krb5-2 libhogweed6t64 libidn2-0 libk5crypto3 libkeyutils1
+#37 8.022   libkrb5-3 libkrb5support0 libldap-common libldap2 libnettle8t64
+#37 8.022   libnghttp2-14 libp11-kit0 libpsl5t64 librtmp1 libsasl2-2 libsasl2-modules-db
+#37 8.022   libssh2-1t64 libtasn1-6 libunistring5 openssl unzip
+#37 8.089 0 upgraded, 27 newly installed, 0 to remove and 4 not upgraded.
+#37 8.089 Need to get 6361 kB of archives.
+#37 8.089 After this operation, 17.5 MB of additional disk space will be used.
+#37 8.089 Get:1 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 openssl amd64 3.5.5-1ubuntu3.7 [1243 kB]
+#37 8.167 Get:2 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 ca-certificates all 20260816ubuntu0.26.04.2 [138 kB]
+#37 8.177 Get:3 http://archive.ubuntu.com/ubuntu resolute/main amd64 libffi8 amd64 3.5.2-4 [26.3 kB]
+#37 8.191 Get:4 http://archive.ubuntu.com/ubuntu resolute/main amd64 libnettle8t64 amd64 3.10.2-1 [185 kB]
+#37 8.208 Get:5 http://archive.ubuntu.com/ubuntu resolute/main amd64 libhogweed6t64 amd64 3.10.2-1 [201 kB]
+#37 8.230 Get:6 http://archive.ubuntu.com/ubuntu resolute/main amd64 libunistring5 amd64 1.3-2build1 [610 kB]
+#37 8.248 Get:7 http://archive.ubuntu.com/ubuntu resolute/main amd64 libidn2-0 amd64 2.3.8-4build1 [67.6 kB]
+#37 8.262 Get:8 http://archive.ubuntu.com/ubuntu resolute/main amd64 libp11-kit0 amd64 0.26.2-2 [313 kB]
+#37 8.272 Get:9 http://archive.ubuntu.com/ubuntu resolute/main amd64 libtasn1-6 amd64 4.21.0-2 [45.3 kB]
+#37 8.311 Get:10 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libgnutls30t64 amd64 3.8.12-2ubuntu1.1 [1029 kB]
+#37 8.335 Get:11 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libkrb5support0 amd64 1.22.1-2ubuntu4.1 [33.5 kB]
+#37 8.356 Get:12 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libk5crypto3 amd64 1.22.1-2ubuntu4.1 [82.0 kB]
+#37 8.366 Get:13 http://archive.ubuntu.com/ubuntu resolute/main amd64 libkeyutils1 amd64 1.6.3-6ubuntu3 [10.6 kB]
+#37 8.384 Get:14 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libkrb5-3 amd64 1.22.1-2ubuntu4.1 [361 kB]
+#37 8.395 Get:15 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libgssapi-krb5-2 amd64 1.22.1-2ubuntu4.1 [147 kB]
+#37 8.407 Get:16 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libnghttp2-14 amd64 1.68.0-2ubuntu0.2 [71.0 kB]
+#37 8.418 Get:17 http://archive.ubuntu.com/ubuntu resolute/main amd64 libpsl5t64 amd64 0.21.2-1.1build2 [59.5 kB]
+#37 8.437 Get:18 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libbrotli1 amd64 1.2.0-3ubuntu0.1 [343 kB]
+#37 8.447 Get:19 http://archive.ubuntu.com/ubuntu resolute/main amd64 libsasl2-modules-db amd64 2.1.28+dfsg1-9ubuntu3 [21.1 kB]
+#37 8.455 Get:20 http://archive.ubuntu.com/ubuntu resolute/main amd64 libsasl2-2 amd64 2.1.28+dfsg1-9ubuntu3 [54.0 kB]
+#37 8.464 Get:21 http://archive.ubuntu.com/ubuntu resolute/main amd64 libldap-common all 2.6.10+dfsg-1ubuntu5 [36.0 kB]
+#37 8.478 Get:22 http://archive.ubuntu.com/ubuntu resolute/main amd64 libldap2 amd64 2.6.10+dfsg-1ubuntu5 [204 kB]
+#37 8.489 Get:23 http://archive.ubuntu.com/ubuntu resolute/main amd64 librtmp1 amd64 2.4+20151223.gitfa8646d.1-3 [59.0 kB]
+#37 8.501 Get:24 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libssh2-1t64 amd64 1.11.1-1ubuntu0.26.04.4 [138 kB]
+#37 8.522 Get:25 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 libcurl4t64 amd64 8.18.0-1ubuntu2.8 [430 kB]
+#37 8.539 Get:26 http://archive.ubuntu.com/ubuntu resolute-updates/main amd64 curl amd64 8.18.0-1ubuntu2.8 [273 kB]
+#37 8.553 Get:27 http://archive.ubuntu.com/ubuntu resolute/main amd64 unzip amd64 6.0-29ubuntu1 [180 kB]
+#37 8.991 Preconfiguring packages ...
+#37 9.034 Fetched 6361 kB in 1s (12.1 MB/s)
+#37 9.050 Selecting previously unselected package openssl.
+#37 9.050 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7789 files and directories currently installed.)
+#37 9.053 Preparing to unpack .../00-openssl_3.5.5-1ubuntu3.7_amd64.deb ...
+#37 9.055 Unpacking openssl (3.5.5-1ubuntu3.7) ...
+#37 9.084 Selecting previously unselected package ca-certificates.
+#37 9.085 Preparing to unpack .../01-ca-certificates_20260816ubuntu0.26.04.2_all.deb ...
+#37 9.088 Unpacking ca-certificates (20260816ubuntu0.26.04.2) ...
+#37 9.120 Selecting previously unselected package libffi8:amd64.
+#37 9.121 Preparing to unpack .../02-libffi8_3.5.2-4_amd64.deb ...
+#37 9.127 Unpacking libffi8:amd64 (3.5.2-4) ...
+#37 9.151 Selecting previously unselected package libnettle8t64:amd64.
+#37 9.152 Preparing to unpack .../03-libnettle8t64_3.10.2-1_amd64.deb ...
+#37 9.155 Unpacking libnettle8t64:amd64 (3.10.2-1) ...
+#37 9.179 Selecting previously unselected package libhogweed6t64:amd64.
+#37 9.179 Preparing to unpack .../04-libhogweed6t64_3.10.2-1_amd64.deb ...
+#37 9.181 Unpacking libhogweed6t64:amd64 (3.10.2-1) ...
+#37 9.200 Selecting previously unselected package libunistring5:amd64.
+#37 9.200 Preparing to unpack .../05-libunistring5_1.3-2build1_amd64.deb ...
+#37 9.202 Unpacking libunistring5:amd64 (1.3-2build1) ...
+#37 9.228 Selecting previously unselected package libidn2-0:amd64.
+#37 9.229 Preparing to unpack .../06-libidn2-0_2.3.8-4build1_amd64.deb ...
+#37 9.230 Unpacking libidn2-0:amd64 (2.3.8-4build1) ...
+#37 9.251 Selecting previously unselected package libp11-kit0:amd64.
+#37 9.252 Preparing to unpack .../07-libp11-kit0_0.26.2-2_amd64.deb ...
+#37 9.254 Unpacking libp11-kit0:amd64 (0.26.2-2) ...
+#37 9.278 Selecting previously unselected package libtasn1-6:amd64.
+#37 9.278 Preparing to unpack .../08-libtasn1-6_4.21.0-2_amd64.deb ...
+#37 9.280 Unpacking libtasn1-6:amd64 (4.21.0-2) ...
+#37 9.300 Selecting previously unselected package libgnutls30t64:amd64.
+#37 9.301 Preparing to unpack .../09-libgnutls30t64_3.8.12-2ubuntu1.1_amd64.deb ...
+#37 9.302 Unpacking libgnutls30t64:amd64 (3.8.12-2ubuntu1.1) ...
+#37 9.329 Selecting previously unselected package libkrb5support0:amd64.
+#37 9.330 Preparing to unpack .../10-libkrb5support0_1.22.1-2ubuntu4.1_amd64.deb ...
+#37 9.331 Unpacking libkrb5support0:amd64 (1.22.1-2ubuntu4.1) ...
+#37 9.350 Selecting previously unselected package libk5crypto3:amd64.
+#37 9.350 Preparing to unpack .../11-libk5crypto3_1.22.1-2ubuntu4.1_amd64.deb ...
+#37 9.352 Unpacking libk5crypto3:amd64 (1.22.1-2ubuntu4.1) ...
+#37 9.373 Selecting previously unselected package libkeyutils1:amd64.
+#37 9.374 Preparing to unpack .../12-libkeyutils1_1.6.3-6ubuntu3_amd64.deb ...
+#37 9.376 Unpacking libkeyutils1:amd64 (1.6.3-6ubuntu3) ...
+#37 9.394 Selecting previously unselected package libkrb5-3:amd64.
+#37 9.394 Preparing to unpack .../13-libkrb5-3_1.22.1-2ubuntu4.1_amd64.deb ...
+#37 9.397 Unpacking libkrb5-3:amd64 (1.22.1-2ubuntu4.1) ...
+#37 9.419 Selecting previously unselected package libgssapi-krb5-2:amd64.
+#37 9.420 Preparing to unpack .../14-libgssapi-krb5-2_1.22.1-2ubuntu4.1_amd64.deb ...
+#37 9.421 Unpacking libgssapi-krb5-2:amd64 (1.22.1-2ubuntu4.1) ...
+#37 9.441 Selecting previously unselected package libnghttp2-14:amd64.
+#37 9.442 Preparing to unpack .../15-libnghttp2-14_1.68.0-2ubuntu0.2_amd64.deb ...
+#37 9.444 Unpacking libnghttp2-14:amd64 (1.68.0-2ubuntu0.2) ...
+#37 9.462 Selecting previously unselected package libpsl5t64:amd64.
+#37 9.463 Preparing to unpack .../16-libpsl5t64_0.21.2-1.1build2_amd64.deb ...
+#37 9.464 Unpacking libpsl5t64:amd64 (0.21.2-1.1build2) ...
+#37 9.484 Selecting previously unselected package libbrotli1:amd64.
+#37 9.485 Preparing to unpack .../17-libbrotli1_1.2.0-3ubuntu0.1_amd64.deb ...
+#37 9.487 Unpacking libbrotli1:amd64 (1.2.0-3ubuntu0.1) ...
+#37 9.506 Selecting previously unselected package libsasl2-modules-db:amd64.
+#37 9.507 Preparing to unpack .../18-libsasl2-modules-db_2.1.28+dfsg1-9ubuntu3_amd64.deb ...
+#37 9.509 Unpacking libsasl2-modules-db:amd64 (2.1.28+dfsg1-9ubuntu3) ...
+#37 9.526 Selecting previously unselected package libsasl2-2:amd64.
+#37 9.527 Preparing to unpack .../19-libsasl2-2_2.1.28+dfsg1-9ubuntu3_amd64.deb ...
+#37 9.530 Unpacking libsasl2-2:amd64 (2.1.28+dfsg1-9ubuntu3) ...
+#37 9.546 Selecting previously unselected package libldap-common.
+#37 9.547 Preparing to unpack .../20-libldap-common_2.6.10+dfsg-1ubuntu5_all.deb ...
+#37 9.549 Unpacking libldap-common (2.6.10+dfsg-1ubuntu5) ...
+#37 9.569 Selecting previously unselected package libldap2:amd64.
+#37 9.569 Preparing to unpack .../21-libldap2_2.6.10+dfsg-1ubuntu5_amd64.deb ...
+#37 9.573 Unpacking libldap2:amd64 (2.6.10+dfsg-1ubuntu5) ...
+#37 9.593 Selecting previously unselected package librtmp1:amd64.
+#37 9.593 Preparing to unpack .../22-librtmp1_2.4+20151223.gitfa8646d.1-3_amd64.deb ...
+#37 9.595 Unpacking librtmp1:amd64 (2.4+20151223.gitfa8646d.1-3) ...
+#37 9.618 Selecting previously unselected package libssh2-1t64:amd64.
+#37 9.618 Preparing to unpack .../23-libssh2-1t64_1.11.1-1ubuntu0.26.04.4_amd64.deb ...
+#37 9.621 Unpacking libssh2-1t64:amd64 (1.11.1-1ubuntu0.26.04.4) ...
+#37 9.643 Selecting previously unselected package libcurl4t64:amd64.
+#37 9.643 Preparing to unpack .../24-libcurl4t64_8.18.0-1ubuntu2.8_amd64.deb ...
+#37 9.645 Unpacking libcurl4t64:amd64 (8.18.0-1ubuntu2.8) ...
+#37 9.666 Selecting previously unselected package curl.
+#37 9.667 Preparing to unpack .../25-curl_8.18.0-1ubuntu2.8_amd64.deb ...
+#37 9.668 Unpacking curl (8.18.0-1ubuntu2.8) ...
+#37 9.686 Selecting previously unselected package unzip.
+#37 9.686 Preparing to unpack .../26-unzip_6.0-29ubuntu1_amd64.deb ...
+#37 9.688 Unpacking unzip (6.0-29ubuntu1) ...
+#37 9.717 Setting up libkeyutils1:amd64 (1.6.3-6ubuntu3) ...
+#37 9.724 Setting up unzip (6.0-29ubuntu1) ...
+#37 9.730 Setting up libbrotli1:amd64 (1.2.0-3ubuntu0.1) ...
+#37 9.735 Setting up libnghttp2-14:amd64 (1.68.0-2ubuntu0.2) ...
+#37 9.740 Setting up libldap-common (2.6.10+dfsg-1ubuntu5) ...
+#37 9.747 Setting up libkrb5support0:amd64 (1.22.1-2ubuntu4.1) ...
+#37 9.752 Setting up libsasl2-modules-db:amd64 (2.1.28+dfsg1-9ubuntu3) ...
+#37 9.757 Setting up libnettle8t64:amd64 (3.10.2-1) ...
+#37 9.762 Setting up libunistring5:amd64 (1.3-2build1) ...
+#37 9.767 Setting up libk5crypto3:amd64 (1.22.1-2ubuntu4.1) ...
+#37 9.772 Setting up libsasl2-2:amd64 (2.1.28+dfsg1-9ubuntu3) ...
+#37 9.777 Setting up libffi8:amd64 (3.5.2-4) ...
+#37 9.782 Setting up libhogweed6t64:amd64 (3.10.2-1) ...
+#37 9.787 Setting up libtasn1-6:amd64 (4.21.0-2) ...
+#37 9.792 Setting up libkrb5-3:amd64 (1.22.1-2ubuntu4.1) ...
+#37 9.796 Setting up libssh2-1t64:amd64 (1.11.1-1ubuntu0.26.04.4) ...
+#37 9.805 Setting up openssl (3.5.5-1ubuntu3.7) ...
+#37 9.818 Setting up libldap2:amd64 (2.6.10+dfsg-1ubuntu5) ...
+#37 9.827 Setting up libidn2-0:amd64 (2.3.8-4build1) ...
+#37 9.836 Setting up ca-certificates (20260816ubuntu0.26.04.2) ...
+#37 10.13 Updating certificates in /etc/ssl/certs...
+#37 10.98 120 added, 0 removed; done.
+#37 10.98 Running hooks in /etc/ca-certificates/update.d...
+#37 10.98 done.
+#37 11.00 Setting up libp11-kit0:amd64 (0.26.2-2) ...
+#37 11.01 Setting up libgssapi-krb5-2:amd64 (1.22.1-2ubuntu4.1) ...
+#37 11.01 Setting up libgnutls30t64:amd64 (3.8.12-2ubuntu1.1) ...
+#37 11.02 Setting up libpsl5t64:amd64 (0.21.2-1.1build2) ...
+#37 11.02 Setting up librtmp1:amd64 (2.4+20151223.gitfa8646d.1-3) ...
+#37 11.03 Setting up libcurl4t64:amd64 (8.18.0-1ubuntu2.8) ...
+#37 11.03 Setting up curl (8.18.0-1ubuntu2.8) ...
+#37 11.04 Processing triggers for libc-bin (2.43-2ubuntu2.4) ...
+#37 DONE 11.3s
+
+#41 [builder-kiro 3/4] WORKDIR /workspace
+#41 DONE 0.1s
+
+#42 [builder-kiro 4/4] RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip -o /tmp/kirocli.zip  && unzip -q /tmp/kirocli.zip -d /tmp/kirocli-extracted  && chmod +x /tmp/kirocli-extracted/kirocli/install.sh  && KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh  && rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted
+#42 ...
+
+#43 [builder-copilot 4/4] RUN curl -fsSL https://gh.io/copilot-install -o copilot-install.sh  && PREFIX=/usr/local VERSION=latest bash copilot-install.sh  && rm copilot-install.sh
+#43 0.872 Installing GitHub Copilot CLI...
+#43 0.878 Downloading from: https://github.com/github/copilot-cli/releases/latest/download/copilot-linux-x64.tar.gz
+#43 5.546 ✓ Checksum validated
+#43 6.419 ✓ GitHub Copilot CLI installed to /usr/local/bin/copilot
+#43 6.419 
+#43 6.419 Installation complete! Run 'copilot help' to get started.
+#43 DONE 6.7s
+
+#44 [runner 21/55] COPY --from=builder-copilot --link --chmod=755 /usr/local/bin/copilot /usr/local/bin/copilot.real
+#44 DONE 0.2s
+
+#42 [builder-kiro 4/4] RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip -o /tmp/kirocli.zip  && unzip -q /tmp/kirocli.zip -d /tmp/kirocli-extracted  && chmod +x /tmp/kirocli-extracted/kirocli/install.sh  && KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh  && rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted
+#42 ...
+
+#45 [runner 22/55] COPY --chmod=755 <<EOF /usr/local/bin/copilot
+#45 DONE 0.0s
+
+#42 [builder-kiro 4/4] RUN curl -fsSL https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip -o /tmp/kirocli.zip  && unzip -q /tmp/kirocli.zip -d /tmp/kirocli-extracted  && chmod +x /tmp/kirocli-extracted/kirocli/install.sh  && KIRO_CLI_SKIP_SETUP=1 /tmp/kirocli-extracted/kirocli/install.sh  && rm -rf /tmp/kirocli.zip /tmp/kirocli-extracted
+#42 4.708 Installed kiro-cli to /root/.local/bin
+#42 4.738 
+#42 4.738 NOTE: /root/.local/bin is not on your PATH.
+#42 4.738 To use kiro-cli, add this line to your shell configuration file
+#42 4.738 (e.g. ~/.zshrc, ~/.bashrc or ~/.profile):
+#42 4.738 
+#42 4.738     export PATH="/root/.local/bin:$PATH"
+#42 4.738 
+#42 4.738 Then open a new terminal, or run the line above in this one.
+#42 DONE 4.8s
+
+#40 [builder-claude 4/4] RUN curl -fsSL https://claude.ai/install.sh -o claude-install.sh  && bash claude-install.sh  && cp -L /root/.local/bin/claude /usr/local/bin/claude  && /usr/local/bin/claude --version  && rm claude-install.sh
+#40 10.95 Setting up Claude Code...
+#40 11.06 
+#40 11.06 Checking installation…
+#40 11.07 Installing Claude Code native build latest…
+#40 12.18 Setting up launcher and shell integration…
+#40 12.19 ✔ Claude Code successfully installed!
+#40 12.19 
+#40 12.19   Version: 2.1.328
+#40 12.19 
+#40 12.19   Location: ~/.local/bin/claude
+#40 12.19 
+#40 12.19 
+#40 12.19   Next: Run claude --help to get started
+#40 12.19 
+#40 12.19 ⚠ Setup notes:
+#40 12.19   ● Native installation exists but ~/.local/bin is not in your PATH. Run:
+#40 12.19 
+#40 12.19     echo 'export PATH="$HOME/.local/bin:$PATH"' >> your shell config file && source your shell config file
+#40 12.19 
+#40 12.38 
+#40 12.38 ✅ Installation complete!
+#40 12.38 
+#40 12.46 2.1.328 (Claude Code)
+#40 DONE 12.7s
+
+#46 [runner 23/55] COPY --from=builder-claude --link --chmod=755 /usr/local/bin/claude /usr/local/bin/claude.real
+#46 DONE 0.3s
+
+#47 [runner 24/55] COPY --chmod=755 <<EOF /usr/local/bin/claude
+#47 DONE 0.0s
+
+#48 [runner 25/55] COPY --from=builder-kiro --link --chmod=755 /root/.local/bin/kiro-cli /usr/local/bin/kiro-cli.real
+#48 DONE 0.2s
+
+#49 [runner 26/55] COPY --chmod=755 <<EOF /usr/local/bin/kiro-cli
+#49 DONE 0.0s
+
+#50 [runner 27/55] RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt/lists,sharing=locked install -m 0755 -d /etc/apt/keyrings  && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg  && chmod a+r /etc/apt/keyrings/docker.gpg  && suite="$(. /etc/os-release && printf '%s' "${UBUNTU_CODENAME:-$VERSION_CODENAME}")"  && printf '%s\n' 'Types: deb' 'URIs: https://download.docker.com/linux/ubuntu' "Suites: ${suite}" 'Components: stable' 'Signed-By: /etc/apt/keyrings/docker.gpg' > /etc/apt/sources.list.d/docker.sources  && apt-get update  && apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin
+#50 0.250 Get:1 https://download.docker.com/linux/ubuntu resolute InRelease [32.5 kB]
+#50 0.266 Get:2 https://download.docker.com/linux/ubuntu resolute/stable amd64 Packages [40.2 kB]
+#50 0.404 Hit:3 http://archive.ubuntu.com/ubuntu resolute InRelease
+#50 0.420 Hit:4 http://security.ubuntu.com/ubuntu resolute-security InRelease
+#50 0.494 Hit:5 http://archive.ubuntu.com/ubuntu resolute-updates InRelease
+#50 0.583 Hit:6 http://archive.ubuntu.com/ubuntu resolute-backports InRelease
+#50 0.595 Fetched 72.7 kB in 0s (197 kB/s)
+#50 0.595 Reading package lists...
+#50 0.975 Reading package lists...
+#50 1.359 Building dependency tree...
+#50 1.445 Reading state information...
+#50 1.465 Solving dependencies...
+#50 1.547 Suggested packages:
+#50 1.547   docker-model-plugin
+#50 1.547 Recommended packages:
+#50 1.547   docker-compose-plugin
+#50 1.558 The following NEW packages will be installed:
+#50 1.558   docker-buildx-plugin docker-ce-cli
+#50 1.602 0 upgraded, 2 newly installed, 0 to remove and 0 not upgraded.
+#50 1.602 Need to get 26.6 MB of archives.
+#50 1.602 After this operation, 114 MB of additional disk space will be used.
+#50 1.602 Get:1 https://download.docker.com/linux/ubuntu resolute/stable amd64 docker-buildx-plugin amd64 0.39.0-1~ubuntu.26.04~resolute [18.0 MB]
+#50 2.008 Get:2 https://download.docker.com/linux/ubuntu resolute/stable amd64 docker-ce-cli amd64 5:29.10.0-1~ubuntu.26.04~resolute [8614 kB]
+#50 2.683 Fetched 26.6 MB in 1s (42.0 MB/s)
+#50 2.697 Selecting previously unselected package docker-buildx-plugin.
+#50 2.697 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 67885 files and directories currently installed.)
+#50 2.718 Preparing to unpack .../docker-buildx-plugin_0.39.0-1~ubuntu.26.04~resolute_amd64.deb ...
+#50 2.720 Unpacking docker-buildx-plugin (0.39.0-1~ubuntu.26.04~resolute) ...
+#50 2.971 Selecting previously unselected package docker-ce-cli.
+#50 2.975 Preparing to unpack .../docker-ce-cli_5%3a29.10.0-1~ubuntu.26.04~resolute_amd64.deb ...
+#50 2.977 Unpacking docker-ce-cli (5:29.10.0-1~ubuntu.26.04~resolute) ...
+#50 3.197 Setting up docker-buildx-plugin (0.39.0-1~ubuntu.26.04~resolute) ...
+#50 3.205 Setting up docker-ce-cli (5:29.10.0-1~ubuntu.26.04~resolute) ...
+#50 3.211 Processing triggers for man-db (2.13.1-1build1) ...
+#50 DONE 3.4s
+
+#51 [runner 28/55] RUN curl -fL https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.3.rel2/arm-gnu-toolchain-15.3.rel2-x86_64-arm-none-eabi.tar.xz -o /tmp/arm-none-eabi.tar.xz  && tar -xJf /tmp/arm-none-eabi.tar.xz -C /opt  && rm /tmp/arm-none-eabi.tar.xz
+#51 0.264   % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+#51 0.264                                  Dload  Upload  Total   Spent   Left   Speed
+#51 0.264   0      0   0      0   0      0      0      0                              0100   2131 100   2131   0      0  12694      0                              0100   2131 100   2131   0      0  12691      0                              0
+#51 0.432   0      0   0      0   0      0      0      0                              0  2 152.3M   2  3.68M   0      0  3.09M      0   00:49   00:01   00:48  3.60M  5 152.3M   5  9.04M   0      0  4.09M      0   00:37   00:02   00:35  4.42M  9 152.3M   9 14.39M   0      0  4.45M      0   00:34   00:03   00:31  4.69M 12 152.3M  12 19.68M   0      0  4.65M      0   00:32   00:04   00:28  4.84M 16 152.3M  16 25.00M   0      0  4.77M      0   00:31   00:05   00:26  4.93M 19 152.3M  19 30.33M   0      0  4.86M      0   00:31   00:06   00:25  5.28M 23 152.3M  23 35.69M   0      0  4.93M      0   00:30   00:07   00:23  5.30M 26 152.3M  26 41.03M   0      0  4.98M      0   00:30   00:08   00:22  5.33M 30 152.3M  30 46.35M   0      0  5.01M      0   00:30   00:09   00:21  5.32M 33 152.3M  33 51.74M   0      0  5.05M      0   00:30   00:10   00:20  5.33M 37 152.3M  37 57.02M   0      0  5.07M      0   00:30   00:11   00:19  5.32M 40 152.3M  40 62.36M   0      0  5.09M      0   00:29   00:12   00:17  5.32M 44 152.3M  44 67.63M   0      0  5.10M      0   00:29   00:13   00:16  5.30M 47 152.3M  47 72.96M   0      0  5.12M      0   00:29   00:14   00:15  5.31M 51 152.3M  51 78.32M   0      0  5.13M      0   00:29   00:15   00:14  5.31M 54 152.3M  54 83.70M   0      0  5.15M      0   00:29   00:16   00:13  5.33M 58 152.3M  58 89.11M   0      0  5.16M      0   00:29   00:17   00:12  5.35M 62 152.3M  62 94.49M   0      0  5.17M      0   00:29   00:18   00:11  5.37M 65 152.3M  65 99.89M   0      0  5.19M      0   00:29   00:19   00:10  5.38M 69 152.3M  69 105.2M   0      0  5.19M      0   00:29   00:20   00:09  5.37M 72 152.3M  72 110.6M   0      0  5.20M      0   00:29   00:21   00:08  5.38M 76 152.3M  76 115.9M   0      0  5.21M      0   00:29   00:22   00:07  5.37M 79 152.3M  79 121.3M   0      0  5.21M      0   00:29   00:23   00:06  5.36M 83 152.3M  83 126.7M   0      0  5.22M      0   00:29   00:24   00:05  5.36M 86 152.3M  86 132.1M   0      0  5.23M      0   00:29   00:25   00:04  5.36M 90 152.3M  90 137.4M   0      0  5.23M      0   00:29   00:26   00:03  5.34M 93 152.3M  93 142.7M   0      0  5.23M      0   00:29   00:27   00:02  5.33M 97 152.3M  97 148.0M   0      0  5.23M      0   00:29   00:28   00:01  5.31M100 152.3M 100 152.3M   0      0  5.24M      0   00:29   00:29          5.31M100 152.3M 100 152.3M   0      0  5.24M      0   00:29   00:29          5.31M100 152.3M 100 152.3M   0      0  5.24M      0   00:29   00:29          5.31M
+#51 DONE 34.1s
+
+#52 [runner 29/55] RUN curl -fL --data 'accept_license_agreement=accepted&non_eu_market=true' https://www.segger.com/downloads/jlink/JLink_Linux_V992_x86_64.tgz -o /tmp/jlink.tgz  && tar -xzf /tmp/jlink.tgz -C /opt  && rm /tmp/jlink.tgz
+#52 0.202   % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+#52 0.202                                  Dload  Upload  Total   Spent   Left   Speed
+#52 0.202   0      0   0      0   0      0      0      0                              0 13 88.61M  13 11.63M 100     52 11.63M     51   00:07   00:01   00:06 11.63M 18 88.61M  18 16.24M 100     52  8.12M     25   00:10   00:02   00:08  8.12M 24 88.61M  24 21.59M 100     52  7.18M     17   00:12   00:03   00:09  7.18M 32 88.61M  32 28.89M 100     52  7.20M     12   00:12   00:04   00:08  7.20M 44 88.61M  44 39.24M 100     52  7.82M     10   00:11   00:05   00:06  7.83M 58 88.61M  58 51.90M 100     52  8.63M      8   00:10   00:06   00:04  8.03M 72 88.61M  72 63.84M 100     52  9.10M      7   00:09   00:07   00:02  9.50M 87 88.61M  87 77.41M 100     52  9.66M      6   00:09   00:08   00:01 11.15M100 88.61M 100 88.61M 100     52  9.98M      5   00:10   00:08   00:02 11.15M100 88.61M 100 88.61M 100     52  9.98M      5   00:10   00:08   00:02 11.15M100 88.61M 100 88.61M 100     52  9.98M      5   00:10   00:08   00:02 11.15M
+#52 DONE 9.6s
+
+#53 [runner 30/55] RUN curl -O https://beta.quicklisp.org/quicklisp.lisp  && sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)"  && rm quicklisp.lisp
+#53 0.253   % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+#53 0.253                                  Dload  Upload  Total   Spent   Left   Speed
+#53 0.253   0      0   0      0   0      0      0      0                              0100  57144 100  57144   0      0  1.19M      0                              0100  57144 100  57144   0      0  1.19M      0                              0100  57144 100  57144   0      0  1.19M      0                              0
+#53 0.300 This is SBCL 2.6.0.debian, an implementation of ANSI Common Lisp.
+#53 0.300 More information about SBCL is available at <http://www.sbcl.org/>.
+#53 0.300 
+#53 0.300 SBCL is free software, provided as is, with absolutely no warranty.
+#53 0.300 It is mostly in the public domain; some portions are provided under
+#53 0.300 BSD-style licenses.  See the CREDITS and COPYING files in the
+#53 0.300 distribution for more information.
+#53 0.431 
+#53 0.431   ==== quicklisp quickstart 2015-01-28 loaded ====
+#53 0.431 
+#53 0.431     To continue with installation, evaluate: (quicklisp-quickstart:install)
+#53 0.431 
+#53 0.431     For installation options, evaluate: (quicklisp-quickstart:help)
+#53 0.431 
+#53 0.449 ; Fetching #<URL "http://beta.quicklisp.org/client/quicklisp.sexp">
+#53 0.449 ; 0.82KB
+#53 0.451 ==================================================
+#53 0.451 839 bytes in 0.00 seconds (0.00KB/sec)
+#53 0.471 ; Fetching #<URL "http://beta.quicklisp.org/client/2021-02-13/quicklisp.tar">
+#53 0.471 ; 260.00KB
+#53 0.474 ==================================================
+#53 0.474 266,240 bytes in 0.00 seconds (78007.80KB/sec)
+#53 0.488 ; Fetching #<URL "http://beta.quicklisp.org/client/2021-02-11/setup.lisp">
+#53 0.488 ; 4.94KB
+#53 0.489 ==================================================
+#53 0.489 5,057 bytes in 0.00 seconds (0.00KB/sec)
+#53 0.521 ; Fetching #<URL "http://beta.quicklisp.org/asdf/3.2.1/asdf.lisp">
+#53 0.521 ; 628.18KB
+#53 0.526 ==================================================
+#53 0.526 643,253 bytes in 0.01 seconds (94235.94KB/sec)
+#53 1.185 ; Fetching #<URL "http://beta.quicklisp.org/dist/quicklisp.txt">
+#53 1.185 ; 0.40KB
+#53 1.186 ==================================================
+#53 1.186 408 bytes in 0.00 seconds (0.00KB/sec)
+#53 1.187 Installing dist "quicklisp" version "2026-01-01".
+#53 1.224 ; Fetching #<URL "http://beta.quicklisp.org/dist/quicklisp/2026-01-01/releases.txt">
+#53 1.224 ; 564.04KB
+#53 1.230 ==================================================
+#53 1.230 577,575 bytes in 0.01 seconds (84601.48KB/sec)
+#53 1.256 ; Fetching #<URL "http://beta.quicklisp.org/dist/quicklisp/2026-01-01/systems.txt">
+#53 1.256 ; 458.96KB
+#53 1.260 ==================================================
+#53 1.260 469,975 bytes in 0.00 seconds (137660.45KB/sec)
+#53 1.275 
+#53 1.275   ==== quicklisp installed ====
+#53 1.275 
+#53 1.275     To load a system, use: (ql:quickload "system-name")
+#53 1.275 
+#53 1.275     To find systems, use: (ql:system-apropos "term")
+#53 1.275 
+#53 1.275     To load Quicklisp every time you start Lisp, use: (ql:add-to-init-file)
+#53 1.275 
+#53 1.275     For more information, see http://www.quicklisp.org/beta/
+#53 1.275 
+#53 DONE 1.3s
+
+#54 [runner 31/55] COPY <<EOF /root/.sbclrc
+#54 DONE 0.0s
+
+#55 [runner 32/55] RUN mkdir -p /root/quicklisp/local-projects  && ln -s /workspace/src/cl-py-generator /root/quicklisp/local-projects/cl-py-generator  && ln -s /workspace/src/cl-cpp-generator2 /root/quicklisp/local-projects/cl-cpp-generator2  && ln -s /workspace/src/cl-rust-generator /root/quicklisp/local-projects/cl-rust-generator
+#55 DONE 0.2s
+
+#56 [runner 33/55] RUN sbcl --non-interactive --load /root/quicklisp/setup.lisp --eval '(ql:quickload "quicklisp-slime-helper")' --eval '(ql:quickload "alexandria")' --eval '(ql:quickload "jonathan")' --eval '(ql:quickload "external-program")' --eval '(ql:quickload "cl-ppcre")'
+#56 0.233 This is SBCL 2.6.0.debian, an implementation of ANSI Common Lisp.
+#56 0.233 More information about SBCL is available at <http://www.sbcl.org/>.
+#56 0.233 
+#56 0.233 SBCL is free software, provided as is, with absolutely no warranty.
+#56 0.233 It is mostly in the public domain; some portions are provided under
+#56 0.233 BSD-style licenses.  See the CREDITS and COPYING files in the
+#56 0.233 distribution for more information.
+#56 0.424 To load "quicklisp-slime-helper":
+#56 0.424   Load 1 ASDF system:
+#56 0.424     asdf
+#56 0.424   Install 3 Quicklisp releases:
+#56 0.424     alexandria quicklisp-slime-helper slime
+#56 0.456 ; Fetching #<URL "http://beta.quicklisp.org/archive/slime/2026-01-01/slime-v2.32.tgz">
+#56 0.456 ; 749.72KB
+#56 0.501 ==================================================
+#56 0.501 767,712 bytes in 0.04 seconds (17301.34KB/sec)
+#56 0.558 ; Fetching #<URL "http://beta.quicklisp.org/archive/alexandria/2024-10-12/alexandria-20241012-git.tgz">
+#56 0.558 ; 55.94KB
+#56 0.559 ==================================================
+#56 0.559 57,281 bytes in 0.00 seconds (0.00KB/sec)
+#56 0.584 ; Fetching #<URL "http://beta.quicklisp.org/archive/quicklisp-slime-helper/2015-07-09/quicklisp-slime-helper-20150709-git.tgz">
+#56 0.584 ; 2.16KB
+#56 0.584 ==================================================
+#56 0.584 2,211 bytes in 0.00 seconds (0.00KB/sec)
+#56 0.584 ; Loading "quicklisp-slime-helper"
+#56 0.593 [package swank-loader]............................
+#56 0.621 [package swank/backend]...........................
+#56 0.621 [package swank/backend]...........................
+#56 0.622 [package swank/rpc]...............................
+#56 0.622 [package swank/rpc]...............................
+#56 0.622 [package swank/match].............................
+#56 0.623 [package swank/match].............................
+#56 0.623 [package swank-mop]...............................
+#56 0.623 [package swank-mop]...............................
+#56 0.623 [package swank]...................................
+#56 0.624 [package swank]...................................
+#56 0.765 [package swank/source-path-parser]................
+#56 0.780 [package swank/source-file-cache].................
+#56 0.790 [package swank/sbcl]..............................
+#56 1.024 [package swank/gray]..............................
+#56 1.491 ..................................................
+#56 1.550 [package alexandria]..............................
+#56 1.851 [package alexandria-2]............................
+#56 1.862 [package quicklisp-slime-helper]
+#56 1.863 slime-helper.el installed in "/root/quicklisp/slime-helper.el"
+#56 1.863 
+#56 1.863 To use, add this to your ~/.emacs:
+#56 1.863 
+#56 1.863   (load (expand-file-name "~/quicklisp/slime-helper.el"))
+#56 1.863   ;; Replace "sbcl" with the path to your implementation
+#56 1.863   (setq inferior-lisp-program "sbcl")
+#56 1.863 
+#56 1.863 
+#56 1.864 To load "alexandria":
+#56 1.864   Load 1 ASDF system:
+#56 1.864     alexandria
+#56 1.864 ; Loading "alexandria"
+#56 1.866 
+#56 1.873 To load "jonathan":
+#56 1.873   Load 2 ASDF systems:
+#56 1.873     alexandria asdf
+#56 1.873   Install 14 Quicklisp releases:
+#56 1.873     babel cffi cl-annot cl-ppcre cl-syntax fast-io jonathan
+#56 1.873     mgl-pax named-readtables proc-parse static-vectors
+#56 1.873     trivial-features trivial-gray-streams trivial-types
+#56 1.889 ; Fetching #<URL "http://beta.quicklisp.org/archive/proc-parse/2019-08-13/proc-parse-20190813-git.tgz">
+#56 1.889 ; 8.49KB
+#56 1.889 ==================================================
+#56 1.889 8,695 bytes in 0.00 seconds (0.00KB/sec)
+#56 1.901 ; Fetching #<URL "http://beta.quicklisp.org/archive/trivial-gray-streams/2024-10-12/trivial-gray-streams-20241012-git.tgz">
+#56 1.901 ; 7.87KB
+#56 1.902 ==================================================
+#56 1.902 8,054 bytes in 0.00 seconds (0.00KB/sec)
+#56 1.936 ; Fetching #<URL "http://beta.quicklisp.org/archive/cffi/2026-01-01/cffi-20260101-git.tgz">
+#56 1.936 ; 258.13KB
+#56 1.942 ==================================================
+#56 1.942 264,325 bytes in 0.01 seconds (38723.36KB/sec)
+#56 1.974 ; Fetching #<URL "http://beta.quicklisp.org/archive/static-vectors/2024-10-12/static-vectors-v1.9.3.tgz">
+#56 1.974 ; 7.95KB
+#56 1.974 ==================================================
+#56 1.974 8,142 bytes in 0.00 seconds (0.00KB/sec)
+#56 1.991 ; Fetching #<URL "http://beta.quicklisp.org/archive/fast-io/2022-11-06/fast-io-20221106-git.tgz">
+#56 1.991 ; 9.45KB
+#56 1.991 ==================================================
+#56 1.991 9,680 bytes in 0.00 seconds (0.00KB/sec)
+#56 2.006 ; Fetching #<URL "http://beta.quicklisp.org/archive/trivial-types/2012-04-07/trivial-types-20120407-git.tgz">
+#56 2.006 ; 3.15KB
+#56 2.006 ==================================================
+#56 2.006 3,228 bytes in 0.00 seconds (0.00KB/sec)
+#56 2.028 ; Fetching #<URL "http://beta.quicklisp.org/archive/mgl-pax/2026-01-01/mgl-pax-20260101-git.tgz">
+#56 2.028 ; 1072.82KB
+#56 2.103 ==================================================
+#56 2.103 1,098,569 bytes in 0.08 seconds (13993.26KB/sec)
+#56 2.173 ; Fetching #<URL "http://beta.quicklisp.org/archive/named-readtables/2026-01-01/named-readtables-20260101-git.tgz">
+#56 2.173 ; 25.56KB
+#56 2.173 ==================================================
+#56 2.173 26,169 bytes in 0.00 seconds (0.00KB/sec)
+#56 2.190 ; Fetching #<URL "http://beta.quicklisp.org/archive/cl-syntax/2015-04-07/cl-syntax-20150407-git.tgz">
+#56 2.190 ; 3.03KB
+#56 2.190 ==================================================
+#56 2.190 3,102 bytes in 0.00 seconds (0.00KB/sec)
+#56 2.226 ; Fetching #<URL "http://beta.quicklisp.org/archive/cl-ppcre/2025-06-22/cl-ppcre-20250622-git.tgz">
+#56 2.226 ; 153.92KB
+#56 2.227 ==================================================
+#56 2.227 157,615 bytes in 0.00 seconds (46180.89KB/sec)
+#56 2.250 ; Fetching #<URL "http://beta.quicklisp.org/archive/cl-annot/2015-06-08/cl-annot-20150608-git.tgz">
+#56 2.250 ; 9.80KB
+#56 2.250 ==================================================
+#56 2.250 10,039 bytes in 0.00 seconds (0.00KB/sec)
+#56 2.267 ; Fetching #<URL "http://beta.quicklisp.org/archive/trivial-features/2025-06-22/trivial-features-20250622-git.tgz">
+#56 2.267 ; 11.10KB
+#56 2.267 ==================================================
+#56 2.267 11,368 bytes in 0.00 seconds (0.00KB/sec)
+#56 2.297 ; Fetching #<URL "http://beta.quicklisp.org/archive/babel/2026-01-01/babel-20260101-git.tgz">
+#56 2.297 ; 320.16KB
+#56 2.302 ==================================================
+#56 2.302 327,844 bytes in 0.00 seconds (96057.66KB/sec)
+#56 2.338 ; Fetching #<URL "http://beta.quicklisp.org/archive/jonathan/2020-09-25/jonathan-20200925-git.tgz">
+#56 2.338 ; 157.66KB
+#56 2.340 ==================================================
+#56 2.340 161,447 bytes in 0.00 seconds (47303.66KB/sec)
+#56 2.346 ; Loading "jonathan"
+#56 2.354 [package mgl-pax.asdf]............................
+#56 2.375 [package trivial-types]...........................
+#56 2.387 [package autoload]................................
+#56 2.395 [package dref-ext]................................
+#56 2.395 [package dref]....................................
+#56 2.396 [package dref-ext]................................
+#56 2.396 [package dref]....................................
+#56 2.396 [package mgl-pax].................................
+#56 2.397 [package mgl-pax].................................
+#56 2.424 [package editor-hints.named-readtables]...........
+#56 2.424 [package editor-hints.named-readtables]...........
+#56 2.520 [package cl-syntax]...............................
+#56 2.534 [package cl-annot.util]...........................
+#56 2.540 [package cl-annot.core]...........................
+#56 2.543 [package cl-annot.expand].........................
+#56 2.545 [package cl-annot.syntax].........................
+#56 2.548 [package cl-annot.helper].........................
+#56 2.551 [package cl-annot]................................
+#56 2.552 [package cl-annot.std]............................
+#56 2.561 [package cl-annot.eval-when]......................
+#56 2.563 [package cl-annot.doc]............................
+#56 2.571 [package cl-annot.class]..........................
+#56 2.581 [package cl-annot.slot]...........................
+#56 2.594 [package impl-specific-gray]......................
+#56 2.594 [package trivial-gray-streams]....................
+#56 2.604 [package babel-encodings].........................
+#56 2.604 [package babel]...................................
+#56 3.003 ..................................................
+#56 3.754 [package cffi-sys]................................
+#56 3.754 [package cffi-features]...........................
+#56 3.755 [package cffi]....................................
+#56 4.153 ..................................................
+#56 4.700 [package static-vectors]..........................
+#56 4.731 [package fast-io].................................
+#56 4.912 [package proc-parse]..............................
+#56 4.959 [package cl-ppcre]................................
+#56 5.361 ..................................................
+#56 5.642 [package jonathan.error]..........................
+#56 5.646 [package jonathan.util]...........................
+#56 5.649 [package jonathan.encode].........................
+#56 5.775 [package jonathan.decode].........................
+#56 5.850 [package jonathan.helper].........................
+#56 5.871 [package jonathan]
+#56 5.873 To load "external-program":
+#56 5.873   Load 2 ASDF systems:
+#56 5.873     asdf trivial-features
+#56 5.873   Install 1 Quicklisp release:
+#56 5.873     external-program
+#56 5.886 ; Fetching #<URL "http://beta.quicklisp.org/archive/external-program/2024-10-12/external-program-20241012-git.tgz">
+#56 5.886 ; 10.31KB
+#56 5.887 ==================================================
+#56 5.887 10,560 bytes in 0.00 seconds (0.00KB/sec)
+#56 5.888 ; Loading "external-program"
+#56 5.893 [package external-program].
+#56 5.909 To load "cl-ppcre":
+#56 5.909   Load 1 ASDF system:
+#56 5.909     cl-ppcre
+#56 5.909 ; Loading "cl-ppcre"
+#56 5.911 
+#56 DONE 5.9s
+
+#57 [runner 34/55] RUN curl -fsSL https://dev.meta.ai/install.sh | MUSE_INSTALL_DIR=/usr/local/bin bash  && command -v muse
+#57 40.48 Installed muse to /usr/local/bin/muse
+#57 40.48 
+#57 40.48 To get started, run muse
+#57 40.48 /usr/local/bin/muse
+#57 DONE 40.6s
+
+#58 [runner 35/55] RUN mv /usr/local/bin/muse /usr/local/bin/muse.real
+#58 DONE 0.2s
+
+#59 [runner 36/55] COPY --chmod=755 <<EOF /usr/local/bin/muse
+#59 DONE 0.0s
+
+#60 [runner 37/55] RUN emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(setq custom-file null-device)" --eval "(dolist (pkg '(compat cmake-mode company gptel magit markdown-mode orderless paredit slime yaml-mode use-package)) (setq package-selected-packages nil) (package-install pkg))"
+#60 0.331 Loading /etc/emacs/site-start.d/00debian.el (source)...
+#60 0.398 Importing package-keyring.gpg...
+#60 0.512 Importing package-keyring.gpg...done
+#60 0.527 Contacting host: melpa.org:443
+#60 4.258 Contacting host: melpa.org:443
+#60 4.945 Package refresh done
+#60 4.945 Contacting host: elpa.gnu.org:443
+#60 6.213 Package refresh done
+#60 6.213 Contacting host: elpa.nongnu.org:443
+#60 6.625 Contacting host: elpa.nongnu.org:443
+#60 7.418 Package refresh done
+#60 7.418 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 7.418 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 7.418 `compat' is already installed
+#60 7.418 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 7.418 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 7.757 Contacting host: melpa.org:443
+#60 7.936 Parsing tar file... 
+#60 7.936 Parsing tar file...done
+#60 7.936 Extracting... \ 
+#60 7.936 Extracting...done
+#60 7.941   INFO     Scraping 2 files for loaddefs... 
+#60 7.942   INFO     Scraping 2 files for loaddefs...done
+#60 7.943   GEN      cmake-mode-autoloads.el
+#60 7.967 Checking /root/.emacs.d/elpa/cmake-mode-20261119.1320...
+#60 7.967 Compiling /root/.emacs.d/elpa/cmake-mode-20261119.1320/cmake-mode-autoloads.el...
+#60 7.968 Compiling /root/.emacs.d/elpa/cmake-mode-20261119.1320/cmake-mode-pkg.el...
+#60 7.969 Compiling /root/.emacs.d/elpa/cmake-mode-20261119.1320/cmake-mode.el...
+#60 7.980 Done (Total of 1 file compiled, 2 skipped)
+#60 7.992 Package `cmake-mode' installed.
+#60 7.992 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 7.992 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 8.506 Parsing tar file... 
+#60 8.506 Parsing tar file...done
+#60 8.507 Extracting... \ 
+#60 8.507 Extracting...done
+#60 8.507   INFO     Scraping 3 files for loaddefs... 
+#60 8.510   INFO     Scraping 3 files for loaddefs...done
+#60 8.510   GEN      posframe-autoloads.el
+#60 8.528 Checking /root/.emacs.d/elpa/posframe-20261021.935...
+#60 8.528 Compiling /root/.emacs.d/elpa/posframe-20261021.935/posframe-autoloads.el...
+#60 8.528 Compiling /root/.emacs.d/elpa/posframe-20261021.935/posframe-benchmark.el...
+#60 8.532 Compiling /root/.emacs.d/elpa/posframe-20261021.935/posframe-pkg.el...
+#60 8.532 Compiling /root/.emacs.d/elpa/posframe-20261021.935/posframe.el...
+#60 8.544 
+#60 8.544 In end of data:
+#60 8.544 posframe.el:603:31: Warning: the function `font-info' is not known to be defined.
+#60 8.544 Done (Total of 2 files compiled, 2 skipped)
+#60 8.557 Contacting host: melpa.org:443
+#60 10.21 Contacting host: melpa.org:443
+#60 10.38 Parsing tar file... 
+#60 10.38 Parsing tar file...done
+#60 10.38 Extracting... \ 
+#60 10.40 Extracting...done
+#60 10.40   INFO     Scraping 23 files for loaddefs... 
+#60 10.41   INFO     Scraping 23 files for loaddefs...done
+#60 10.42   GEN      company-autoloads.el
+#60 10.46 Checking /root/.emacs.d/elpa/company-20261119.500...
+#60 10.46 Compiling /root/.emacs.d/elpa/company-20261119.500/company-abbrev.el...
+#60 10.48 Compiling /root/.emacs.d/elpa/company-20261119.500/company-autoloads.el...
+#60 10.48 Compiling /root/.emacs.d/elpa/company-20261119.500/company-bbdb.el...
+#60 10.48 Compiling /root/.emacs.d/elpa/company-20261119.500/company-capf.el...
+#60 10.50 Compiling /root/.emacs.d/elpa/company-20261119.500/company-childframe.el...
+#60 10.51 Compiling /root/.emacs.d/elpa/company-20261119.500/company-clang.el...
+#60 10.51 Compiling /root/.emacs.d/elpa/company-20261119.500/company-cmake.el...
+#60 10.51 Compiling /root/.emacs.d/elpa/company-20261119.500/company-css.el...
+#60 10.52 Compiling /root/.emacs.d/elpa/company-20261119.500/company-dabbrev-code.el...
+#60 10.52 Compiling /root/.emacs.d/elpa/company-20261119.500/company-dabbrev.el...
+#60 10.52 Compiling /root/.emacs.d/elpa/company-20261119.500/company-etags.el...
+#60 10.53 Compiling /root/.emacs.d/elpa/company-20261119.500/company-files.el...
+#60 10.53 Compiling /root/.emacs.d/elpa/company-20261119.500/company-gtags.el...
+#60 10.54 Compiling /root/.emacs.d/elpa/company-20261119.500/company-ispell.el...
+#60 10.54 Compiling /root/.emacs.d/elpa/company-20261119.500/company-keywords.el...
+#60 10.55 Compiling /root/.emacs.d/elpa/company-20261119.500/company-nxml.el...
+#60 10.55 Compiling /root/.emacs.d/elpa/company-20261119.500/company-oddmuse.el...
+#60 10.55 Compiling /root/.emacs.d/elpa/company-20261119.500/company-pkg.el...
+#60 10.55 Compiling /root/.emacs.d/elpa/company-20261119.500/company-semantic.el...
+#60 10.55 Compiling /root/.emacs.d/elpa/company-20261119.500/company-template.el...
+#60 10.56 Compiling /root/.emacs.d/elpa/company-20261119.500/company-tempo.el...
+#60 10.56 Compiling /root/.emacs.d/elpa/company-20261119.500/company-tng.el...
+#60 10.56 Compiling /root/.emacs.d/elpa/company-20261119.500/company-yasnippet.el...
+#60 10.56 Compiling /root/.emacs.d/elpa/company-20261119.500/company.el...
+#60 10.61 Checking /root/.emacs.d/elpa/company-20261119.500/icons...
+#60 10.61 Checking /root/.emacs.d/elpa/company-20261119.500/images...
+#60 10.61 Checking /root/.emacs.d/elpa/company-20261119.500/icons/vscode-dark...
+#60 10.61 Checking /root/.emacs.d/elpa/company-20261119.500/icons/vscode-light...
+#60 10.61 Checking /root/.emacs.d/elpa/company-20261119.500/images/small...
+#60 10.61 Done (Total of 22 files compiled, 2 skipped)
+#60 10.63 Package `company' installed.
+#60 10.63 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 10.63 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 10.63 Contacting host: melpa.org:443
+#60 10.98 Parsing tar file... 
+#60 10.98 Parsing tar file...done
+#60 10.98 Extracting... \ 
+#60 10.98 Extracting...done
+#60 10.98   INFO     Scraping 2 files for loaddefs... 
+#60 10.98   INFO     Scraping 2 files for loaddefs...done
+#60 10.98   GEN      llama-autoloads.el
+#60 11.00 Checking /root/.emacs.d/elpa/llama-20261001.1538...
+#60 11.00 Compiling /root/.emacs.d/elpa/llama-20261001.1538/llama-autoloads.el...
+#60 11.00 Compiling /root/.emacs.d/elpa/llama-20261001.1538/llama-pkg.el...
+#60 11.00 Compiling /root/.emacs.d/elpa/llama-20261001.1538/llama.el...
+#60 11.01 Done (Total of 1 file compiled, 2 skipped)
+#60 11.37 Parsing tar file... 
+#60 11.37 Parsing tar file...done
+#60 11.37 Extracting... \ 
+#60 11.37 Extracting...done
+#60 11.37   INFO     Scraping 2 files for loaddefs... 
+#60 11.38   INFO     Scraping 2 files for loaddefs...done
+#60 11.38   GEN      cond-let-autoloads.el
+#60 11.40 Checking /root/.emacs.d/elpa/cond-let-20261001.1537...
+#60 11.40 Compiling /root/.emacs.d/elpa/cond-let-20261001.1537/cond-let-autoloads.el...
+#60 11.40 Compiling /root/.emacs.d/elpa/cond-let-20261001.1537/cond-let-pkg.el...
+#60 11.40 Compiling /root/.emacs.d/elpa/cond-let-20261001.1537/cond-let.el...
+#60 11.40 Done (Total of 1 file compiled, 2 skipped)
+#60 12.08 Contacting host: melpa.org:443
+#60 12.26 Parsing tar file... 
+#60 12.26 Parsing tar file...done
+#60 12.26 Extracting... \ 
+#60 12.26 Extracting...done
+#60 12.26   INFO     Scraping 2 files for loaddefs... 
+#60 12.26   INFO     Scraping 2 files for loaddefs...done
+#60 12.26   GEN      transient-autoloads.el
+#60 12.28 Checking /root/.emacs.d/elpa/transient-20261113.1458...
+#60 12.28 Compiling /root/.emacs.d/elpa/transient-20261113.1458/transient-autoloads.el...
+#60 12.28 Compiling /root/.emacs.d/elpa/transient-20261113.1458/transient-pkg.el...
+#60 12.28 Compiling /root/.emacs.d/elpa/transient-20261113.1458/transient.el...
+#60 12.49 
+#60 12.49 In end of data:
+#60 12.49 transient.el:4137:2: Warning: the function `static-when' is not known to be defined.
+#60 12.49 transient.el:3851:8: Warning: the function `all' is not known to be defined.
+#60 12.49 transient.el:1540:46: Warning: the function `incf' is not known to be defined.
+#60 12.49 Done (Total of 1 file compiled, 2 skipped)
+#60 13.50 Contacting host: melpa.org:443
+#60 13.68 Parsing tar file... 
+#60 13.68 Parsing tar file...done
+#60 13.68 Extracting... \ 
+#60 13.68 Extracting...done
+#60 13.68   INFO     Scraping 19 files for loaddefs... 
+#60 13.70   INFO     Scraping 19 files for loaddefs...done
+#60 13.70   GEN      gptel-autoloads.el
+#60 13.75 Checking /root/.emacs.d/elpa/gptel-20261117.733...
+#60 13.75 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-anthropic.el...
+#60 13.77 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-autoloads.el...
+#60 13.77 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-bedrock.el...
+#60 13.78 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-context.el...
+#60 13.79 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-gemini.el...
+#60 13.80 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-gh.el...
+#60 13.82 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-integrations.el...
+#60 13.83 
+#60 13.83 In toplevel form:
+#60 13.83 gptel-integrations.el:37:2: Error: Symbol's function definition is void: static-when
+#60 13.83 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-kagi.el...
+#60 13.84 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-oauth.el...
+#60 13.84 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-ollama.el...
+#60 13.85 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-openai-extras.el...
+#60 13.89 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-openai-oauth.el...
+#60 13.90 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-openai-responses.el...
+#60 13.91 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-openai.el...
+#60 13.93 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-org.el...
+#60 14.02 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-pkg.el...
+#60 14.02 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-request.el...
+#60 14.03 
+#60 14.03 In gptel--strip-mode-suffix:
+#60 14.03 gptel-request.el:1092:14: Warning: `provided-mode-derived-p' called with 4 arguments, but accepts only 2
+#60 14.07 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-rewrite.el...
+#60 14.07 
+#60 14.07 In toplevel form:
+#60 14.07 gptel-rewrite.el:26:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 14.07 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-transient.el...
+#60 14.08 
+#60 14.08 In toplevel form:
+#60 14.08 gptel-transient.el:30:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 14.08 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel.el...
+#60 14.12 Done (Total of 15 files compiled, 3 failed, 2 skipped)
+#60 14.14 Package `gptel' installed.
+#60 14.14 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 14.14 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 14.14 Contacting host: elpa.gnu.org:443
+#60 14.75 Contacting host: elpa.gnu.org:443
+#60 15.09 Parsing tar file... 
+#60 15.09 Parsing tar file...done
+#60 15.09 Extracting... \ 
+#60 15.09 Extracting...done
+#60 15.09   INFO     Scraping 9 files for loaddefs... 
+#60 15.09   INFO     Scraping 9 files for loaddefs...done
+#60 15.09   GEN      compat-autoloads.el
+#60 15.16 Error in package--load-files-for-activation: (error Eager macro-expansion failure: (file-missing "Cannot open load file" "No such file or directory" "compat-31"))
+#60 15.16 Checking /root/.emacs.d/elpa/compat-31.1.0.0...
+#60 15.16 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-26.el...
+#60 15.16 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-27.el...
+#60 15.17 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-28.el...
+#60 15.17 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-29.el...
+#60 15.18 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-30.el...
+#60 15.19 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-31.el...
+#60 15.20 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-autoloads.el...
+#60 15.20 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-macs.el...
+#60 15.20 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-pkg.el...
+#60 15.20 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat.el...
+#60 15.20 Done (Total of 7 files compiled, 3 skipped)
+#60 15.72 Contacting host: melpa.org:443
+#60 15.90 Parsing tar file... 
+#60 15.90 Parsing tar file...done
+#60 15.90 Extracting... \ 
+#60 15.90 Extracting...done
+#60 15.90   INFO     Scraping 2 files for loaddefs... 
+#60 15.91   INFO     Scraping 2 files for loaddefs...done
+#60 15.91   GEN      with-editor-autoloads.el
+#60 15.93 Checking /root/.emacs.d/elpa/with-editor-20261109.2119...
+#60 15.93 Compiling /root/.emacs.d/elpa/with-editor-20261109.2119/with-editor-autoloads.el...
+#60 15.93 Compiling /root/.emacs.d/elpa/with-editor-20261109.2119/with-editor-pkg.el...
+#60 15.93 Compiling /root/.emacs.d/elpa/with-editor-20261109.2119/with-editor.el...
+#60 15.95 Done (Total of 1 file compiled, 2 skipped)
+#60 16.48 Parsing tar file... 
+#60 16.48 Parsing tar file...done
+#60 16.48 Extracting... \ 
+#60 16.48 Extracting...done
+#60 16.48   INFO     Scraping 2 files for loaddefs... 
+#60 16.48   INFO     Scraping 2 files for loaddefs...done
+#60 16.49   GEN      magit-section-autoloads.el
+#60 16.51 Checking /root/.emacs.d/elpa/magit-section-20261107.2107...
+#60 16.51 Compiling /root/.emacs.d/elpa/magit-section-20261107.2107/magit-section-autoloads.el...
+#60 16.51 Compiling /root/.emacs.d/elpa/magit-section-20261107.2107/magit-section-pkg.el...
+#60 16.51 Compiling /root/.emacs.d/elpa/magit-section-20261107.2107/magit-section.el...
+#60 16.52 
+#60 16.52 In toplevel form:
+#60 16.52 magit-section.el:103:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 16.52 Done (Total of 0 files compiled, 1 failed, 2 skipped)
+#60 16.54 Contacting host: melpa.org:443
+#60 18.73 Contacting host: melpa.org:443
+#60 18.90 Parsing tar file... 
+#60 18.90 Parsing tar file...done
+#60 18.91 Extracting... \ 
+#60 18.91 Extracting...done
+#60 18.91   INFO     Scraping 47 files for loaddefs... 
+#60 18.96   INFO     Scraping 47 files for loaddefs...done
+#60 18.97   GEN      magit-autoloads.el
+#60 19.07 Checking /root/.emacs.d/elpa/magit-20261117.1103...
+#60 19.07 Compiling /root/.emacs.d/elpa/magit-20261117.1103/git-commit.el...
+#60 19.08 
+#60 19.08 In toplevel form:
+#60 19.08 git-commit.el:103:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.08 Compiling /root/.emacs.d/elpa/magit-20261117.1103/git-rebase.el...
+#60 19.08 
+#60 19.08 In toplevel form:
+#60 19.08 git-rebase.el:75:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.08 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-apply.el...
+#60 19.09 
+#60 19.09 In toplevel form:
+#60 19.09 magit-apply.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.09 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-autoloads.el...
+#60 19.09 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-autorevert.el...
+#60 19.10 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-base.el...
+#60 19.10 
+#60 19.10 In toplevel form:
+#60 19.10 magit-base.el:47:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.10 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-bisect.el...
+#60 19.11 
+#60 19.11 In toplevel form:
+#60 19.11 magit-bisect.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.11 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-blame.el...
+#60 19.11 
+#60 19.11 In toplevel form:
+#60 19.11 magit-blame.el:30:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.11 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-bookmark.el...
+#60 19.12 
+#60 19.12 In toplevel form:
+#60 19.12 magit-bookmark.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.12 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-branch.el...
+#60 19.12 
+#60 19.12 In toplevel form:
+#60 19.12 magit-branch.el:33:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.12 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-bundle.el...
+#60 19.13 
+#60 19.13 In toplevel form:
+#60 19.13 magit-bundle.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.13 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-clone.el...
+#60 19.14 
+#60 19.14 In toplevel form:
+#60 19.14 magit-clone.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.14 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-commit.el...
+#60 19.14 
+#60 19.14 In toplevel form:
+#60 19.14 magit-commit.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.14 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-core.el...
+#60 19.15 
+#60 19.15 In toplevel form:
+#60 19.15 magit-core.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.15 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-diff.el...
+#60 19.15 
+#60 19.15 In toplevel form:
+#60 19.15 magit-diff.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.15 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-dired.el...
+#60 19.16 
+#60 19.16 In toplevel form:
+#60 19.16 magit-dired.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.16 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-ediff.el...
+#60 19.16 
+#60 19.16 In toplevel form:
+#60 19.16 magit-ediff.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.16 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-extras.el...
+#60 19.17 
+#60 19.17 In toplevel form:
+#60 19.17 magit-extras.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.17 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-fetch.el...
+#60 19.18 
+#60 19.18 In toplevel form:
+#60 19.18 magit-fetch.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.18 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-files.el...
+#60 19.18 
+#60 19.18 In toplevel form:
+#60 19.18 magit-files.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.18 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-git.el...
+#60 19.19 
+#60 19.19 In toplevel form:
+#60 19.19 magit-git.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.19 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-gitignore.el...
+#60 19.19 
+#60 19.19 In toplevel form:
+#60 19.19 magit-gitignore.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.19 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-log.el...
+#60 19.20 
+#60 19.20 In toplevel form:
+#60 19.20 magit-log.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.20 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-margin.el...
+#60 19.20 
+#60 19.20 In toplevel form:
+#60 19.20 magit-margin.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.20 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-merge.el...
+#60 19.21 
+#60 19.21 In toplevel form:
+#60 19.21 magit-merge.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.21 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-mode.el...
+#60 19.22 
+#60 19.22 In toplevel form:
+#60 19.22 magit-mode.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.22 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-notes.el...
+#60 19.22 
+#60 19.22 In toplevel form:
+#60 19.22 magit-notes.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.22 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-patch.el...
+#60 19.23 
+#60 19.23 In toplevel form:
+#60 19.23 magit-patch.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.23 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-pkg.el...
+#60 19.23 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-process.el...
+#60 19.27 
+#60 19.27 In toplevel form:
+#60 19.27 magit-process.el:33:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.27 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-pull.el...
+#60 19.28 
+#60 19.28 In toplevel form:
+#60 19.28 magit-pull.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.28 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-push.el...
+#60 19.28 
+#60 19.28 In toplevel form:
+#60 19.28 magit-push.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.28 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-reflog.el...
+#60 19.29 
+#60 19.29 In toplevel form:
+#60 19.29 magit-reflog.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.29 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-refs.el...
+#60 19.29 
+#60 19.29 In toplevel form:
+#60 19.29 magit-refs.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.29 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-remote.el...
+#60 19.30 
+#60 19.30 In toplevel form:
+#60 19.30 magit-remote.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.30 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-repos.el...
+#60 19.31 
+#60 19.31 In toplevel form:
+#60 19.31 magit-repos.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.31 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-reset.el...
+#60 19.31 
+#60 19.31 In toplevel form:
+#60 19.31 magit-reset.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.31 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-sequence.el...
+#60 19.32 
+#60 19.32 In toplevel form:
+#60 19.32 magit-sequence.el:33:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.32 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-sparse-checkout.el...
+#60 19.32 
+#60 19.32 In toplevel form:
+#60 19.32 magit-sparse-checkout.el:30:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.32 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-stash.el...
+#60 19.33 
+#60 19.33 In toplevel form:
+#60 19.33 magit-stash.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.33 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-status.el...
+#60 19.34 
+#60 19.34 In toplevel form:
+#60 19.34 magit-status.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.34 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-submodule.el...
+#60 19.34 
+#60 19.34 In toplevel form:
+#60 19.34 magit-submodule.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.34 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-subtree.el...
+#60 19.35 
+#60 19.35 In toplevel form:
+#60 19.35 magit-subtree.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.35 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-tag.el...
+#60 19.35 
+#60 19.35 In toplevel form:
+#60 19.35 magit-tag.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.35 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-transient.el...
+#60 19.36 
+#60 19.36 In toplevel form:
+#60 19.36 magit-transient.el:30:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.36 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-wip.el...
+#60 19.37 
+#60 19.37 In toplevel form:
+#60 19.37 magit-wip.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.37 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-worktree.el...
+#60 19.37 
+#60 19.37 In toplevel form:
+#60 19.37 magit-worktree.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.37 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit.el...
+#60 19.38 
+#60 19.38 In toplevel form:
+#60 19.38 magit.el:65:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#60 19.38 Checking /root/.emacs.d/elpa/magit-20261117.1103/githooks...
+#60 19.38 Done (Total of 1 file compiled, 45 failed, 2 skipped)
+#60 19.40 Package `magit' installed.
+#60 19.40 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 19.40 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 19.95 Contacting host: melpa.org:443
+#60 20.13 Parsing tar file... 
+#60 20.13 Parsing tar file...done
+#60 20.13 Extracting... \ 
+#60 20.13 Extracting...done
+#60 20.13   INFO     Scraping 2 files for loaddefs... 
+#60 20.14   INFO     Scraping 2 files for loaddefs...done
+#60 20.14   GEN      markdown-mode-autoloads.el
+#60 20.17 Checking /root/.emacs.d/elpa/markdown-mode-20261022.55...
+#60 20.17 Compiling /root/.emacs.d/elpa/markdown-mode-20261022.55/markdown-mode-autoloads.el...
+#60 20.17 Compiling /root/.emacs.d/elpa/markdown-mode-20261022.55/markdown-mode-pkg.el...
+#60 20.17 Compiling /root/.emacs.d/elpa/markdown-mode-20261022.55/markdown-mode.el...
+#60 20.27 Done (Total of 1 file compiled, 2 skipped)
+#60 20.29 Package `markdown-mode' installed.
+#60 20.29 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 20.29 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 20.64 Parsing tar file... 
+#60 20.64 Parsing tar file...done
+#60 20.64 Extracting... \ 
+#60 20.64 Extracting...done
+#60 20.64   INFO     Scraping 3 files for loaddefs... 
+#60 20.64   INFO     Scraping 3 files for loaddefs...done
+#60 20.64   GEN      orderless-autoloads.el
+#60 20.67 Checking /root/.emacs.d/elpa/orderless-20261013.1927...
+#60 20.67 Compiling /root/.emacs.d/elpa/orderless-20261013.1927/orderless-autoloads.el...
+#60 20.67 Compiling /root/.emacs.d/elpa/orderless-20261013.1927/orderless-kwd.el...
+#60 20.68 Compiling /root/.emacs.d/elpa/orderless-20261013.1927/orderless-pkg.el...
+#60 20.68 Compiling /root/.emacs.d/elpa/orderless-20261013.1927/orderless.el...
+#60 20.69 Done (Total of 2 files compiled, 2 skipped)
+#60 20.70 Package `orderless' installed.
+#60 20.70 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 20.70 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 20.70 Contacting host: melpa.org:443
+#60 21.06 Parsing tar file... 
+#60 21.06 Parsing tar file...done
+#60 21.06 Extracting... \ 
+#60 21.06 Extracting...done
+#60 21.06   INFO     Scraping 2 files for loaddefs... 
+#60 21.06   INFO     Scraping 2 files for loaddefs...done
+#60 21.06   GEN      paredit-autoloads.el
+#60 21.08 Checking /root/.emacs.d/elpa/paredit-20241103.2046...
+#60 21.08 Compiling /root/.emacs.d/elpa/paredit-20241103.2046/paredit-autoloads.el...
+#60 21.08 Compiling /root/.emacs.d/elpa/paredit-20241103.2046/paredit-pkg.el...
+#60 21.08 Compiling /root/.emacs.d/elpa/paredit-20241103.2046/paredit.el...
+#60 21.09 
+#60 21.09 In paredit-find-comment-on-line:
+#60 21.09 paredit.el:714:33: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.09 paredit.el:722:43: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.09 paredit.el:723:42: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 21.09 paredit.el:724:36: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.09 paredit.el:725:36: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 21.09 
+#60 21.09 In paredit-newline:
+#60 21.09 paredit.el:1010:44: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.09 
+#60 21.09 In paredit-semicolon-find-line-break-point:
+#60 21.09 paredit.el:1100:20: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.09 paredit.el:1110:46: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.09 paredit.el:1114:55: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.09 paredit.el:1119:55: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.09 
+#60 21.09 In paredit-comment-on-line-p:
+#60 21.09 paredit.el:1219:47: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.09 
+#60 21.09 In paredit-insert-comment:
+#60 21.09 paredit.el:1228:54: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.09 paredit.el:1231:56: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 21.10 
+#60 21.10 In paredit-check-forward-delete-in-comment:
+#60 21.10 paredit.el:1382:31: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 21.10 paredit.el:1383:29: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 
+#60 21.10 In paredit-forward-delete-comment-start:
+#60 21.10 paredit.el:1393:40: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 
+#60 21.10 In paredit-backward-delete-in-comment:
+#60 21.10 paredit.el:1500:38: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 
+#60 21.10 In paredit-backward-delete-maybe-comment-end:
+#60 21.10 paredit.el:1511:30: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 paredit.el:1511:45: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 21.10 
+#60 21.10 In paredit-kill:
+#60 21.10 paredit.el:1537:54: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 
+#60 21.10 In paredit-kill-line-in-string:
+#60 21.10 paredit.el:1546:51: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 paredit.el:1554:26: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 
+#60 21.10 In paredit-kill-sexps-on-line:
+#60 21.10 paredit.el:1567:15: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 paredit.el:1583:36: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 
+#60 21.10 In paredit-forward-sexps-to-kill:
+#60 21.10 paredit.el:1614:38: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 paredit.el:1633:29: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 
+#60 21.10 In paredit-kill-sexps-on-whole-line:
+#60 21.10 paredit.el:1666:21: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 paredit.el:1667:56: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 21.10 
+#60 21.10 In paredit-copy-as-kill:
+#60 21.10 paredit.el:1793:40: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 paredit.el:1794:54: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 paredit.el:1800:42: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 
+#60 21.10 In paredit-copy-as-kill-in-string:
+#60 21.10 paredit.el:1808:32: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 
+#60 21.10 In paredit-copy-sexps-as-kill:
+#60 21.10 paredit.el:1816:17: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 paredit.el:1825:42: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 paredit.el:1827:47: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 
+#60 21.10 In paredit-check-region-for-delete:comment:
+#60 21.10 paredit.el:1900:55: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 paredit.el:2151:19: Warning: Use of deprecated ((lambda (n) ...) ...) form
+#60 21.10 
+#60 21.10 In paredit-raise-sexp:
+#60 21.10 paredit.el:2332:64: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.10 paredit.el:2333:62: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.11 
+#60 21.11 In paredit-join-lists-internal:
+#60 21.11 paredit.el:2747:45: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.11 
+#60 21.11 In paredit-indent-region:
+#60 21.11 paredit.el:2892:17: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 21.11 paredit.el:2895:62: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 21.11 paredit.el:2901:44: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 21.11 paredit.el:2910:31: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 21.11 paredit.el:2912:30: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 21.11 
+#60 21.11 In paredit-current-column:
+#60 21.11 paredit.el:3068:15: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 21.11 
+#60 21.11 In paredit-restore-column:
+#60 21.11 paredit.el:3083:10: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 21.11 Done (Total of 1 file compiled, 2 skipped)
+#60 21.13 Package `paredit' installed.
+#60 21.13 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 21.13 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 21.48 Parsing tar file... 
+#60 21.48 Parsing tar file...done
+#60 21.48 Extracting... \ 
+#60 21.48 Extracting...done
+#60 21.48   INFO     Scraping 3 files for loaddefs... 
+#60 21.49   INFO     Scraping 3 files for loaddefs...done
+#60 21.49   GEN      macrostep-autoloads.el
+#60 21.51 Checking /root/.emacs.d/elpa/macrostep-20250202.2205...
+#60 21.51 Compiling /root/.emacs.d/elpa/macrostep-20250202.2205/macrostep-autoloads.el...
+#60 21.51 Compiling /root/.emacs.d/elpa/macrostep-20250202.2205/macrostep-c.el...
+#60 21.55 Compiling /root/.emacs.d/elpa/macrostep-20250202.2205/macrostep-pkg.el...
+#60 21.55 Compiling /root/.emacs.d/elpa/macrostep-20250202.2205/macrostep.el...
+#60 21.56 Done (Total of 2 files compiled, 2 skipped)
+#60 21.62 Contacting host: melpa.org:443
+#60 24.58 Contacting host: melpa.org:443
+#60 24.75 Parsing tar file... 
+#60 24.75 Parsing tar file...done
+#60 24.75 Extracting... \ 
+#60 24.77 Extracting...done
+#60 24.77   INFO     Scraping 4 files for loaddefs... 
+#60 24.77   INFO     Scraping 4 files for loaddefs...done
+#60 24.86 Checking /root/.emacs.d/elpa/slime-20261108.2146...
+#60 24.86 Compiling /root/.emacs.d/elpa/slime-20261108.2146/slime-autoloads.el...
+#60 24.86 Compiling /root/.emacs.d/elpa/slime-20261108.2146/slime-pkg.el...
+#60 24.86 Compiling /root/.emacs.d/elpa/slime-20261108.2146/slime-tests.el...
+#60 24.92 Compiling /root/.emacs.d/elpa/slime-20261108.2146/slime.el...
+#60 24.93 
+#60 24.93 In toplevel form:
+#60 24.93 slime.el:112:2: Warning: Alias for `slime-contribs' should be declared before its referent
+#60 24.93 
+#60 24.93 In slime-dcase:
+#60 24.93 slime.el:706:4: Warning: Doc string after `declare'
+#60 24.94 
+#60 24.94 In slime-recompile-bytecode:
+#60 24.94 slime.el:1190:6: Warning: `byte-compile-file' called with 2 arguments, but accepts only 1
+#60 24.96 
+#60 24.96 In slime-log-event:
+#60 24.96 slime.el:2532:10: Warning: `hide-entry' is an obsolete function (as of 25.1); use `outline-hide-entry' instead.
+#60 24.96 
+#60 24.96 In slime-maybe-show-compilation-log:
+#60 24.96 slime.el:2915:58: Warning: Unused lexical argument `return-type'
+#60 24.97 
+#60 24.97 In slime-forward-source-path:
+#60 24.97 slime.el:3212:12: Warning: `beginning-of-sexp' is an obsolete function (as of 25.1); use `thing-at-point--beginning-of-sexp' instead.
+#60 24.97 
+#60 24.97 In slime-location-offset:
+#60 24.97 slime.el:3524:16: Warning: `beginning-of-sexp' is an obsolete function (as of 25.1); use `thing-at-point--beginning-of-sexp' instead.
+#60 24.97 
+#60 24.97 In slime-push-definition-stack:
+#60 24.97 slime.el:3821:20: Warning: `find-tag-marker-ring' is an obsolete variable (as of 25.1); use `xref-push-marker-stack' or `xref-go-back' instead.
+#60 24.98 
+#60 24.98 In slime-eval-defun:
+#60 24.98 slime.el:4207:2: Warning: docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#60 24.99 slime.el:4718:9: Warning: defvar `slime-xref-next-line-show' docstring wider than 80 characters
+#60 24.99 
+#60 24.99 In slime-edit-uses:
+#60 24.99 slime.el:5074:31: Warning: Unused lexical argument `type'
+#60 25.00 
+#60 25.00 In slime-initialize-macroexpansion-buffer:
+#60 25.00 slime.el:5152:6: Warning: `font-lock-fontify-buffer' is for interactive use only; use `font-lock-ensure' or `font-lock-flush' instead.
+#60 25.00 
+#60 25.00 In sldb-fetch-more-frames:
+#60 25.00 slime.el:5707:10: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#60 25.01 
+#60 25.01 In sldb-fetch-all-frames:
+#60 25.01 slime.el:5863:10: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#60 25.01 
+#60 25.01 In sldb-toggle-details:
+#60 25.01 slime.el:5966:10: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#60 25.03 
+#60 25.03 In slime-find-inspectable-object:
+#60 25.03 slime.el:6800:2: Warning: docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#60 25.04 
+#60 25.04 In slime-add-easy-menu:
+#60 25.04 slime.el:7409:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#60 25.04 
+#60 25.04 In slime-sldb-add-easy-menu:
+#60 25.04 slime.el:7416:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#60 25.04 
+#60 25.04 In slime-group-similar:
+#60 25.04 slime.el:7534:2: Warning: docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#60 25.05 Checking /root/.emacs.d/elpa/slime-20261108.2146/contrib...
+#60 25.05 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/inferior-slime.el...
+#60 25.06 
+#60 25.06 In inferior-slime-show-transcript:
+#60 25.06 contrib/inferior-slime.el:98:40: Warning: Unused lexical argument `string'
+#60 25.06 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-asdf.el...
+#60 25.07 
+#60 25.07 In toplevel form:
+#60 25.07 contrib/slime-asdf.el:82:12: Warning: in defcustom for `slime-asdf-collect-notes': missing :type keyword parameter
+#60 25.07 
+#60 25.07 In slime-asdf-operation-finished-function:
+#60 25.07 contrib/slime-asdf.el:92:29: Warning: Unused lexical argument `system'
+#60 25.07 
+#60 25.07 In slime-query-replace-system:
+#60 25.07 contrib/slime-asdf.el:193:36: Warning: Unused lexical argument `name'
+#60 25.07 contrib/slime-asdf.el:201:8: Warning: `tags-query-replace' called with 4 arguments, but accepts only 2 or 3
+#60 25.07 
+#60 25.07 In slime-who-depends-on:
+#60 25.07 contrib/slime-asdf.el:242:30: Warning: Lexical argument shadows the dynamic variable system-name
+#60 25.07 
+#60 25.07 In end of data:
+#60 25.07 contrib/slime-asdf.el:179:28: Warning: the function `second' is not known to be defined.
+#60 25.07 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-autodoc.el...
+#60 25.07 
+#60 25.07 In slime-autodoc-manually:
+#60 25.07 contrib/slime-autodoc.el:52:17: Warning: `eldoc-message' is an obsolete function (as of eldoc-1.1.0); use `eldoc-documentation-functions' instead.
+#60 25.07 contrib/slime-autodoc.el:53:15: Warning: `eldoc-message' is an obsolete function (as of eldoc-1.1.0); use `eldoc-documentation-functions' instead.
+#60 25.07 
+#60 25.07 In slime-autodoc-space:
+#60 25.07 contrib/slime-autodoc.el:65:8: Warning: `eldoc-message' is an obsolete function (as of eldoc-1.1.0); use `eldoc-documentation-functions' instead.
+#60 25.07 
+#60 25.07 In slime-autodoc--fontify:
+#60 25.07 contrib/slime-autodoc.el:107:8: Warning: `font-lock-fontify-buffer' is for interactive use only; use `font-lock-ensure' or `font-lock-flush' instead.
+#60 25.07 
+#60 25.07 In slime-autodoc--async%:
+#60 25.07 contrib/slime-autodoc.el:166:14: Warning: `eldoc-display-message-p' is an obsolete function (as of eldoc-1.6.0); Use `eldoc-documentation-functions' instead.
+#60 25.07 contrib/slime-autodoc.el:167:10: Warning: `eldoc-message' is an obsolete function (as of eldoc-1.1.0); use `eldoc-documentation-functions' instead.
+#60 25.07 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-banner.el...
+#60 25.08 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-buffer-streams.el...
+#60 25.08 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-c-p-c.el...
+#60 25.08 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-cl-indent.el...
+#60 25.08 
+#60 25.08 In toplevel form:
+#60 25.08 contrib/slime-cl-indent.el:122:12: Warning: custom-declare-variable `lisp-align-keywords-in-calls' docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#60 25.13 
+#60 25.13 In common-lisp-looking-back:
+#60 25.13 contrib/slime-cl-indent.el:770:18: Warning: Unused lexical variable `i'
+#60 25.13 contrib/slime-cl-indent.el:1446:9: Warning: defvar `common-lisp-indent-clause-joining-loop-macro-keyword' docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#60 25.14 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-clipboard.el...
+#60 25.14 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-coalton.el...
+#60 25.14 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-compiler-notes-tree.el...
+#60 25.14 
+#60 25.14 In slime-list-compiler-notes:
+#60 25.14 contrib/slime-compiler-notes-tree.el:32:14: Warning: Unused lexical variable `collapsed-p'
+#60 25.14 contrib/slime-compiler-notes-tree.el:78:48: Warning: variable `_' not left unused
+#60 25.14 contrib/slime-compiler-notes-tree.el:78:57: Warning: variable `__' not left unused
+#60 25.14 
+#60 25.14 In slime-compiler-notes-default-action-or-show-details/mouse:
+#60 25.14 contrib/slime-compiler-notes-tree.el:78:27: Warning: Unused lexical variable `mouse-2'
+#60 25.14 contrib/slime-compiler-notes-tree.el:78:36: Warning: Unused lexical variable `w'
+#60 25.15 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-editing-commands.el...
+#60 25.15 
+#60 25.15 In slime-close-all-parens-in-sexp:
+#60 25.15 contrib/slime-editing-commands.el:82:17: Warning: Unused lexical variable `i'
+#60 25.15 contrib/slime-editing-commands.el:95:23: Warning: Unused lexical variable `i'
+#60 25.15 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-enclosing-context.el...
+#60 25.15 
+#60 25.15 In slime-parse-sexp-at-point:
+#60 25.15 contrib/slime-enclosing-context.el:20:17: Warning: Unused lexical variable `i'
+#60 25.15 
+#60 25.15 In slime-enclosing-form-specs:
+#60 25.15 contrib/slime-enclosing-context.el:82:10: Warning: Unused lexical variable `initial-point'
+#60 25.16 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-fancy-inspector.el...
+#60 25.16 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-fancy-trace.el...
+#60 25.16 
+#60 25.16 In slime-trace-query:
+#60 25.16 contrib/slime-fancy-trace.el:25:19: Warning: Unused lexical variable `n'
+#60 25.16 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-fancy.el...
+#60 25.18 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-fontifying-fu.el...
+#60 25.18 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-fuzzy.el...
+#60 25.18 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-highlight-edits.el...
+#60 25.19 
+#60 25.19 In toplevel form:
+#60 25.19 contrib/slime-highlight-edits.el:24:20: Warning: Use keywords rather than deprecated positional arguments to `define-minor-mode'
+#60 25.19 
+#60 25.19 In slime-highlight-edits:
+#60 25.19 contrib/slime-highlight-edits.el:46:49: Warning: Unused lexical argument `len'
+#60 25.19 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-hyperdoc.el...
+#60 25.19 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-indentation.el...
+#60 25.19 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-listener-hooks.el...
+#60 25.19 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-macrostep.el...
+#60 25.19 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-mdot-fu.el...
+#60 25.20 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-media.el...
+#60 25.20 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-mrepl.el...
+#60 25.20 
+#60 25.20 In slime-mrepl-input-sender:
+#60 25.20 contrib/slime-mrepl.el:109:34: Warning: Unused lexical argument `proc'
+#60 25.20 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-package-fu.el...
+#60 25.20 
+#60 25.20 In slime-find-possible-package-file:
+#60 25.20 contrib/slime-package-fu.el:74:42: Warning: Lexical argument shadows the dynamic variable buffer-file-name
+#60 25.21 
+#60 25.21 In slime-add-export:
+#60 25.21 contrib/slime-package-fu.el:227:21: Warning: `looking-back' called with 1 argument, but requires 2 or 3
+#60 25.21 
+#60 25.21 In slime-insert-export:
+#60 25.21 contrib/slime-package-fu.el:264:14: Warning: `looking-back' called with 1 argument, but requires 2 or 3
+#60 25.21 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-parse.el...
+#60 25.21 
+#60 25.21 In slime-definition-at-point:
+#60 25.21 contrib/slime-parse.el:336:28: Warning: Unused lexical variable `args'
+#60 25.21 contrib/slime-parse.el:337:20: Warning: Stray `declare' form: (declare (ignore args))
+#60 25.21 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-presentation-streams.el...
+#60 25.21 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-presentations.el...
+#60 25.22 
+#60 25.22 In slime-yank-presentations-handler:
+#60 25.22 contrib/slime-presentations.el:61:42: Warning: Unused lexical argument `category'
+#60 25.22 
+#60 25.22 In slime-mark-presentation-start-handler:
+#60 25.22 contrib/slime-presentations.el:79:47: Warning: Unused lexical argument `process'
+#60 25.22 
+#60 25.22 In slime-mark-presentation-end-handler:
+#60 25.22 contrib/slime-presentations.el:98:45: Warning: Unused lexical argument `process'
+#60 25.22 
+#60 25.22 In slime-add-presentation-properties:
+#60 25.22 contrib/slime-presentations.el:118:56: Warning: Unused lexical argument `result-p'
+#60 25.22 
+#60 25.22 In slime-presentations-around-point:
+#60 25.22 contrib/slime-presentations.el:204:23: Warning: Unused lexical variable `value'
+#60 25.22 
+#60 25.22 In slime-after-change-function:
+#60 25.22 contrib/slime-presentations.el:333:53: Warning: Unused lexical argument `ignore'
+#60 25.22 
+#60 25.22 In slime-inspect-presentation:
+#60 25.22 contrib/slime-presentations.el:385:49: Warning: Unused lexical argument `start'
+#60 25.22 contrib/slime-presentations.el:385:55: Warning: Unused lexical argument `end'
+#60 25.22 
+#60 25.22 In slime-M-.-presentation:
+#60 25.22 contrib/slime-presentations.el:405:45: Warning: Unused lexical argument `start'
+#60 25.22 contrib/slime-presentations.el:405:51: Warning: Unused lexical argument `end'
+#60 25.22 contrib/slime-presentations.el:405:55: Warning: Unused lexical argument `buffer'
+#60 25.22 
+#60 25.22 In slime-edit-presentation:
+#60 25.22 contrib/slime-presentations.el:433:53: Warning: Unused lexical variable `whole-p'
+#60 25.22 
+#60 25.22 In slime-copy-presentation-at-mouse-to-point:
+#60 25.22 contrib/slime-presentations.el:474:28: Warning: Unused lexical variable `presentation'
+#60 25.22 
+#60 25.22 In slime-copy-presentation-to-kill-ring:
+#60 25.22 contrib/slime-presentations.el:487:46: Warning: Unused lexical argument `presentation'
+#60 25.22 
+#60 25.22 In slime-mark-presentation:
+#60 25.22 contrib/slime-presentations.el:541:28: Warning: Unused lexical variable `presentation'
+#60 25.22 
+#60 25.22 In slime-next-presentation:
+#60 25.22 contrib/slime-presentations.el:562:15: Warning: Unused lexical variable `i'
+#60 25.23 contrib/slime-presentations.el:564:45: Warning: Unused lexical variable `start'
+#60 25.23 contrib/slime-presentations.el:571:34: Warning: Unused lexical variable `presentation'
+#60 25.23 contrib/slime-presentations.el:571:53: Warning: Unused lexical variable `end'
+#60 25.23 contrib/slime-presentations.el:575:15: Warning: Unused lexical variable `i'
+#60 25.23 contrib/slime-presentations.el:577:51: Warning: Unused lexical variable `end'
+#60 25.23 contrib/slime-presentations.el:584:34: Warning: Unused lexical variable `presentation'
+#60 25.23 contrib/slime-presentations.el:584:53: Warning: Unused lexical variable `end'
+#60 25.23 
+#60 25.23 In slime-menu-choices-for-presentation:
+#60 25.23 contrib/slime-presentations.el:601:2: Warning: docstring wider than 80 characters
+#60 25.23 
+#60 25.23 In slime-reify-old-output:
+#60 25.23 contrib/slime-presentations.el:682:45: Warning: Unused lexical variable `start-pos'
+#60 25.23 contrib/slime-presentations.el:682:63: Warning: Unused lexical variable `whole-p'
+#60 25.23 
+#60 25.23 In slime-presentation-around-or-before-point-p:
+#60 25.23 contrib/slime-presentations.el:734:41: Warning: Unused lexical variable `beg'
+#60 25.23 contrib/slime-presentations.el:734:45: Warning: Unused lexical variable `end'
+#60 25.23 
+#60 25.23 In slime-presentation-add-easy-menu:
+#60 25.23 contrib/slime-presentations.el:759:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#60 25.23 contrib/slime-presentations.el:760:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#60 25.23 contrib/slime-presentations.el:761:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#60 25.23 contrib/slime-presentations.el:762:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#60 25.23 
+#60 25.23 In slime-clear-presentations:
+#60 25.23 contrib/slime-presentations.el:827:72: Warning: Unused lexical argument `whole-p'
+#60 25.23 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-quicklisp.el...
+#60 25.23 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-references.el...
+#60 25.23 
+#60 25.23 In slime-reference-properties:
+#60 25.23 contrib/slime-references.el:46:38: Warning: Unused lexical variable `what'
+#60 25.23 
+#60 25.23 In slime-lookup-reference-at-point:
+#60 25.23 contrib/slime-references.el:103:67: Warning: reference to free variable `name'
+#60 25.23 contrib/slime-references.el:118:44: Warning: variable `_' not left unused
+#60 25.23 contrib/slime-references.el:118:49: Warning: variable `_' not left unused
+#60 25.23 
+#60 25.23 In slime-lookup-reference-at-mouse:
+#60 25.23 contrib/slime-references.el:118:27: Warning: Unused lexical variable `mouse-1'
+#60 25.23 contrib/slime-references.el:118:36: Warning: Unused lexical variable `w'
+#60 25.23 contrib/slime-references.el:130:2: Warning: `defadvice' is an obsolete macro (as of 30.1); use `advice-add' or `define-advice'
+#60 25.24 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-repl.el...
+#60 25.24 
+#60 25.24 In toplevel form:
+#60 25.24 contrib/slime-repl.el:130:9: Warning: defvar `slime-repl-history-use-mark' docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#60 25.24 
+#60 25.24 In slime-repl-history-yank-start:
+#60 25.24 contrib/slime-repl.el:138:2: Warning: docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#60 25.24 
+#60 25.24 In slime-repl-history-replace:
+#60 25.24 contrib/slime-repl.el:931:2: Warning: docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#60 25.26 
+#60 25.26 In slime-repl-add-easy-menu:
+#60 25.26 contrib/slime-repl.el:1623:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#60 25.26 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-sbcl-exts.el...
+#60 25.26 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-scheme.el...
+#60 25.26 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-scratch.el...
+#60 25.26 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-snapshot.el...
+#60 25.26 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-sprof.el...
+#60 25.27 
+#60 25.27 In slime-sprof-browser-collapse:
+#60 25.27 contrib/slime-sprof.el:158:30: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 25.27 contrib/slime-sprof.el:158:45: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 25.27 
+#60 25.27 In slime-sprof-browser-add-line-text-properties:
+#60 25.27 contrib/slime-sprof.el:201:25: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#60 25.27 contrib/slime-sprof.el:202:25: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#60 25.27 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-trace-dialog.el...
+#60 25.28 
+#60 25.28 In slime-trace-dialog--call-refreshing:
+#60 25.28 contrib/slime-trace-dialog.el:162:12: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#60 25.28 
+#60 25.28 In slime-trace-dialog--make-autofollow-fn:
+#60 25.28 contrib/slime-trace-dialog.el:248:16: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#60 25.28 contrib/slime-trace-dialog.el:261:28: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#60 25.28 
+#60 25.28 In slime-trace-dialog--call-maintaining-properties:
+#60 25.28 contrib/slime-trace-dialog.el:351:13: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#60 25.28 
+#60 25.28 In slime-trace-dialog--draw-tree-lines:
+#60 25.28 contrib/slime-trace-dialog.el:477:12: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#60 25.29 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-tramp.el...
+#60 25.32 
+#60 25.32 In toplevel form:
+#60 25.32 contrib/slime-tramp.el:14:12: Warning: custom-declare-variable `slime-filename-translations' docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#60 25.32 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-typeout-frame.el...
+#60 25.33 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-xref-browser.el...
+#60 25.33 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-xterm-color.el...
+#60 25.33 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 25.69 Parsing tar file... 
+#60 25.69 Parsing tar file...done
+#60 25.69 Extracting... \ 
+#60 25.69 Extracting...done
+#60 25.69   INFO     Scraping 2 files for loaddefs... 
+#60 25.69   INFO     Scraping 2 files for loaddefs...done
+#60 25.69   GEN      xterm-color-autoloads.el
+#60 25.74 Checking /root/.emacs.d/elpa/xterm-color-20260531.1854...
+#60 25.74 Compiling /root/.emacs.d/elpa/xterm-color-20260531.1854/xterm-color-autoloads.el...
+#60 25.74 Compiling /root/.emacs.d/elpa/xterm-color-20260531.1854/xterm-color-pkg.el...
+#60 25.74 Compiling /root/.emacs.d/elpa/xterm-color-20260531.1854/xterm-color.el...
+#60 25.75 Done (Total of 1 file compiled, 2 skipped)
+#60 25.79 Package `xterm-color' installed.
+#60 25.79 
+#60 25.79 In slime-xterm-color-init:
+#60 25.79 ../slime-20261108.2146/contrib/slime-xterm-color.el:18:8: Warning: function `slime-xterm-color-init' defined multiple times in this file
+#60 25.80 Checking /root/.emacs.d/elpa/slime-20261108.2146/lib...
+#60 25.80 Compiling /root/.emacs.d/elpa/slime-20261108.2146/lib/hyperspec.el...
+#60 25.80 
+#60 25.80 In toplevel form:
+#60 25.80 ../slime-20261108.2146/lib/hyperspec.el:1321:4: Warning: Alias for `common-lisp-hyperspec-glossary-function' should be declared before its referent
+#60 25.80 Checking /root/.emacs.d/elpa/slime-20261108.2146/swank...
+#60 25.80 Done (Total of 45 files compiled, 2 skipped in 3 directories)
+#60 25.85 ad-handle-definition: `slime-note.message' got redefined
+#60 25.86 Package `slime' installed.
+#60 25.86 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 25.86 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 25.86 Contacting host: melpa.org:443
+#60 26.22 Parsing tar file... 
+#60 26.22 Parsing tar file...done
+#60 26.22 Extracting... \ 
+#60 26.22 Extracting...done
+#60 26.22   INFO     Scraping 2 files for loaddefs... 
+#60 26.22   INFO     Scraping 2 files for loaddefs...done
+#60 26.22   GEN      yaml-mode-autoloads.el
+#60 26.27 Checking /root/.emacs.d/elpa/yaml-mode-20260830.2340...
+#60 26.27 Compiling /root/.emacs.d/elpa/yaml-mode-20260830.2340/yaml-mode-autoloads.el...
+#60 26.27 Compiling /root/.emacs.d/elpa/yaml-mode-20260830.2340/yaml-mode-pkg.el...
+#60 26.27 Compiling /root/.emacs.d/elpa/yaml-mode-20260830.2340/yaml-mode.el...
+#60 26.27 Done (Total of 1 file compiled, 2 skipped)
+#60 26.31 Package `yaml-mode' installed.
+#60 26.31 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 26.31 Setting `package-selected-packages' temporarily since "emacs -q" would overwrite customizations
+#60 26.31 `use-package' is already installed
+#60 DONE 26.4s
+
+#61 [runner 38/55] RUN emacs --batch --eval "(require 'package)" --eval "(package-initialize)" --eval "(byte-recompile-directory package-user-dir 0 t)"
+#61 0.235 Loading /etc/emacs/site-start.d/00debian.el (source)...
+#61 0.334 Checking /root/.emacs.d/elpa...
+#61 0.335 Checking /root/.emacs.d/elpa/archives...
+#61 0.335 Checking /root/.emacs.d/elpa/cmake-mode-20261119.1320...
+#61 0.335 Compiling /root/.emacs.d/elpa/cmake-mode-20261119.1320/cmake-mode-autoloads.el...
+#61 0.343 Compiling /root/.emacs.d/elpa/cmake-mode-20261119.1320/cmake-mode-pkg.el...
+#61 0.344 Compiling /root/.emacs.d/elpa/cmake-mode-20261119.1320/cmake-mode.el...
+#61 0.358 Checking /root/.emacs.d/elpa/company-20261119.500...
+#61 0.358 Compiling /root/.emacs.d/elpa/company-20261119.500/company-abbrev.el...
+#61 0.363 Compiling /root/.emacs.d/elpa/company-20261119.500/company-autoloads.el...
+#61 0.365 Compiling /root/.emacs.d/elpa/company-20261119.500/company-bbdb.el...
+#61 0.366 Compiling /root/.emacs.d/elpa/company-20261119.500/company-capf.el...
+#61 0.369 Compiling /root/.emacs.d/elpa/company-20261119.500/company-childframe.el...
+#61 0.373 Compiling /root/.emacs.d/elpa/company-20261119.500/company-clang.el...
+#61 0.379 Compiling /root/.emacs.d/elpa/company-20261119.500/company-cmake.el...
+#61 0.381 Compiling /root/.emacs.d/elpa/company-20261119.500/company-css.el...
+#61 0.384 Compiling /root/.emacs.d/elpa/company-20261119.500/company-dabbrev-code.el...
+#61 0.387 Compiling /root/.emacs.d/elpa/company-20261119.500/company-dabbrev.el...
+#61 0.391 Compiling /root/.emacs.d/elpa/company-20261119.500/company-etags.el...
+#61 0.402 Compiling /root/.emacs.d/elpa/company-20261119.500/company-files.el...
+#61 0.405 Compiling /root/.emacs.d/elpa/company-20261119.500/company-gtags.el...
+#61 0.409 Compiling /root/.emacs.d/elpa/company-20261119.500/company-ispell.el...
+#61 0.413 Compiling /root/.emacs.d/elpa/company-20261119.500/company-keywords.el...
+#61 0.429 Compiling /root/.emacs.d/elpa/company-20261119.500/company-nxml.el...
+#61 0.431 Compiling /root/.emacs.d/elpa/company-20261119.500/company-oddmuse.el...
+#61 0.436 Compiling /root/.emacs.d/elpa/company-20261119.500/company-pkg.el...
+#61 0.437 Compiling /root/.emacs.d/elpa/company-20261119.500/company-semantic.el...
+#61 0.439 Compiling /root/.emacs.d/elpa/company-20261119.500/company-template.el...
+#61 0.442 Compiling /root/.emacs.d/elpa/company-20261119.500/company-tempo.el...
+#61 0.445 Compiling /root/.emacs.d/elpa/company-20261119.500/company-tng.el...
+#61 0.451 Compiling /root/.emacs.d/elpa/company-20261119.500/company-yasnippet.el...
+#61 0.453 Compiling /root/.emacs.d/elpa/company-20261119.500/company.el...
+#61 0.496 Checking /root/.emacs.d/elpa/compat-31.1.0.0...
+#61 0.496 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-26.el...
+#61 0.514 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-27.el...
+#61 0.519 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-28.el...
+#61 0.522 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-29.el...
+#61 0.543 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-30.el...
+#61 0.546 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-31.el...
+#61 0.556 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-autoloads.el...
+#61 0.556 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-macs.el...
+#61 0.557 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat-pkg.el...
+#61 0.558 Compiling /root/.emacs.d/elpa/compat-31.1.0.0/compat.el...
+#61 0.559 Checking /root/.emacs.d/elpa/cond-let-20261001.1537...
+#61 0.559 Compiling /root/.emacs.d/elpa/cond-let-20261001.1537/cond-let-autoloads.el...
+#61 0.560 Compiling /root/.emacs.d/elpa/cond-let-20261001.1537/cond-let-pkg.el...
+#61 0.561 Compiling /root/.emacs.d/elpa/cond-let-20261001.1537/cond-let.el...
+#61 0.566 Checking /root/.emacs.d/elpa/gnupg...
+#61 0.566 Checking /root/.emacs.d/elpa/gptel-20261117.733...
+#61 0.566 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-anthropic.el...
+#61 0.581 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-autoloads.el...
+#61 0.582 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-bedrock.el...
+#61 0.621 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-context.el...
+#61 0.630 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-gemini.el...
+#61 0.641 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-gh.el...
+#61 0.660 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-integrations.el...
+#61 0.693 
+#61 0.693 In toplevel form:
+#61 0.693 gptel-20261117.733/gptel-integrations.el:37:2: Error: Invalid function: static-when
+#61 0.693 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-kagi.el...
+#61 0.712 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-oauth.el...
+#61 0.714 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-ollama.el...
+#61 0.723 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-openai-extras.el...
+#61 0.739 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-openai-oauth.el...
+#61 0.749 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-openai-responses.el...
+#61 0.758 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-openai.el...
+#61 0.777 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-org.el...
+#61 0.902 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-pkg.el...
+#61 0.903 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-request.el...
+#61 0.913 
+#61 0.913 In gptel--strip-mode-suffix:
+#61 0.913 gptel-20261117.733/gptel-request.el:1092:14: Warning: `provided-mode-derived-p' called with 4 arguments, but accepts only 2
+#61 0.949 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-rewrite.el...
+#61 0.954 
+#61 0.954 In toplevel form:
+#61 0.954 gptel-20261117.733/gptel-rewrite.el:26:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 0.954 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel-transient.el...
+#61 0.959 
+#61 0.959 In toplevel form:
+#61 0.959 gptel-20261117.733/gptel-transient.el:30:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 0.959 Compiling /root/.emacs.d/elpa/gptel-20261117.733/gptel.el...
+#61 1.013 Checking /root/.emacs.d/elpa/llama-20261001.1538...
+#61 1.013 Compiling /root/.emacs.d/elpa/llama-20261001.1538/llama-autoloads.el...
+#61 1.014 Compiling /root/.emacs.d/elpa/llama-20261001.1538/llama-pkg.el...
+#61 1.015 Compiling /root/.emacs.d/elpa/llama-20261001.1538/llama.el...
+#61 1.021 Checking /root/.emacs.d/elpa/macrostep-20250202.2205...
+#61 1.021 Compiling /root/.emacs.d/elpa/macrostep-20250202.2205/macrostep-autoloads.el...
+#61 1.022 Compiling /root/.emacs.d/elpa/macrostep-20250202.2205/macrostep-c.el...
+#61 1.055 Compiling /root/.emacs.d/elpa/macrostep-20250202.2205/macrostep-pkg.el...
+#61 1.055 Compiling /root/.emacs.d/elpa/macrostep-20250202.2205/macrostep.el...
+#61 1.063 Checking /root/.emacs.d/elpa/magit-20261117.1103...
+#61 1.063 Compiling /root/.emacs.d/elpa/magit-20261117.1103/git-commit.el...
+#61 1.072 
+#61 1.072 In toplevel form:
+#61 1.072 magit-20261117.1103/git-commit.el:103:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.072 Compiling /root/.emacs.d/elpa/magit-20261117.1103/git-rebase.el...
+#61 1.079 
+#61 1.079 In toplevel form:
+#61 1.079 magit-20261117.1103/git-rebase.el:75:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.079 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-apply.el...
+#61 1.085 
+#61 1.085 In toplevel form:
+#61 1.085 magit-20261117.1103/magit-apply.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.085 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-autoloads.el...
+#61 1.086 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-autorevert.el...
+#61 1.089 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-base.el...
+#61 1.095 
+#61 1.095 In toplevel form:
+#61 1.095 magit-20261117.1103/magit-base.el:47:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.095 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-bisect.el...
+#61 1.101 
+#61 1.101 In toplevel form:
+#61 1.101 magit-20261117.1103/magit-bisect.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.101 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-blame.el...
+#61 1.108 
+#61 1.108 In toplevel form:
+#61 1.108 magit-20261117.1103/magit-blame.el:30:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.108 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-bookmark.el...
+#61 1.114 
+#61 1.114 In toplevel form:
+#61 1.114 magit-20261117.1103/magit-bookmark.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.114 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-branch.el...
+#61 1.121 
+#61 1.121 In toplevel form:
+#61 1.121 magit-20261117.1103/magit-branch.el:33:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.121 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-bundle.el...
+#61 1.128 
+#61 1.128 In toplevel form:
+#61 1.128 magit-20261117.1103/magit-bundle.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.128 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-clone.el...
+#61 1.135 
+#61 1.135 In toplevel form:
+#61 1.135 magit-20261117.1103/magit-clone.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.137 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-commit.el...
+#61 1.141 
+#61 1.141 In toplevel form:
+#61 1.141 magit-20261117.1103/magit-commit.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.141 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-core.el...
+#61 1.148 
+#61 1.148 In toplevel form:
+#61 1.148 magit-20261117.1103/magit-core.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.148 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-diff.el...
+#61 1.155 
+#61 1.155 In toplevel form:
+#61 1.155 magit-20261117.1103/magit-diff.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.155 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-dired.el...
+#61 1.162 
+#61 1.162 In toplevel form:
+#61 1.162 magit-20261117.1103/magit-dired.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.162 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-ediff.el...
+#61 1.169 
+#61 1.169 In toplevel form:
+#61 1.169 magit-20261117.1103/magit-ediff.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.169 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-extras.el...
+#61 1.176 
+#61 1.176 In toplevel form:
+#61 1.176 magit-20261117.1103/magit-extras.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.176 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-fetch.el...
+#61 1.182 
+#61 1.182 In toplevel form:
+#61 1.182 magit-20261117.1103/magit-fetch.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.182 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-files.el...
+#61 1.188 
+#61 1.188 In toplevel form:
+#61 1.188 magit-20261117.1103/magit-files.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.188 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-git.el...
+#61 1.194 
+#61 1.194 In toplevel form:
+#61 1.194 magit-20261117.1103/magit-git.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.195 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-gitignore.el...
+#61 1.201 
+#61 1.201 In toplevel form:
+#61 1.201 magit-20261117.1103/magit-gitignore.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.201 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-log.el...
+#61 1.207 
+#61 1.207 In toplevel form:
+#61 1.207 magit-20261117.1103/magit-log.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.207 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-margin.el...
+#61 1.213 
+#61 1.213 In toplevel form:
+#61 1.213 magit-20261117.1103/magit-margin.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.213 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-merge.el...
+#61 1.220 
+#61 1.220 In toplevel form:
+#61 1.220 magit-20261117.1103/magit-merge.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.220 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-mode.el...
+#61 1.226 
+#61 1.226 In toplevel form:
+#61 1.226 magit-20261117.1103/magit-mode.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.226 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-notes.el...
+#61 1.233 
+#61 1.233 In toplevel form:
+#61 1.233 magit-20261117.1103/magit-notes.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.233 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-patch.el...
+#61 1.239 
+#61 1.239 In toplevel form:
+#61 1.239 magit-20261117.1103/magit-patch.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.239 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-pkg.el...
+#61 1.240 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-process.el...
+#61 1.270 
+#61 1.270 In toplevel form:
+#61 1.270 magit-20261117.1103/magit-process.el:33:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.270 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-pull.el...
+#61 1.277 
+#61 1.277 In toplevel form:
+#61 1.277 magit-20261117.1103/magit-pull.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.277 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-push.el...
+#61 1.283 
+#61 1.283 In toplevel form:
+#61 1.283 magit-20261117.1103/magit-push.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.284 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-reflog.el...
+#61 1.291 
+#61 1.291 In toplevel form:
+#61 1.291 magit-20261117.1103/magit-reflog.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.291 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-refs.el...
+#61 1.297 
+#61 1.297 In toplevel form:
+#61 1.297 magit-20261117.1103/magit-refs.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.297 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-remote.el...
+#61 1.304 
+#61 1.304 In toplevel form:
+#61 1.304 magit-20261117.1103/magit-remote.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.304 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-repos.el...
+#61 1.311 
+#61 1.311 In toplevel form:
+#61 1.311 magit-20261117.1103/magit-repos.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.311 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-reset.el...
+#61 1.317 
+#61 1.317 In toplevel form:
+#61 1.317 magit-20261117.1103/magit-reset.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.317 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-sequence.el...
+#61 1.324 
+#61 1.324 In toplevel form:
+#61 1.324 magit-20261117.1103/magit-sequence.el:33:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.324 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-sparse-checkout.el...
+#61 1.330 
+#61 1.330 In toplevel form:
+#61 1.330 magit-20261117.1103/magit-sparse-checkout.el:30:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.330 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-stash.el...
+#61 1.337 
+#61 1.337 In toplevel form:
+#61 1.337 magit-20261117.1103/magit-stash.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.337 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-status.el...
+#61 1.343 
+#61 1.343 In toplevel form:
+#61 1.343 magit-20261117.1103/magit-status.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.343 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-submodule.el...
+#61 1.350 
+#61 1.350 In toplevel form:
+#61 1.350 magit-20261117.1103/magit-submodule.el:31:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.350 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-subtree.el...
+#61 1.356 
+#61 1.356 In toplevel form:
+#61 1.356 magit-20261117.1103/magit-subtree.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.356 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-tag.el...
+#61 1.362 
+#61 1.362 In toplevel form:
+#61 1.362 magit-20261117.1103/magit-tag.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.362 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-transient.el...
+#61 1.369 
+#61 1.369 In toplevel form:
+#61 1.369 magit-20261117.1103/magit-transient.el:30:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.369 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-wip.el...
+#61 1.375 
+#61 1.375 In toplevel form:
+#61 1.375 magit-20261117.1103/magit-wip.el:32:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.375 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit-worktree.el...
+#61 1.381 
+#61 1.381 In toplevel form:
+#61 1.381 magit-20261117.1103/magit-worktree.el:29:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.381 Compiling /root/.emacs.d/elpa/magit-20261117.1103/magit.el...
+#61 1.387 
+#61 1.387 In toplevel form:
+#61 1.387 magit-20261117.1103/magit.el:65:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.387 Checking /root/.emacs.d/elpa/magit-section-20261107.2107...
+#61 1.387 Compiling /root/.emacs.d/elpa/magit-section-20261107.2107/magit-section-autoloads.el...
+#61 1.388 Compiling /root/.emacs.d/elpa/magit-section-20261107.2107/magit-section-pkg.el...
+#61 1.389 Compiling /root/.emacs.d/elpa/magit-section-20261107.2107/magit-section.el...
+#61 1.395 
+#61 1.395 In toplevel form:
+#61 1.395 magit-section-20261107.2107/magit-section.el:103:11: Error: transient--init-suffix-key is already defined as something else than a generic function
+#61 1.395 Checking /root/.emacs.d/elpa/markdown-mode-20261022.55...
+#61 1.395 Compiling /root/.emacs.d/elpa/markdown-mode-20261022.55/markdown-mode-autoloads.el...
+#61 1.396 Compiling /root/.emacs.d/elpa/markdown-mode-20261022.55/markdown-mode-pkg.el...
+#61 1.397 Compiling /root/.emacs.d/elpa/markdown-mode-20261022.55/markdown-mode.el...
+#61 1.491 Checking /root/.emacs.d/elpa/orderless-20261013.1927...
+#61 1.491 Compiling /root/.emacs.d/elpa/orderless-20261013.1927/orderless-autoloads.el...
+#61 1.491 Compiling /root/.emacs.d/elpa/orderless-20261013.1927/orderless-kwd.el...
+#61 1.520 Compiling /root/.emacs.d/elpa/orderless-20261013.1927/orderless-pkg.el...
+#61 1.521 Compiling /root/.emacs.d/elpa/orderless-20261013.1927/orderless.el...
+#61 1.528 Checking /root/.emacs.d/elpa/paredit-20241103.2046...
+#61 1.528 Compiling /root/.emacs.d/elpa/paredit-20241103.2046/paredit-autoloads.el...
+#61 1.529 Compiling /root/.emacs.d/elpa/paredit-20241103.2046/paredit-pkg.el...
+#61 1.529 Compiling /root/.emacs.d/elpa/paredit-20241103.2046/paredit.el...
+#61 1.535 
+#61 1.535 In paredit-find-comment-on-line:
+#61 1.535 paredit-20241103.2046/paredit.el:714:33: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.535 paredit-20241103.2046/paredit.el:722:43: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.535 paredit-20241103.2046/paredit.el:723:42: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 1.535 paredit-20241103.2046/paredit.el:724:36: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.535 paredit-20241103.2046/paredit.el:725:36: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 1.537 
+#61 1.537 In paredit-newline:
+#61 1.537 paredit-20241103.2046/paredit.el:1010:44: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.538 
+#61 1.538 In paredit-semicolon-find-line-break-point:
+#61 1.538 paredit-20241103.2046/paredit.el:1100:20: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.538 paredit-20241103.2046/paredit.el:1110:46: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.538 paredit-20241103.2046/paredit.el:1114:55: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.538 paredit-20241103.2046/paredit.el:1119:55: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.539 
+#61 1.539 In paredit-comment-on-line-p:
+#61 1.539 paredit-20241103.2046/paredit.el:1219:47: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.539 
+#61 1.539 In paredit-insert-comment:
+#61 1.539 paredit-20241103.2046/paredit.el:1228:54: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.539 paredit-20241103.2046/paredit.el:1231:56: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 1.540 
+#61 1.540 In paredit-check-forward-delete-in-comment:
+#61 1.540 paredit-20241103.2046/paredit.el:1382:31: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 1.540 paredit-20241103.2046/paredit.el:1383:29: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.541 
+#61 1.541 In paredit-forward-delete-comment-start:
+#61 1.541 paredit-20241103.2046/paredit.el:1393:40: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.541 
+#61 1.541 In paredit-backward-delete-in-comment:
+#61 1.541 paredit-20241103.2046/paredit.el:1500:38: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.541 
+#61 1.541 In paredit-backward-delete-maybe-comment-end:
+#61 1.541 paredit-20241103.2046/paredit.el:1511:30: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.542 paredit-20241103.2046/paredit.el:1511:45: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 1.542 
+#61 1.542 In paredit-kill:
+#61 1.542 paredit-20241103.2046/paredit.el:1537:54: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.542 
+#61 1.542 In paredit-kill-line-in-string:
+#61 1.542 paredit-20241103.2046/paredit.el:1546:51: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.542 paredit-20241103.2046/paredit.el:1554:26: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.542 
+#61 1.542 In paredit-kill-sexps-on-line:
+#61 1.542 paredit-20241103.2046/paredit.el:1567:15: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.542 paredit-20241103.2046/paredit.el:1583:36: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.543 
+#61 1.543 In paredit-forward-sexps-to-kill:
+#61 1.543 paredit-20241103.2046/paredit.el:1614:38: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.543 paredit-20241103.2046/paredit.el:1633:29: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.543 
+#61 1.543 In paredit-kill-sexps-on-whole-line:
+#61 1.543 paredit-20241103.2046/paredit.el:1666:21: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.543 paredit-20241103.2046/paredit.el:1667:56: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 1.544 
+#61 1.544 In paredit-copy-as-kill:
+#61 1.544 paredit-20241103.2046/paredit.el:1793:40: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.544 paredit-20241103.2046/paredit.el:1794:54: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.544 paredit-20241103.2046/paredit.el:1800:42: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.545 
+#61 1.545 In paredit-copy-as-kill-in-string:
+#61 1.545 paredit-20241103.2046/paredit.el:1808:32: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.545 
+#61 1.545 In paredit-copy-sexps-as-kill:
+#61 1.545 paredit-20241103.2046/paredit.el:1816:17: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.545 paredit-20241103.2046/paredit.el:1825:42: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.545 paredit-20241103.2046/paredit.el:1827:47: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.546 
+#61 1.546 In paredit-check-region-for-delete:comment:
+#61 1.546 paredit-20241103.2046/paredit.el:1900:55: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.548 paredit-20241103.2046/paredit.el:2151:19: Warning: Use of deprecated ((lambda (n) ...) ...) form
+#61 1.549 
+#61 1.549 In paredit-raise-sexp:
+#61 1.549 paredit-20241103.2046/paredit.el:2332:64: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.549 paredit-20241103.2046/paredit.el:2333:62: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.553 
+#61 1.553 In paredit-join-lists-internal:
+#61 1.553 paredit-20241103.2046/paredit.el:2747:45: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.554 
+#61 1.554 In paredit-indent-region:
+#61 1.554 paredit-20241103.2046/paredit.el:2892:17: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 1.554 paredit-20241103.2046/paredit.el:2895:62: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 1.554 paredit-20241103.2046/paredit.el:2901:44: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 1.554 paredit-20241103.2046/paredit.el:2910:31: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 1.554 paredit-20241103.2046/paredit.el:2912:30: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 1.555 
+#61 1.555 In paredit-current-column:
+#61 1.555 paredit-20241103.2046/paredit.el:3068:15: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 1.556 
+#61 1.556 In paredit-restore-column:
+#61 1.556 paredit-20241103.2046/paredit.el:3083:10: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 1.556 Checking /root/.emacs.d/elpa/posframe-20261021.935...
+#61 1.556 Compiling /root/.emacs.d/elpa/posframe-20261021.935/posframe-autoloads.el...
+#61 1.557 Compiling /root/.emacs.d/elpa/posframe-20261021.935/posframe-benchmark.el...
+#61 1.559 Compiling /root/.emacs.d/elpa/posframe-20261021.935/posframe-pkg.el...
+#61 1.559 Compiling /root/.emacs.d/elpa/posframe-20261021.935/posframe.el...
+#61 1.570 
+#61 1.570 In end of data:
+#61 1.570 posframe-20261021.935/posframe.el:603:31: Warning: the function `font-info' is not known to be defined.
+#61 1.570 Checking /root/.emacs.d/elpa/slime-20261108.2146...
+#61 1.571 Compiling /root/.emacs.d/elpa/slime-20261108.2146/slime-autoloads.el...
+#61 1.571 Compiling /root/.emacs.d/elpa/slime-20261108.2146/slime-pkg.el...
+#61 1.572 Compiling /root/.emacs.d/elpa/slime-20261108.2146/slime-tests.el...
+#61 1.618 Compiling /root/.emacs.d/elpa/slime-20261108.2146/slime.el...
+#61 1.628 
+#61 1.628 In toplevel form:
+#61 1.628 slime-20261108.2146/slime.el:112:2: Warning: Alias for `slime-contribs' should be declared before its referent
+#61 1.632 
+#61 1.632 In slime-dcase:
+#61 1.632 slime-20261108.2146/slime.el:706:4: Warning: Doc string after `declare'
+#61 1.636 
+#61 1.636 In slime-recompile-bytecode:
+#61 1.636 slime-20261108.2146/slime.el:1190:6: Warning: `byte-compile-file' called with 2 arguments, but accepts only 1
+#61 1.656 
+#61 1.656 In slime-log-event:
+#61 1.656 slime-20261108.2146/slime.el:2532:10: Warning: `hide-entry' is an obsolete function (as of 25.1); use `outline-hide-entry' instead.
+#61 1.662 
+#61 1.662 In slime-maybe-show-compilation-log:
+#61 1.662 slime-20261108.2146/slime.el:2915:58: Warning: Unused lexical argument `return-type'
+#61 1.691 
+#61 1.691 In slime-forward-source-path:
+#61 1.691 slime-20261108.2146/slime.el:3212:12: Warning: `beginning-of-sexp' is an obsolete function (as of 25.1); use `thing-at-point--beginning-of-sexp' instead.
+#61 1.696 
+#61 1.696 In slime-location-offset:
+#61 1.696 slime-20261108.2146/slime.el:3524:16: Warning: `beginning-of-sexp' is an obsolete function (as of 25.1); use `thing-at-point--beginning-of-sexp' instead.
+#61 1.699 
+#61 1.699 In slime-push-definition-stack:
+#61 1.699 slime-20261108.2146/slime.el:3821:20: Warning: `find-tag-marker-ring' is an obsolete variable (as of 25.1); use `xref-push-marker-stack' or `xref-go-back' instead.
+#61 1.707 
+#61 1.707 In slime-eval-defun:
+#61 1.707 slime-20261108.2146/slime.el:4207:2: Warning: docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#61 1.715 slime-20261108.2146/slime.el:4718:9: Warning: defvar `slime-xref-next-line-show' docstring wider than 80 characters
+#61 1.719 
+#61 1.719 In slime-edit-uses:
+#61 1.719 slime-20261108.2146/slime.el:5074:31: Warning: Unused lexical argument `type'
+#61 1.722 
+#61 1.722 In slime-initialize-macroexpansion-buffer:
+#61 1.722 slime-20261108.2146/slime.el:5152:6: Warning: `font-lock-fontify-buffer' is for interactive use only; use `font-lock-ensure' or `font-lock-flush' instead.
+#61 1.729 
+#61 1.729 In sldb-fetch-more-frames:
+#61 1.729 slime-20261108.2146/slime.el:5707:10: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#61 1.731 
+#61 1.731 In sldb-fetch-all-frames:
+#61 1.731 slime-20261108.2146/slime.el:5863:10: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#61 1.733 
+#61 1.733 In sldb-toggle-details:
+#61 1.733 slime-20261108.2146/slime.el:5966:10: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#61 1.749 
+#61 1.749 In slime-find-inspectable-object:
+#61 1.749 slime-20261108.2146/slime.el:6800:2: Warning: docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#61 1.763 
+#61 1.763 In slime-add-easy-menu:
+#61 1.763 slime-20261108.2146/slime.el:7409:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#61 1.763 
+#61 1.763 In slime-sldb-add-easy-menu:
+#61 1.763 slime-20261108.2146/slime.el:7416:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#61 1.765 
+#61 1.765 In slime-group-similar:
+#61 1.765 slime-20261108.2146/slime.el:7534:2: Warning: docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#61 1.771 Checking /root/.emacs.d/elpa/transient-20261113.1458...
+#61 1.771 Compiling /root/.emacs.d/elpa/transient-20261113.1458/transient-autoloads.el...
+#61 1.772 Compiling /root/.emacs.d/elpa/transient-20261113.1458/transient-pkg.el...
+#61 1.773 Compiling /root/.emacs.d/elpa/transient-20261113.1458/transient.el...
+#61 1.838 Checking /root/.emacs.d/elpa/with-editor-20261109.2119...
+#61 1.838 Compiling /root/.emacs.d/elpa/with-editor-20261109.2119/with-editor-autoloads.el...
+#61 1.839 Compiling /root/.emacs.d/elpa/with-editor-20261109.2119/with-editor-pkg.el...
+#61 1.840 Compiling /root/.emacs.d/elpa/with-editor-20261109.2119/with-editor.el...
+#61 1.854 Checking /root/.emacs.d/elpa/xterm-color-20260531.1854...
+#61 1.854 Compiling /root/.emacs.d/elpa/xterm-color-20260531.1854/xterm-color-autoloads.el...
+#61 1.855 Compiling /root/.emacs.d/elpa/xterm-color-20260531.1854/xterm-color-pkg.el...
+#61 1.856 Compiling /root/.emacs.d/elpa/xterm-color-20260531.1854/xterm-color.el...
+#61 1.872 Checking /root/.emacs.d/elpa/yaml-mode-20260830.2340...
+#61 1.872 Compiling /root/.emacs.d/elpa/yaml-mode-20260830.2340/yaml-mode-autoloads.el...
+#61 1.873 Compiling /root/.emacs.d/elpa/yaml-mode-20260830.2340/yaml-mode-pkg.el...
+#61 1.874 Compiling /root/.emacs.d/elpa/yaml-mode-20260830.2340/yaml-mode.el...
+#61 1.905 Checking /root/.emacs.d/elpa/archives/gnu...
+#61 1.905 Checking /root/.emacs.d/elpa/archives/melpa...
+#61 1.905 Checking /root/.emacs.d/elpa/archives/nongnu...
+#61 1.905 Checking /root/.emacs.d/elpa/company-20261119.500/icons...
+#61 1.905 Checking /root/.emacs.d/elpa/company-20261119.500/images...
+#61 1.905 Checking /root/.emacs.d/elpa/gnupg/private-keys-v1.d...
+#61 1.905 Checking /root/.emacs.d/elpa/magit-20261117.1103/githooks...
+#61 1.905 Checking /root/.emacs.d/elpa/slime-20261108.2146/contrib...
+#61 1.906 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/inferior-slime.el...
+#61 1.908 
+#61 1.908 In inferior-slime-show-transcript:
+#61 1.908 slime-20261108.2146/contrib/inferior-slime.el:98:40: Warning: Unused lexical argument `string'
+#61 1.909 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-asdf.el...
+#61 1.914 
+#61 1.914 In toplevel form:
+#61 1.914 slime-20261108.2146/contrib/slime-asdf.el:82:12: Warning: in defcustom for `slime-asdf-collect-notes': missing :type keyword parameter
+#61 1.914 
+#61 1.914 In slime-asdf-operation-finished-function:
+#61 1.914 slime-20261108.2146/contrib/slime-asdf.el:92:29: Warning: Unused lexical argument `system'
+#61 1.915 
+#61 1.915 In slime-query-replace-system:
+#61 1.915 slime-20261108.2146/contrib/slime-asdf.el:193:36: Warning: Unused lexical argument `name'
+#61 1.915 slime-20261108.2146/contrib/slime-asdf.el:201:8: Warning: `tags-query-replace' called with 4 arguments, but accepts only 2 or 3
+#61 1.916 
+#61 1.916 In slime-who-depends-on:
+#61 1.916 slime-20261108.2146/contrib/slime-asdf.el:242:30: Warning: Lexical argument shadows the dynamic variable system-name
+#61 1.917 
+#61 1.917 In end of data:
+#61 1.917 slime-20261108.2146/contrib/slime-asdf.el:179:28: Warning: the function `second' is not known to be defined.
+#61 1.918 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-autodoc.el...
+#61 1.919 
+#61 1.919 In slime-autodoc-manually:
+#61 1.919 slime-20261108.2146/contrib/slime-autodoc.el:52:17: Warning: `eldoc-message' is an obsolete function (as of eldoc-1.1.0); use `eldoc-documentation-functions' instead.
+#61 1.919 slime-20261108.2146/contrib/slime-autodoc.el:53:15: Warning: `eldoc-message' is an obsolete function (as of eldoc-1.1.0); use `eldoc-documentation-functions' instead.
+#61 1.919 
+#61 1.919 In slime-autodoc-space:
+#61 1.919 slime-20261108.2146/contrib/slime-autodoc.el:65:8: Warning: `eldoc-message' is an obsolete function (as of eldoc-1.1.0); use `eldoc-documentation-functions' instead.
+#61 1.920 
+#61 1.920 In slime-autodoc--fontify:
+#61 1.920 slime-20261108.2146/contrib/slime-autodoc.el:107:8: Warning: `font-lock-fontify-buffer' is for interactive use only; use `font-lock-ensure' or `font-lock-flush' instead.
+#61 1.920 
+#61 1.920 In slime-autodoc--async%:
+#61 1.920 slime-20261108.2146/contrib/slime-autodoc.el:166:14: Warning: `eldoc-display-message-p' is an obsolete function (as of eldoc-1.6.0); Use `eldoc-documentation-functions' instead.
+#61 1.920 slime-20261108.2146/contrib/slime-autodoc.el:167:10: Warning: `eldoc-message' is an obsolete function (as of eldoc-1.1.0); use `eldoc-documentation-functions' instead.
+#61 1.922 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-banner.el...
+#61 1.923 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-buffer-streams.el...
+#61 1.924 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-c-p-c.el...
+#61 1.927 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-cl-indent.el...
+#61 1.929 
+#61 1.929 In toplevel form:
+#61 1.929 slime-20261108.2146/contrib/slime-cl-indent.el:122:12: Warning: custom-declare-variable `lisp-align-keywords-in-calls' docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#61 1.932 
+#61 1.932 In common-lisp-looking-back:
+#61 1.932 slime-20261108.2146/contrib/slime-cl-indent.el:770:18: Warning: Unused lexical variable `i'
+#61 1.938 slime-20261108.2146/contrib/slime-cl-indent.el:1446:9: Warning: defvar `common-lisp-indent-clause-joining-loop-macro-keyword' docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#61 1.941 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-clipboard.el...
+#61 1.944 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-coalton.el...
+#61 1.945 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-compiler-notes-tree.el...
+#61 1.946 
+#61 1.946 In slime-list-compiler-notes:
+#61 1.946 slime-20261108.2146/contrib/slime-compiler-notes-tree.el:32:14: Warning: Unused lexical variable `collapsed-p'
+#61 1.948 slime-20261108.2146/contrib/slime-compiler-notes-tree.el:78:48: Warning: variable `_' not left unused
+#61 1.948 slime-20261108.2146/contrib/slime-compiler-notes-tree.el:78:57: Warning: variable `__' not left unused
+#61 1.948 
+#61 1.948 In slime-compiler-notes-default-action-or-show-details/mouse:
+#61 1.948 slime-20261108.2146/contrib/slime-compiler-notes-tree.el:78:27: Warning: Unused lexical variable `mouse-2'
+#61 1.948 slime-20261108.2146/contrib/slime-compiler-notes-tree.el:78:36: Warning: Unused lexical variable `w'
+#61 1.953 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-editing-commands.el...
+#61 1.954 
+#61 1.954 In slime-close-all-parens-in-sexp:
+#61 1.954 slime-20261108.2146/contrib/slime-editing-commands.el:82:17: Warning: Unused lexical variable `i'
+#61 1.954 slime-20261108.2146/contrib/slime-editing-commands.el:95:23: Warning: Unused lexical variable `i'
+#61 1.955 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-enclosing-context.el...
+#61 1.957 
+#61 1.957 In slime-parse-sexp-at-point:
+#61 1.957 slime-20261108.2146/contrib/slime-enclosing-context.el:20:17: Warning: Unused lexical variable `i'
+#61 1.957 
+#61 1.957 In slime-enclosing-form-specs:
+#61 1.957 slime-20261108.2146/contrib/slime-enclosing-context.el:82:10: Warning: Unused lexical variable `initial-point'
+#61 1.959 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-fancy-inspector.el...
+#61 1.961 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-fancy-trace.el...
+#61 1.962 
+#61 1.962 In slime-trace-query:
+#61 1.962 slime-20261108.2146/contrib/slime-fancy-trace.el:25:19: Warning: Unused lexical variable `n'
+#61 1.963 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-fancy.el...
+#61 1.972 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-fontifying-fu.el...
+#61 1.976 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-fuzzy.el...
+#61 1.981 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-highlight-edits.el...
+#61 1.982 
+#61 1.982 In toplevel form:
+#61 1.982 slime-20261108.2146/contrib/slime-highlight-edits.el:24:20: Warning: Use keywords rather than deprecated positional arguments to `define-minor-mode'
+#61 1.983 
+#61 1.983 In slime-highlight-edits:
+#61 1.983 slime-20261108.2146/contrib/slime-highlight-edits.el:46:49: Warning: Unused lexical argument `len'
+#61 1.983 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-hyperdoc.el...
+#61 1.985 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-indentation.el...
+#61 1.987 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-listener-hooks.el...
+#61 1.988 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-macrostep.el...
+#61 1.991 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-mdot-fu.el...
+#61 1.992 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-media.el...
+#61 1.994 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-mrepl.el...
+#61 1.997 
+#61 1.997 In slime-mrepl-input-sender:
+#61 1.997 slime-20261108.2146/contrib/slime-mrepl.el:109:34: Warning: Unused lexical argument `proc'
+#61 1.998 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-package-fu.el...
+#61 2.000 
+#61 2.000 In slime-find-possible-package-file:
+#61 2.000 slime-20261108.2146/contrib/slime-package-fu.el:74:42: Warning: Lexical argument shadows the dynamic variable buffer-file-name
+#61 2.001 
+#61 2.001 In slime-add-export:
+#61 2.001 slime-20261108.2146/contrib/slime-package-fu.el:227:21: Warning: `looking-back' called with 1 argument, but requires 2 or 3
+#61 2.002 
+#61 2.002 In slime-insert-export:
+#61 2.002 slime-20261108.2146/contrib/slime-package-fu.el:264:14: Warning: `looking-back' called with 1 argument, but requires 2 or 3
+#61 2.003 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-parse.el...
+#61 2.007 
+#61 2.007 In slime-definition-at-point:
+#61 2.007 slime-20261108.2146/contrib/slime-parse.el:336:28: Warning: Unused lexical variable `args'
+#61 2.007 slime-20261108.2146/contrib/slime-parse.el:337:20: Warning: Stray `declare' form: (declare (ignore args))
+#61 2.008 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-presentation-streams.el...
+#61 2.010 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-presentations.el...
+#61 2.011 
+#61 2.011 In slime-yank-presentations-handler:
+#61 2.011 slime-20261108.2146/contrib/slime-presentations.el:61:42: Warning: Unused lexical argument `category'
+#61 2.011 
+#61 2.011 In slime-mark-presentation-start-handler:
+#61 2.011 slime-20261108.2146/contrib/slime-presentations.el:79:47: Warning: Unused lexical argument `process'
+#61 2.012 
+#61 2.012 In slime-mark-presentation-end-handler:
+#61 2.012 slime-20261108.2146/contrib/slime-presentations.el:98:45: Warning: Unused lexical argument `process'
+#61 2.013 
+#61 2.013 In slime-add-presentation-properties:
+#61 2.013 slime-20261108.2146/contrib/slime-presentations.el:118:56: Warning: Unused lexical argument `result-p'
+#61 2.014 
+#61 2.014 In slime-presentations-around-point:
+#61 2.014 slime-20261108.2146/contrib/slime-presentations.el:204:23: Warning: Unused lexical variable `value'
+#61 2.016 
+#61 2.016 In slime-after-change-function:
+#61 2.016 slime-20261108.2146/contrib/slime-presentations.el:333:53: Warning: Unused lexical argument `ignore'
+#61 2.016 
+#61 2.016 In slime-inspect-presentation:
+#61 2.016 slime-20261108.2146/contrib/slime-presentations.el:385:49: Warning: Unused lexical argument `start'
+#61 2.017 slime-20261108.2146/contrib/slime-presentations.el:385:55: Warning: Unused lexical argument `end'
+#61 2.017 
+#61 2.017 In slime-M-.-presentation:
+#61 2.017 slime-20261108.2146/contrib/slime-presentations.el:405:45: Warning: Unused lexical argument `start'
+#61 2.017 slime-20261108.2146/contrib/slime-presentations.el:405:51: Warning: Unused lexical argument `end'
+#61 2.017 slime-20261108.2146/contrib/slime-presentations.el:405:55: Warning: Unused lexical argument `buffer'
+#61 2.018 
+#61 2.018 In slime-edit-presentation:
+#61 2.018 slime-20261108.2146/contrib/slime-presentations.el:433:53: Warning: Unused lexical variable `whole-p'
+#61 2.018 
+#61 2.018 In slime-copy-presentation-at-mouse-to-point:
+#61 2.018 slime-20261108.2146/contrib/slime-presentations.el:474:28: Warning: Unused lexical variable `presentation'
+#61 2.018 
+#61 2.018 In slime-copy-presentation-to-kill-ring:
+#61 2.018 slime-20261108.2146/contrib/slime-presentations.el:487:46: Warning: Unused lexical argument `presentation'
+#61 2.019 
+#61 2.019 In slime-mark-presentation:
+#61 2.019 slime-20261108.2146/contrib/slime-presentations.el:541:28: Warning: Unused lexical variable `presentation'
+#61 2.019 
+#61 2.019 In slime-next-presentation:
+#61 2.019 slime-20261108.2146/contrib/slime-presentations.el:562:15: Warning: Unused lexical variable `i'
+#61 2.019 slime-20261108.2146/contrib/slime-presentations.el:564:45: Warning: Unused lexical variable `start'
+#61 2.020 slime-20261108.2146/contrib/slime-presentations.el:571:34: Warning: Unused lexical variable `presentation'
+#61 2.020 slime-20261108.2146/contrib/slime-presentations.el:571:53: Warning: Unused lexical variable `end'
+#61 2.020 slime-20261108.2146/contrib/slime-presentations.el:575:15: Warning: Unused lexical variable `i'
+#61 2.020 slime-20261108.2146/contrib/slime-presentations.el:577:51: Warning: Unused lexical variable `end'
+#61 2.020 slime-20261108.2146/contrib/slime-presentations.el:584:34: Warning: Unused lexical variable `presentation'
+#61 2.020 slime-20261108.2146/contrib/slime-presentations.el:584:53: Warning: Unused lexical variable `end'
+#61 2.020 
+#61 2.020 In slime-menu-choices-for-presentation:
+#61 2.020 slime-20261108.2146/contrib/slime-presentations.el:601:2: Warning: docstring wider than 80 characters
+#61 2.021 
+#61 2.021 In slime-reify-old-output:
+#61 2.021 slime-20261108.2146/contrib/slime-presentations.el:682:45: Warning: Unused lexical variable `start-pos'
+#61 2.022 slime-20261108.2146/contrib/slime-presentations.el:682:63: Warning: Unused lexical variable `whole-p'
+#61 2.022 
+#61 2.022 In slime-presentation-around-or-before-point-p:
+#61 2.022 slime-20261108.2146/contrib/slime-presentations.el:734:41: Warning: Unused lexical variable `beg'
+#61 2.022 slime-20261108.2146/contrib/slime-presentations.el:734:45: Warning: Unused lexical variable `end'
+#61 2.022 
+#61 2.022 In slime-presentation-add-easy-menu:
+#61 2.022 slime-20261108.2146/contrib/slime-presentations.el:759:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#61 2.022 slime-20261108.2146/contrib/slime-presentations.el:760:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#61 2.022 slime-20261108.2146/contrib/slime-presentations.el:761:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#61 2.023 slime-20261108.2146/contrib/slime-presentations.el:762:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#61 2.023 
+#61 2.023 In slime-clear-presentations:
+#61 2.023 slime-20261108.2146/contrib/slime-presentations.el:827:72: Warning: Unused lexical argument `whole-p'
+#61 2.024 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-quicklisp.el...
+#61 2.026 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-references.el...
+#61 2.027 
+#61 2.027 In slime-reference-properties:
+#61 2.027 slime-20261108.2146/contrib/slime-references.el:46:38: Warning: Unused lexical variable `what'
+#61 2.028 
+#61 2.028 In slime-lookup-reference-at-point:
+#61 2.028 slime-20261108.2146/contrib/slime-references.el:103:67: Warning: reference to free variable `name'
+#61 2.028 slime-20261108.2146/contrib/slime-references.el:118:44: Warning: variable `_' not left unused
+#61 2.028 slime-20261108.2146/contrib/slime-references.el:118:49: Warning: variable `_' not left unused
+#61 2.028 
+#61 2.028 In slime-lookup-reference-at-mouse:
+#61 2.028 slime-20261108.2146/contrib/slime-references.el:118:27: Warning: Unused lexical variable `mouse-1'
+#61 2.029 slime-20261108.2146/contrib/slime-references.el:118:36: Warning: Unused lexical variable `w'
+#61 2.029 slime-20261108.2146/contrib/slime-references.el:130:2: Warning: `defadvice' is an obsolete macro (as of 30.1); use `advice-add' or `define-advice'
+#61 2.029 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-repl.el...
+#61 2.031 
+#61 2.031 In toplevel form:
+#61 2.031 slime-20261108.2146/contrib/slime-repl.el:130:9: Warning: defvar `slime-repl-history-use-mark' docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#61 2.031 
+#61 2.031 In slime-repl-history-yank-start:
+#61 2.031 slime-20261108.2146/contrib/slime-repl.el:138:2: Warning: docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#61 2.038 
+#61 2.038 In slime-repl-history-replace:
+#61 2.038 slime-20261108.2146/contrib/slime-repl.el:931:2: Warning: docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#61 2.049 
+#61 2.049 In slime-repl-add-easy-menu:
+#61 2.049 slime-20261108.2146/contrib/slime-repl.el:1623:4: Warning: `easy-menu-add' is an obsolete function (as of 28.1); this was always a no-op in Emacs and can be safely removed.
+#61 2.051 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-sbcl-exts.el...
+#61 2.053 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-scheme.el...
+#61 2.054 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-scratch.el...
+#61 2.056 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-snapshot.el...
+#61 2.057 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-sprof.el...
+#61 2.060 
+#61 2.060 In slime-sprof-browser-collapse:
+#61 2.060 slime-20261108.2146/contrib/slime-sprof.el:158:30: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 2.060 slime-20261108.2146/contrib/slime-sprof.el:158:45: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 2.061 
+#61 2.061 In slime-sprof-browser-add-line-text-properties:
+#61 2.061 slime-20261108.2146/contrib/slime-sprof.el:201:25: Warning: `point-at-bol' is an obsolete function (as of 29.1); use `line-beginning-position' or `pos-bol' instead.
+#61 2.061 slime-20261108.2146/contrib/slime-sprof.el:202:25: Warning: `point-at-eol' is an obsolete function (as of 29.1); use `line-end-position' or `pos-eol' instead.
+#61 2.062 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-trace-dialog.el...
+#61 2.069 
+#61 2.069 In slime-trace-dialog--call-refreshing:
+#61 2.069 slime-20261108.2146/contrib/slime-trace-dialog.el:162:12: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#61 2.070 
+#61 2.070 In slime-trace-dialog--make-autofollow-fn:
+#61 2.070 slime-20261108.2146/contrib/slime-trace-dialog.el:248:16: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#61 2.070 slime-20261108.2146/contrib/slime-trace-dialog.el:261:28: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#61 2.072 
+#61 2.072 In slime-trace-dialog--call-maintaining-properties:
+#61 2.072 slime-20261108.2146/contrib/slime-trace-dialog.el:351:13: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#61 2.073 
+#61 2.073 In slime-trace-dialog--draw-tree-lines:
+#61 2.073 slime-20261108.2146/contrib/slime-trace-dialog.el:477:12: Warning: `inhibit-point-motion-hooks' is an obsolete variable (as of 25.1); use `cursor-intangible-mode' or `cursor-sensor-mode' instead
+#61 2.080 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-tramp.el...
+#61 2.112 
+#61 2.112 In toplevel form:
+#61 2.112 slime-20261108.2146/contrib/slime-tramp.el:14:12: Warning: custom-declare-variable `slime-filename-translations' docstring has wrong usage of unescaped single quotes (use \=' or different quoting such as `...')
+#61 2.113 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-typeout-frame.el...
+#61 2.116 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-xref-browser.el...
+#61 2.120 Compiling /root/.emacs.d/elpa/slime-20261108.2146/contrib/slime-xterm-color.el...
+#61 2.127 
+#61 2.127 In slime-xterm-color-init:
+#61 2.127 slime-20261108.2146/contrib/slime-xterm-color.el:18:8: Warning: function `slime-xterm-color-init' defined multiple times in this file
+#61 2.128 Checking /root/.emacs.d/elpa/slime-20261108.2146/lib...
+#61 2.128 Compiling /root/.emacs.d/elpa/slime-20261108.2146/lib/hyperspec.el...
+#61 2.133 
+#61 2.133 In toplevel form:
+#61 2.133 slime-20261108.2146/lib/hyperspec.el:1321:4: Warning: Alias for `common-lisp-hyperspec-glossary-function' should be declared before its referent
+#61 2.161 Checking /root/.emacs.d/elpa/slime-20261108.2146/swank...
+#61 2.161 Checking /root/.emacs.d/elpa/company-20261119.500/icons/vscode-dark...
+#61 2.162 Checking /root/.emacs.d/elpa/company-20261119.500/icons/vscode-light...
+#61 2.162 Checking /root/.emacs.d/elpa/company-20261119.500/images/small...
+#61 2.163 Done (Total of 105 files compiled, 49 failed, 37 skipped in 20 directories)
+#61 DONE 2.2s
+
+#62 [runner 39/55] COPY --link .emacs /root/.emacs
+#62 merging
+#62 merging 1.2s done
+#62 DONE 1.2s
+
+#63 [runner 40/55] RUN <<'EOF' (set -eu...)
+#63 DONE 0.2s
+
+#64 [runner 41/55] RUN <<'EOF' (set -eu...)
+#64 DONE 0.4s
+
+#65 [runner 42/55] RUN <<'EOF' (set -eu...)
+#65 DONE 0.3s
+
+#66 [runner 43/55] RUN <<'EOF' (set -eu...)
+#66 DONE 1.4s
+
+#67 [runner 44/55] RUN <<'EOF' (set -eu...)
+#67 DONE 0.3s
+
+#68 [runner 45/55] RUN <<'EOF' (set -eu...)
+#68 DONE 0.3s
+
+#69 [runner 46/55] RUN <<'EOF' (set -eu...)
+#69 0.688 Conan version 2.34.0
+#69 DONE 0.7s
+
+#70 [runner 47/55] RUN <<'EOF' (set -eu...)
+#70 DONE 0.3s
+
+#71 [runner 48/55] RUN <<'EOF' (set -eu...)
+#71 0.291 SEGGER J-Link GDB Server V9.92 Command Line Version
+#71 0.291 JLinkARM.dll V9.92 (DLL compiled Nov  4 2026 12:41:35)
+#71 DONE 0.3s
+
+#72 [runner 49/55] RUN <<'EOF' (set -eu...)
+#72 DONE 0.3s
+
+#73 [runner 50/55] RUN <<'EOF' (set -eu...)
+#73 DONE 0.3s
+
+#74 [runner 51/55] RUN <<'EOF' (set -eu...)
+#74 DONE 0.3s
+
+#75 [runner 52/55] RUN <<'EOF' (set -eu...)
+#75 DONE 0.5s
+
+#76 [runner 53/55] RUN <<'EOF' (set -eu...)
+#76 DONE 0.3s
+
+#77 [runner 54/55] RUN <<'EOF' (set -eu...)
+#77 0.357 Loading /etc/emacs/site-start.d/00debian.el (source)...
+#77 DONE 0.6s
+
+#78 [runner 55/55] RUN <<'EOF' (set -eu...)
+#78 0.251 Loading /etc/emacs/site-start.d/00debian.el (source)...
+#78 0.469 Polling "/tmp/slime.11" .. 1 (Abort with `M-x slime-abort-connection'.)
+#78 0.769 Polling "/tmp/slime.11" .. 2 (Abort with `M-x slime-abort-connection'.)
+#78 1.069 Polling "/tmp/slime.11" .. 3 (Abort with `M-x slime-abort-connection'.)
+#78 1.370 Polling "/tmp/slime.11" .. 4 (Abort with `M-x slime-abort-connection'.)
+#78 1.670 Polling "/tmp/slime.11" .. 5 (Abort with `M-x slime-abort-connection'.)
+#78 1.970 Polling "/tmp/slime.11" .. 6 (Abort with `M-x slime-abort-connection'.)
+#78 2.270 Polling "/tmp/slime.11" .. 7 (Abort with `M-x slime-abort-connection'.)
+#78 2.271 Connecting to Swank on port 33961..
+#78 2.280 ; pipelined request... (swank:load-file "/tmp/ai-env-slime.RX16gZ/example.lisp"
+#78 2.280 ; pipelined request... (cl:+ 1 2)
+#78 DONE 2.3s
+
+#79 exporting to image
+#79 exporting layers
+#79 exporting layers 9.1s done
+#79 exporting manifest sha256:13c3fb009a4e427308a2ba56d5eb2b972eaf3326af1316c4996d7718f9f5c773 done
+#79 exporting config sha256:a8ff9833e1cd3a682dd5849465080e960a13429bb8c2fdbf191bb54d980286e1 done
+#79 exporting attestation manifest sha256:e991366c6310d504d402f0964bfef8020d2489d2a2f0461b3b5c61c3c6a3df70 done
+#79 exporting manifest list sha256:cd2a172305f17e5cf7ea59b1cc9ac1c35299067e6c8639d6aeab41ea844c32b2 done
+#79 naming to docker.io/library/ai-env-refactor-smoke:final done
+#79 unpacking to docker.io/library/ai-env-refactor-smoke:final
+#79 unpacking to docker.io/library/ai-env-refactor-smoke:final 9.4s done
+#79 DONE 18.5s
+exit=0

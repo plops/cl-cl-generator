@@ -1,5 +1,16 @@
 # Tasks: Refactoring `gen_ai_env.lisp`
 
+> **Status 2026-11-19: umgesetzt** auf Branch `refactor/ai-env-generator`, siehe `walkthrough.md`.
+> Abweichungen vom Plan:
+> - T1.1–T1.7 und T2.1 sind ein Commit (`2ec881e`). Alle sind golden-neutral, und T2.1 ließ sich
+>   mit der textuellen Golden-Methode (`golden/render.py`) ohne Ausgabeänderung umsetzen.
+> - T2.2 nutzt `AI_ENV_NO_AUTOGEN`. Die Golden-Methode bleibt textuell; `setf` nach dem Laden
+>   prüft `test_ai_env_generation.sh`.
+> - T2.3 warnt nur bei KiroCrew ohne kiro-cli, nicht bei Unterfunktionen.
+> - T2.4: `*rust-cache-volume*` entfernt statt `VOLUME` zu erzeugen.
+> - T3.1: README-Defaults werden per Test geprüft, nicht generiert. T3.2 bewusst nicht umgesetzt.
+> - KiroCrew hat niedrige Priorität. Getestet wurden vor allem muse, claude, kiro-cli und copilot.
+
 Arbeite die Tasks **strikt der Reihe nach** ab. Jeder Task endet mit einer Validierung und
 einem Commit. Abkürzungen: `03` = `source01/examples/03_ai_env`, `P` = dieser Plan-Ordner.
 
