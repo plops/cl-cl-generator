@@ -181,6 +181,13 @@ exec /usr/local/bin/muse.real --yolo "$@"
 
 EOF
 RUN chmod +x /usr/local/bin/muse /usr/local/bin/muse.real
+# Pre-install Emacs packages
+RUN emacs --batch --eval "(require 'package)" --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" --eval "(package-initialize)" --eval "(package-refresh-contents)" --eval "(setq custom-file null-device)" --eval "(dolist (pkg '(compat cmake-mode company gptel magit markdown-mode orderless paredit yaml-mode use-package)) (setq package-selected-packages nil) (package-install pkg))"
+# Recompile installed Emacs packages with their dependencies available
+RUN emacs --batch --eval "(require 'package)" --eval "(package-initialize)" --eval "(byte-recompile-directory package-user-dir 0 t)"
+# Copy the modified .emacs configuration from the build context if present
+# Note: In real usage, ensure .emacs exists in the build context directory
+COPY --link .emacs /root/.emacs
 # Smoke test Kiro CLI ACP command
 RUN <<'EOF'
 set -eu

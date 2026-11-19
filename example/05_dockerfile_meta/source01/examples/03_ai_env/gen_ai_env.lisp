@@ -833,12 +833,17 @@ grep -qi 'acp' /tmp/kiro-cli-acp-help.txt
       (copy :heredoc ,(bin-path "devin") ,(exec-wrapper (real-path "devin") "--permission-mode bypass"))
       (run ,(format nil "chmod +x ~a ~a" (bin-path "devin") (real-path "devin"))))))
 
+(defun emacs-packages ()
+  "SLIME is only useful (and only tested) together with SBCL."
+  (if *install-sbcl*
+      *emacs-packages*
+      (remove 'slime *emacs-packages*)))
+
 (defun runner-emacs ()
-  ;; FIXME: the generated package-install --eval string lacks its closing double quote.
-  (when (and *install-sbcl* *install-emacs*)
+  (when *install-emacs*
     `((comment "Pre-install Emacs packages")
-      (run ,(format nil "emacs --batch --eval \"(require 'package)\" --eval \"(add-to-list 'package-archives '(\\\"melpa\\\" . \\\"https://melpa.org/packages/\\\"))\" --eval \"(package-initialize)\" --eval \"(package-refresh-contents)\" --eval \"(setq custom-file null-device)\" --eval \"(dolist (pkg '(~{~(~a~)~^ ~})) (setq package-selected-packages nil) (package-install pkg))"
-                    *emacs-packages*))
+      (run ,(format nil "emacs --batch --eval \"(require 'package)\" --eval \"(add-to-list 'package-archives '(\\\"melpa\\\" . \\\"https://melpa.org/packages/\\\"))\" --eval \"(package-initialize)\" --eval \"(package-refresh-contents)\" --eval \"(setq custom-file null-device)\" --eval \"(dolist (pkg '(~{~(~a~)~^ ~})) (setq package-selected-packages nil) (package-install pkg))\""
+                    (emacs-packages)))
       (comment "Recompile installed Emacs packages with their dependencies available")
       (run #r|emacs --batch --eval "(require 'package)" --eval "(package-initialize)" --eval "(byte-recompile-directory package-user-dir 0 t)"|)
       (comment "Copy the modified .emacs configuration from the build context if present")
@@ -876,9 +881,18 @@ grep -qi 'acp' /tmp/kiro-cli-acp-help.txt
   (make-pathname :directory (pathname-directory (or *load-truename* *default-pathname-defaults*)))
   "Directory of this generator; the default Dockerfile is written here.")
 
+(defun validate-config ()
+  "Warn about switch combinations that produce a broken image.
+Sub-features such as difftastic, probe-rs or Quicklisp are documented as
+depending on their parent switch and are skipped silently."
+  (when (and *install-kirocrew* (not *install-kiro-cli*))
+    (warn "*install-kirocrew* requires *install-kiro-cli* (KIROCREW_KIRO_BIN points to ~a)."
+          (real-path "kiro-cli"))))
+
 (defun generate-ai-env (&optional (output-path (merge-pathnames "Dockerfile" *ai-env-directory*)))
   "Write the Dockerfile for the current configuration to OUTPUT-PATH.
 The file is only rewritten when its content changes, so its mtime stays stable."
+  (validate-config)
   (write-df output-path
             `(toplevel
                ,@(builder-stages)
