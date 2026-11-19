@@ -415,95 +415,105 @@ esac
 ;;; 5. Smoke tests
 ;;; ===================================================================
 
+(defun python-import-name (package)
+  "Module name of a pip PACKAGE (lowercase, dashes become underscores)."
+  (substitute #\_ #\- (string-downcase (string package))))
+
+(defun cuda-compiler-flavor-p ()
+  "True when the CUDA image flavor ships nvcc."
+  (member *cuda-flavor* '(:devel :cudnn-devel)))
+
 (defun smoke-tests ()
-  "List of (ENABLED DESCRIPTION SCRIPT), evaluated at generation time."
+  "List of (ENABLED DESCRIPTION SCRIPT), evaluated at generation time.
+Scripts use the #r%...% raw-string delimiter because they contain shell pipes.
+Every script runs with `set -eu` during docker build; checks avoid network access."
   (list
-   #+nil
-   (list *install-codex*
-         "Codex by running the CLI and asserting it matches the latest npm release"
-         #r|set -eu
+   ;; --- Daily-use agent CLIs (each goes through its wrapper) ---------------
+   (list *install-muse* "Meta Muse Code by checking the CLI version"
+         #r%set -eu
+muse --version > /tmp/muse-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/muse-version.txt
+%)
+   (list *install-claude* "Claude Code by checking the CLI version through its wrapper"
+         #r%set -eu
+claude --version > /tmp/claude-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/claude-version.txt
+%)
+   (list *install-kiro-cli* "Kiro CLI and its ACP command"
+         #r%set -eu
+kiro-cli --help > /tmp/kiro-cli-help.txt
+grep -qi 'kiro' /tmp/kiro-cli-help.txt
+kiro-cli acp --help > /tmp/kiro-cli-acp-help.txt
+grep -qi 'acp' /tmp/kiro-cli-acp-help.txt
+%)
+   (list *install-copilot* "GitHub Copilot CLI by checking the CLI version through its wrapper"
+         #r%set -eu
+copilot --version > /tmp/copilot-version.txt
+grep -Eq '[0-9]+\.[0-9]+' /tmp/copilot-version.txt
+%)
+   (list *install-codex* "Codex by checking the CLI version"
+         #r%set -eu
 codex --version > /tmp/codex-version.txt
 grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/codex-version.txt
-|)
-   #+nil
-   (list *install-kiro-cli* "kiro-cli by invoking the wrapped CLI and helpers"
-         #r|set -eu
-kiro-cli --help > /tmp/kiro-cli-help.txt
-[ -s /tmp/kiro-cli-help.txt ]
-grep -qi "kiro" /tmp/kiro-cli-help.txt
-|)
-   #+nil
+%)
+   ;; --- Other agent CLIs -------------------------------------------------
    (list *install-grok* "Grok Build by checking the CLI version"
-         #r|set -eu
+         #r%set -eu
 grok --version
 agent --version
-|)
-   #+nil
-   (list *install-muse* "Meta Muse Code by checking the CLI version"
-         #r|set -eu
-muse --version > /tmp/muse-version.txt
-[ -s /tmp/muse-version.txt ]
-grep -Eq '[0-9]+\.[0-9]+\.[0-9]+-R[0-9]+' /tmp/muse-version.txt
-|)
-   #+nil
+%)
+   (list *install-devin-cli* "Devin CLI by checking the CLI version"
+         #r%set -eu
+devin --version > /tmp/devin-version.txt
+[ -s /tmp/devin-version.txt ]
+%)
+   (list *install-kirocrew* "KiroCrew CLI and its chat/gateway commands"
+         #r%set -eu
+kirocrew --help > /tmp/kirocrew-help.txt
+grep -q 'chat' /tmp/kirocrew-help.txt
+grep -q 'gateway' /tmp/kirocrew-help.txt
+kirocrew chat --help > /tmp/kirocrew-chat-help.txt
+grep -q 'Interactive mode' /tmp/kirocrew-chat-help.txt
+kirocrew gateway --help > /tmp/kirocrew-gateway-help.txt
+grep -q -- '--port' /tmp/kirocrew-gateway-help.txt
+%)
+   ;; --- Cloud, CI and quality tools ------------------------------------
    (list *install-azure-cli* "Azure CLI by checking the installed version"
-         #r|set -eu
+         #r%set -eu
 az version > /tmp/az-version.json
 grep -q '"azure-cli"' /tmp/az-version.json
-|)
-   #+nil
+%)
    (list *install-docker-cli* "Docker CLI and Buildx by checking their client versions"
-         #r|set -eu
+         #r%set -eu
 docker --version > /tmp/docker-version.txt
 grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
 docker buildx version > /tmp/docker-buildx-version.txt
 grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
-|)
-   #+nil
-   (list *install-arm-none-eabi* "Arm GNU bare-metal toolchain by compiling a Cortex-M7 object"
-         #r|set -eu
-tmpdir="$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)"
-cat > "$tmpdir/test.c" <<'C_EOF'
-void Reset_Handler(void) {}
-C_EOF
-arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c "$tmpdir/test.c" -o "$tmpdir/test.o"
-arm-none-eabi-readelf -h "$tmpdir/test.o" > "$tmpdir/readelf.txt"
-grep -Eq 'Machine.+ARM' "$tmpdir/readelf.txt"
-rm -rf "$tmpdir"
-|)
-   #+nil
-   (list *install-jlink* "SEGGER J-Link command-line tools by checking their pinned version"
-         (format nil #r|set -eu
-JLinkGDBServerCLExe -version > /tmp/jlink-version.txt
-grep -F '~a ' /tmp/jlink-version.txt
-command -v JLinkExe >/dev/null
-| (jlink-version-code)))
-   #+nil
+%)
    (list *install-teamcity-cli* "TeamCity CLI by checking the installed version"
-         #r|set -eu
+         #r%set -eu
 teamcity --version > /tmp/teamcity-version.txt
-[ -s /tmp/teamcity-version.txt ]
 grep -Eq '[0-9]+\.[0-9]+' /tmp/teamcity-version.txt
-|)
-   #+nil
+%)
+   (list *install-conan* "Conan by checking the CLI version"
+         #r%set -eu
+conan --version
+%)
    (list *install-habit-hooks* "Habit Hooks by checking the CLI help"
-         #r|set -eu
+         #r%set -eu
 habit-hooks --help > /tmp/habit-hooks-help.txt
 [ -s /tmp/habit-hooks-help.txt ]
-|)
-   #+nil
+%)
    (list *install-deptry* "Deptry by checking the CLI version"
-         #r|set -eu
+         #r%set -eu
 deptry --version
-|)
-   #+nil
+%)
    (list *install-jscpd* "JSCPD by checking the CLI version"
-         #r|set -eu
+         #r%set -eu
 jscpd --version
-|)
-   #+nil
+%)
    (list *install-archify* "Archify and its headless Chrome runtime"
-         #r|set -eu
+         #r%set -eu
 archify_dir=/root/.agents/skills/archify
 test -f "$archify_dir/SKILL.md"
 test -f "$archify_dir/bin/archify.mjs"
@@ -515,30 +525,90 @@ tmpdir="$(mktemp -d /tmp/ai-env-archify.XXXXXX)"
 node "$archify_dir/bin/archify.mjs" demo "$tmpdir"
 test -s "$tmpdir/archify-demo.html"
 rm -rf "$tmpdir"
-|)
-   ;; FIXME: the C/CUDA/Rust programs below lost their semicolons.
-   #+nil
-   (list *enable-cuda* "CUDA nvcc compiler by compiling and verifying a test CUDA kernel"
-         (format nil "set -eu~%if command -v nvcc >/dev/null 2>&1 ; then~%  nvcc --version~%  tmpdir=\"$(mktemp -d /tmp/ai-env-cuda.XXXXXX)\"~%  cat > \"$tmpdir/test.cu\" <<'CU_EOF'~%~%~%#include <stdio.h>~%~%__global__ void test_kernel(void) {}~%~%int main(void) {~%  test_kernel<<<1, 1>>>()~%  puts(\"cuda-build-ok\")~%  return 0~%}~%~%CU_EOF~%  nvcc \"$tmpdir/test.cu\" -o \"$tmpdir/test\"~%  rm -rf \"$tmpdir\"~%fi"))
-   #+nil
+%)
+   ;; --- Firmware toolchains ----------------------------------------------
+   (list *install-arm-none-eabi* "Arm GNU bare-metal toolchain by compiling a Cortex-M7 object"
+         #r%set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)"
+cat > "$tmpdir/test.c" <<'C_EOF'
+void Reset_Handler(void) {}
+C_EOF
+arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c "$tmpdir/test.c" -o "$tmpdir/test.o"
+arm-none-eabi-readelf -h "$tmpdir/test.o" > "$tmpdir/readelf.txt"
+grep -Eq 'Machine.+ARM' "$tmpdir/readelf.txt"
+rm -rf "$tmpdir"
+%)
+   (list *install-jlink* "SEGGER J-Link command-line tools by checking their pinned version"
+         (format nil #r%set -eu
+JLinkGDBServerCLExe -version > /tmp/jlink-version.txt || true
+grep -F 'V~a ' /tmp/jlink-version.txt
+command -v JLinkExe >/dev/null
+% *jlink-version*))
+   ;; --- Languages --------------------------------------------------------
+   (list (and *enable-cuda* (cuda-compiler-flavor-p))
+         "CUDA nvcc compiler by compiling a test CUDA kernel"
+         #r%set -eu
+nvcc --version
+tmpdir="$(mktemp -d /tmp/ai-env-cuda.XXXXXX)"
+cat > "$tmpdir/test.cu" <<'CU_EOF'
+#include <stdio.h>
+__global__ void test_kernel(void) {}
+int main(void) {
+  test_kernel<<<1, 1>>>();
+  puts("cuda-build-ok");
+  return 0;
+}
+CU_EOF
+nvcc "$tmpdir/test.cu" -o "$tmpdir/test"
+rm -rf "$tmpdir"
+%)
    (list *install-gcc* "GCC by compiling and running a tiny C program"
-         (format nil "set -eu~%tmpdir=\"$(mktemp -d /tmp/ai-env-gcc.XXXXXX)\"~%cat > \"$tmpdir/test.c\" <<'C_EOF'~%~%~%#include <stdio.h>~%~%int main(void) {~%  puts(\"gcc-ok\")~%  return 0~%}~%~%C_EOF~%gcc \"$tmpdir/test.c\" -o \"$tmpdir/test\"~%\"$tmpdir/test\""))
-   #+nil
+         #r%set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-gcc.XXXXXX)"
+cat > "$tmpdir/test.c" <<'C_EOF'
+#include <stdio.h>
+int main(void) {
+  puts("gcc-ok");
+  return 0;
+}
+C_EOF
+gcc "$tmpdir/test.c" -o "$tmpdir/test"
+"$tmpdir/test" | grep -qx 'gcc-ok'
+rm -rf "$tmpdir"
+%)
    (list *install-rust* "Rust by compiling and running a tiny program"
-         (format nil "set -eu~%tmpdir=\"$(mktemp -d /tmp/ai-env-rust.XXXXXX)\"~%cat > \"$tmpdir/test.rs\" <<'R_EOF'~%~%~%fn main() {~%  println!(\"rust-ok\")~%}~%~%R_EOF~%rustc \"$tmpdir/test.rs\" -o \"$tmpdir/test\"~%\"$tmpdir/test\""))
-   #+nil
+         #r%set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-rust.XXXXXX)"
+cat > "$tmpdir/test.rs" <<'R_EOF'
+fn main() {
+    println!("rust-ok");
+}
+R_EOF
+rustc "$tmpdir/test.rs" -o "$tmpdir/test"
+"$tmpdir/test" | grep -qx 'rust-ok'
+rm -rf "$tmpdir"
+%)
    (list (or *install-python* *install-python-libs*) "Python by running a tiny script"
-         (format nil "set -eu~%python3 - <<'PY_EOF'~%~%~%print(\"python-ok\")~%~%PY_EOF"))
-   #+nil
+         #r%set -eu
+python3 -c 'print("python-ok")' | grep -qx 'python-ok'
+%)
+   (list *install-python-libs* "the Python virtual environment by importing its packages"
+         (format nil #r%set -eu
+python3 -c 'import ~{~a~^, ~}'
+% (mapcar #'python-import-name (python-libs))))
    (list *install-sbcl* "SBCL by evaluating a simple expression"
-         "set -eu
-sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)'")
-   #+nil
+         #r%set -eu
+sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)' | grep -q 3
+%)
    (list *install-emacs* "Emacs by opening a file with the configured init"
-         (format nil "set -eu~%tmpdir=\"$(mktemp -d /tmp/ai-env-emacs-open.XXXXXX)\"~%cat > \"$tmpdir/open-me\" <<'T_EOF'~%~%~%hello~%~%T_EOF~%cat > \"$tmpdir/check.el\" <<'EMACS_EOF'~%~%~%(find-file \"/tmp/ai-env-emacs-open.XXXXXX/open-me\")~%~%(unless (and buffer-file-name (eq major-mode 'fundamental-mode))~%~%  (error \"Emacs failed to open a plain file\"))~%~%EMACS_EOF~%sed -i \"s#/tmp/ai-env-emacs-open.XXXXXX#$tmpdir#g\" \"$tmpdir/check.el\"~%emacs --batch -l /root/.emacs -l \"$tmpdir/check.el\""))
-   #+nil
+         #r%set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-emacs-open.XXXXXX)"
+echo hello > "$tmpdir/open-me"
+emacs --batch -l /root/.emacs --eval "(progn (find-file \"$tmpdir/open-me\") (unless (and buffer-file-name (eq major-mode 'fundamental-mode)) (error \"Emacs failed to open a plain file\")))"
+rm -rf "$tmpdir"
+%)
    (list (and *install-emacs* *install-sbcl*) "Emacs + SLIME by opening and loading a Lisp file"
-         #r|set -eu
+         #r%set -eu
 tmpdir="$(mktemp -d /tmp/ai-env-slime.XXXXXX)"
 cat > "$tmpdir/example.lisp" <<'LISP_EOF'
 (+ 1 2)
@@ -560,22 +630,8 @@ cat > "$tmpdir/slime-check.el" <<'SLIME_EOF'
 SLIME_EOF
 sed -i "s#/tmp/ai-env-slime.XXXXXX#$tmpdir#g" "$tmpdir/slime-check.el"
 emacs --batch -l /root/.emacs -l "$tmpdir/slime-check.el"
-|)
-   (list *install-kirocrew* "KiroCrew CLI and its chat/gateway commands"
-         #r|set -eu
-kirocrew --help > /tmp/kirocrew-help.txt
-grep -q 'chat' /tmp/kirocrew-help.txt
-grep -q 'gateway' /tmp/kirocrew-help.txt
-kirocrew chat --help > /tmp/kirocrew-chat-help.txt
-grep -q 'Interactive mode' /tmp/kirocrew-chat-help.txt
-kirocrew gateway --help > /tmp/kirocrew-gateway-help.txt
-grep -q -- '--port' /tmp/kirocrew-gateway-help.txt
-|)
-   (list *install-kiro-cli* "Kiro CLI ACP command"
-         #r|set -eu
-kiro-cli acp --help > /tmp/kiro-cli-acp-help.txt
-grep -qi 'acp' /tmp/kiro-cli-acp-help.txt
-|)))
+rm -rf "$tmpdir"
+%)))
 
 (defun test-stage ()
   (loop for (enabled description script) in (smoke-tests)

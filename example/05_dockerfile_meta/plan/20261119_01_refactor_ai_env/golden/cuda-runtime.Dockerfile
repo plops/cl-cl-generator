@@ -200,11 +200,125 @@ exec /usr/local/bin/muse.real --yolo "$@"
 
 EOF
 RUN chmod +x /usr/local/bin/muse /usr/local/bin/muse.real
-# Smoke test Kiro CLI ACP command
+# Smoke test Meta Muse Code by checking the CLI version
 RUN <<'EOF'
 set -eu
+muse --version > /tmp/muse-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/muse-version.txt
+
+EOF
+# Smoke test Claude Code by checking the CLI version through its wrapper
+RUN <<'EOF'
+set -eu
+claude --version > /tmp/claude-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/claude-version.txt
+
+EOF
+# Smoke test Kiro CLI and its ACP command
+RUN <<'EOF'
+set -eu
+kiro-cli --help > /tmp/kiro-cli-help.txt
+grep -qi 'kiro' /tmp/kiro-cli-help.txt
 kiro-cli acp --help > /tmp/kiro-cli-acp-help.txt
 grep -qi 'acp' /tmp/kiro-cli-acp-help.txt
+
+EOF
+# Smoke test GitHub Copilot CLI by checking the CLI version through its wrapper
+RUN <<'EOF'
+set -eu
+copilot --version > /tmp/copilot-version.txt
+grep -Eq '[0-9]+\.[0-9]+' /tmp/copilot-version.txt
+
+EOF
+# Smoke test Codex by checking the CLI version
+RUN <<'EOF'
+set -eu
+codex --version > /tmp/codex-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/codex-version.txt
+
+EOF
+# Smoke test Docker CLI and Buildx by checking their client versions
+RUN <<'EOF'
+set -eu
+docker --version > /tmp/docker-version.txt
+grep -Eq 'Docker version [0-9]+\.[0-9]+' /tmp/docker-version.txt
+docker buildx version > /tmp/docker-buildx-version.txt
+grep -Eq 'github\.com/docker/buildx v[0-9]+\.[0-9]+' /tmp/docker-buildx-version.txt
+
+EOF
+# Smoke test Conan by checking the CLI version
+RUN <<'EOF'
+set -eu
+conan --version
+
+EOF
+# Smoke test Arm GNU bare-metal toolchain by compiling a Cortex-M7 object
+RUN <<'EOF'
+set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-arm-none-eabi.XXXXXX)"
+cat > "$tmpdir/test.c" <<'C_EOF'
+void Reset_Handler(void) {}
+C_EOF
+arm-none-eabi-gcc -mcpu=cortex-m7 -mthumb -ffreestanding -c "$tmpdir/test.c" -o "$tmpdir/test.o"
+arm-none-eabi-readelf -h "$tmpdir/test.o" > "$tmpdir/readelf.txt"
+grep -Eq 'Machine.+ARM' "$tmpdir/readelf.txt"
+rm -rf "$tmpdir"
+
+EOF
+# Smoke test SEGGER J-Link command-line tools by checking their pinned version
+RUN <<'EOF'
+set -eu
+JLinkGDBServerCLExe -version > /tmp/jlink-version.txt || true
+grep -F 'V9.92 ' /tmp/jlink-version.txt
+command -v JLinkExe >/dev/null
+
+EOF
+# Smoke test GCC by compiling and running a tiny C program
+RUN <<'EOF'
+set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-gcc.XXXXXX)"
+cat > "$tmpdir/test.c" <<'C_EOF'
+#include <stdio.h>
+int main(void) {
+  puts("gcc-ok");
+  return 0;
+}
+C_EOF
+gcc "$tmpdir/test.c" -o "$tmpdir/test"
+"$tmpdir/test" | grep -qx 'gcc-ok'
+rm -rf "$tmpdir"
+
+EOF
+# Smoke test Rust by compiling and running a tiny program
+RUN <<'EOF'
+set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-rust.XXXXXX)"
+cat > "$tmpdir/test.rs" <<'R_EOF'
+fn main() {
+    println!("rust-ok");
+}
+R_EOF
+rustc "$tmpdir/test.rs" -o "$tmpdir/test"
+"$tmpdir/test" | grep -qx 'rust-ok'
+rm -rf "$tmpdir"
+
+EOF
+# Smoke test Python by running a tiny script
+RUN <<'EOF'
+set -eu
+python3 -c 'print("python-ok")' | grep -qx 'python-ok'
+
+EOF
+# Smoke test the Python virtual environment by importing its packages
+RUN <<'EOF'
+set -eu
+python3 -c 'import numpy, pandas, loguru, requests, ruff, polars, pyarrow'
+
+EOF
+# Smoke test SBCL by evaluating a simple expression
+RUN <<'EOF'
+set -eu
+sbcl --non-interactive --eval '(princ (+ 1 2))' --eval '(quit)' | grep -q 3
 
 EOF
 # Default to launching a bash shell

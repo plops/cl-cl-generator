@@ -103,11 +103,40 @@ exec /usr/local/bin/muse.real --yolo "$@"
 
 EOF
 RUN chmod +x /usr/local/bin/muse /usr/local/bin/muse.real
-# Smoke test Kiro CLI ACP command
+# Smoke test Meta Muse Code by checking the CLI version
 RUN <<'EOF'
 set -eu
+muse --version > /tmp/muse-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/muse-version.txt
+
+EOF
+# Smoke test Claude Code by checking the CLI version through its wrapper
+RUN <<'EOF'
+set -eu
+claude --version > /tmp/claude-version.txt
+grep -Eq '[0-9]+\.[0-9]+\.[0-9]+' /tmp/claude-version.txt
+
+EOF
+# Smoke test Kiro CLI and its ACP command
+RUN <<'EOF'
+set -eu
+kiro-cli --help > /tmp/kiro-cli-help.txt
+grep -qi 'kiro' /tmp/kiro-cli-help.txt
 kiro-cli acp --help > /tmp/kiro-cli-acp-help.txt
 grep -qi 'acp' /tmp/kiro-cli-acp-help.txt
+
+EOF
+# Smoke test GitHub Copilot CLI by checking the CLI version through its wrapper
+RUN <<'EOF'
+set -eu
+copilot --version > /tmp/copilot-version.txt
+grep -Eq '[0-9]+\.[0-9]+' /tmp/copilot-version.txt
+
+EOF
+# Smoke test Python by running a tiny script
+RUN <<'EOF'
+set -eu
+python3 -c 'print("python-ok")' | grep -qx 'python-ok'
 
 EOF
 # Default to launching a bash shell
