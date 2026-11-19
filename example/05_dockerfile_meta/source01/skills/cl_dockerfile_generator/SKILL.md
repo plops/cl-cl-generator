@@ -86,6 +86,13 @@ To avoid complex multi-line shell strings with chained `&&` or backslashes, `cl-
   EOF
   ```
 
+  An optional `:chmod` sets the file mode in the same layer (handy for scripts):
+  ```lisp
+  (copy :heredoc "/usr/local/bin/hello" "#!/bin/sh
+echo hello" :chmod "755")
+  ```
+  Generates `COPY --chmod=755 <<'EOF' /usr/local/bin/hello`.
+
 - **Executing inline multi-line scripts (`run :heredoc`)**:
   ```lisp
   (run :heredoc #r(set -e

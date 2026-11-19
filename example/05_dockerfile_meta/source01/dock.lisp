@@ -113,8 +113,9 @@
          (:copy
           (let ((args (cdr code)))
             (if (eq (first args) :heredoc)
-                (destructuring-bind (dest content) (cdr args)
-                  (format nil "COPY <<'EOF' ~a~%~a~%EOF" (emit-val dest)
+                (destructuring-bind (dest content &key chmod) (cdr args)
+                  (format nil "COPY~@[ --chmod=~a~] <<'EOF' ~a~%~a~%EOF"
+                          (and chmod (emit-val chmod)) (emit-val dest)
                           (emit-val content)))
                 (multiple-value-bind (paths options) (parse-copy-add-args args
                                                       '(:from :chown :link
@@ -201,7 +202,7 @@
               (warn "Unknown Dockerfile instruction: ~a" instruction))
             (format nil "~a ~{~a~^ ~}" instruction
                     (mapcar #'emit-val (cdr code))))))))
-  (t (emit-val code))))
+    (t (emit-val code))))
 
 (defun file-contents-equal-p (filename content)
   (and (probe-file filename)
