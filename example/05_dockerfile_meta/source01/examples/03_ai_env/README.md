@@ -2,67 +2,78 @@
 
 This example demonstrates how to use the Lisp `cl-dockerfile-generator` to create a highly customizable, minimal Docker image containing development tools and AI command-line utilities.
 
-It is based on `02_agy_env` but adds support for multiple AI CLI tools (`codex`, `copilot`, `kiro-cli`, and `grok`) and provides a simple way to toggle individual components on/off to produce minimal images.
+It is based on `02_agy_env` but adds support for multiple AI CLI tools (`muse`, `claude`, `kiro-cli`, `copilot`, `codex`, and more) and provides a simple way to toggle individual components on/off to produce minimal images.
 
 ---
 
 ## Supported Features & Configuration
 
-Customize the generated image by changing the parameters near the top of [`gen_ai_env.lisp`](gen_ai_env.lisp), then regenerate `Dockerfile`. The defaults below match the checked-in generator.
+Customize the generated image by changing the parameters in section 1 (“Configuration”) of [`gen_ai_env.lisp`](gen_ai_env.lisp), then regenerate `Dockerfile`. The defaults below match the checked-in generator; `test_ai_env_generation.sh` fails when a default in this README drifts from the code.
+
+Sub-features (difftastic, probe-rs, Quicklisp, SLIME) are only installed when their parent switch is on. Values such as the CUDA base image, the Python package list, and toolchain directory names are derived at generation time, so switches can also be changed with `setf` after loading the generator (see [How to Regenerate the Dockerfile](#how-to-regenerate-the-dockerfile)).
 
 ### Base image and shared behavior
 
 | Parameter | Default | What it controls |
 | :--- | :--- | :--- |
-| `*enable-cuda*` | `t` | Selects the NVIDIA CUDA base image, exports CUDA runtime/development paths, and enables the CUDA smoke test. Set it to `nil` for plain `ubuntu:26.04`. |
-| `*cuda-flavor*` | `:devel` | CUDA image variant: `:cudnn-devel`, `:devel`, `:cudnn-runtime`, `:runtime`, or `:base`. Compiler smoke coverage is useful with a `devel` variant; runtime/base variants intentionally may not contain `nvcc`. |
-| `*cuda-version*` | `"13.4.1"` | Version part of the NVIDIA CUDA image tag. |
+| `*enable-cuda*` | `t` | Selects the NVIDIA CUDA base image, exports CUDA runtime/development paths, and adds CUDA-only Python packages. Set it to `nil` for plain `ubuntu:26.04`. |
+| `*cuda-flavor*` | `:cudnn-devel` | CUDA image variant: `:cudnn-devel`, `:devel`, `:cudnn-runtime`, `:runtime`, or `:base`. The `nvcc` smoke test is only generated for the two `devel` flavors. |
+| `*cuda-version*` | `"13.3.1"` | Version part of the NVIDIA CUDA image tag. |
 | `*cuda-ubuntu-version*` | `"ubuntu26.04"` | Ubuntu suffix of the NVIDIA CUDA image tag. |
-| `*base-image*` | computed | Final runner and Python-builder base. It is computed from the CUDA settings; override it only when deliberately replacing that selection. |
-| `*builder-base-image*` | `"ubuntu:26.04"` | Small base used by independent CLI download stages. |
-| `*ubuntu-packages*` | utility list | Extra interactive and firmware-development Ubuntu packages installed in the runner. Edit the list to trim or extend the general tool belt. |
-| `*enable-tests*` | `t` | Emits build-time smoke tests for enabled features. Setting this to `nil` skips all smoke tests but does not disable any installation. |
+| `*ubuntu-image*` | `"ubuntu:26.04"` | Runner/Python-builder base when CUDA is disabled. |
+| `*base-image*` | `nil` | `nil` means “computed from the CUDA settings”; set a string to force a base image for the runner and the Python builder. |
+| `*builder-base-image*` | `"ubuntu:26.04"` | Small base used by the independent CLI download stages. |
+| `*ubuntu-packages*` | utility list | Interactive and firmware-development Ubuntu packages installed in the runner. |
+| `*enable-tests*` | `t` | Emits build-time smoke tests for enabled features. `nil` skips all smoke tests but does not disable any installation. |
 
 ### Languages, firmware, and system tools
 
 | Parameter | Default | What it controls |
 | :--- | :--- | :--- |
-| `*install-gcc*` | `nil` | GCC, `build-essential`, and a compile/run smoke test. Rust also pulls in these build packages. |
+| `*install-gcc*` | `t` | GCC, `build-essential`, the C/C++ tools in `*gcc-ubuntu-packages*` (clang-format, clang-tidy, ninja, cmake, pkg-config, gdb), and a compile/run smoke test. Rust also pulls in the build packages. |
 | `*install-sbcl*` | `t` | SBCL and `rlwrap`, so the Lisp generator can run in the working container. |
-| `*install-quicklisp*` | `nil` | When SBCL is enabled, optionally install Quicklisp and cached Lisp systems. |
-| `*install-emacs*` | `nil` | Terminal Emacs. SLIME setup and the Emacs/SLIME integration test require both this and `*install-sbcl*`. |
-| `*install-python*` | `t` | System Python 3 runtime. |
-| `*install-python-libs*` | `t` | A separate uv-built virtual environment containing `*python-libs*`; this also ensures system Python is present. |
-| `*python-libs*` | package list | Python packages installed into `/workspace/.venv`. CUDA-specific packages are appended only when CUDA is enabled. |
-| `*install-rust*` | `nil` | Stable Rust via rustup, including `rustc`, Cargo, Clippy, rustfmt, and a compile/run smoke test. |
-| `*install-difftastic*` | `t` | Installs and configures difftastic when Rust is enabled. It has no effect when `*install-rust*` is `nil`. |
-| `*rust-cache-volume*` | `t` | Declares `/root/.cargo` as a Docker volume when Rust is enabled. |
-| `*install-docker-cli*` | `t` | Docker CLI and Buildx only—not a daemon. Combine it with `setup02_run.sh --docker-sock` to use the host daemon. |
-| `*install-arm-none-eabi*` | `nil` | Arm GNU bare-metal toolchain and Cortex-M7 compile smoke test. |
-| `*arm-none-eabi-version*` | `"15.3.rel1"` | Pinned Arm GNU toolchain release used to derive its download name/path. |
-| `*install-jlink*` | `nil` | SEGGER J-Link command-line tools and version smoke test. The download accepts SEGGER's license terms. |
-| `*jlink-version*` | `"9.30"` | Pinned J-Link release used to derive its download name/path. |
+| `*install-quicklisp*` | `t` | With SBCL: Quicklisp, `.sbclrc`, local-project symlinks (`*quicklisp-local-projects*`) and pre-fetched systems (`*quicklisp-systems*`). |
+| `*install-emacs*` | `nil` | Terminal Emacs, the packages in `*emacs-packages*` and the `.emacs` from the build context. SLIME and its smoke test are added only when SBCL is installed too. |
+| `*install-python*` | `t` | System Python 3 runtime (`python3-full`). |
+| `*install-python-libs*` | `t` | A separate uv-built virtual environment `/workspace/.venv` containing `*python-libs*` (plus `*python-cuda-libs*` with CUDA); a smoke test imports every package. |
+| `*install-rust*` | `t` | Stable Rust via rustup and a compile/run smoke test. |
+| `*install-difftastic*` | `t` | With Rust: difftastic, configured as git's external diff. |
+| `*install-probe-rs*` | `t` | With Rust: probe-rs embedded debugging tools. |
+| `*install-conan*` | `t` | Conan C/C++ package manager as an isolated uv tool. |
+| `*install-docker-cli*` | `t` | Docker CLI and Buildx only—not a daemon. Combine it with `setup02_run.sh --docker-sock`. |
+| `*install-arm-none-eabi*` | `t` | Arm GNU bare-metal toolchain and a Cortex-M7 compile smoke test. |
+| `*arm-none-eabi-version*` | `"15.3.rel2"` | Pinned Arm GNU toolchain release used to derive its download name/path. |
+| `*install-jlink*` | `t` | SEGGER J-Link command-line tools and a version smoke test. The download accepts SEGGER's license terms. |
+| `*jlink-version*` | `"9.92"` | Pinned J-Link release used to derive its download name/path. |
 
-### Agent, cloud, and quality tools
+### Agent CLIs
+
+Every agent CLI is installed as `/usr/local/bin/<name>.real` plus a small wrapper `/usr/local/bin/<name>` that adds permissive default flags.
 
 | Parameter | Default | What it controls |
 | :--- | :--- | :--- |
-| `*install-agy*` | `nil` | Google Antigravity CLI and its permissive wrapper. |
-| `*install-codex*` | `t` | Latest npm Codex CLI plus a wrapper that bypasses approvals/sandboxing by default. |
-| `*install-copilot*` | `nil` | GitHub Copilot CLI plus an `--allow-all` wrapper. |
-| `*install-kiro-cli*` | `t` | Kiro CLI and helper binaries plus a wrapper that defaults to trusted/non-interactive operation. |
-| `*install-kirocrew*` | `t` | KiroCrew 0.7.2 with its managed Python runtime and gateway wrapper. |
+| `*install-muse*` | `t` | Meta Muse Code CLI; the wrapper adds `--yolo`. |
+| `*install-claude*` | `t` | Claude Code (native build); the wrapper adds `--dangerously-skip-permissions`. State lives in `CLAUDE_CONFIG_DIR=/root/.claude`, which `setup02_run.sh` bind-mounts from the host; auto-updates are disabled because the binary is image-managed. |
+| `*install-kiro-cli*` | `t` | Kiro CLI; the wrapper turns `kiro-cli init` into `init --force`. |
+| `*install-copilot*` | `t` | GitHub Copilot CLI; the wrapper adds `--allow-all`. |
+| `*install-codex*` | `t` | Latest npm Codex CLI; the wrapper adds `--dangerously-bypass-approvals-and-sandbox --no-daemon`. |
+| `*install-agy*` | `nil` | Google Antigravity CLI; the wrapper adds `--dangerously-skip-permissions`. |
+| `*install-grok*` | `nil` | Grok Build (`grok` and `agent`); the `grok` wrapper adds `--always-approve`. |
+| `*install-devin-cli*` | `nil` | Devin CLI; the wrapper adds `--permission-mode bypass`. |
+| `*install-kirocrew*` | `nil` | KiroCrew with its managed Python runtime and gateway wrapper. Requires `*install-kiro-cli*`. See [KiroCrew](#kirocrew). |
+| `*kirocrew-version*` | `"0.7.2"` | Pinned signed KiroCrew release. |
+
+### Cloud, CI, and quality tools
+
+| Parameter | Default | What it controls |
+| :--- | :--- | :--- |
 | `*install-azure-cli*` | `nil` | Azure CLI from Microsoft's apt repository. |
 | `*install-teamcity-cli*` | `nil` | TeamCity CLI from JetBrains' installer. |
-| `*install-grok*` | `nil` | Grok Build and its permissive wrapper. |
-| `*install-muse*` | `nil` | Meta Muse Code CLI, installed with Meta's official installer. |
 | `*install-habit-hooks*` | `nil` | Habit Hooks with all optional integrations, installed as an isolated uv tool. |
 | `*install-deptry*` | `nil` | Deptry installed as an isolated uv tool. |
 | `*install-jscpd*` | `nil` | JSCPD installed globally with npm. |
-| `*install-archify*` | `nil` | Archify's Codex skill, Chrome for Testing, its shared libraries, browser environment, and Archify/browser smoke test. |
+| `*install-archify*` | `nil` | Archify's Codex skill, Chrome for Testing, its shared libraries (`*archify-browser-packages*`), browser environment, and Archify/browser smoke test. |
 | `*archify-chrome-build*` | `"stable"` | Chrome for Testing channel or exact version. Use an exact version for reproducible builds. |
-
-Derived parameters such as `*arm-none-eabi-toolchain*`, `*jlink-version-code*`, `*jlink-directory*`, and `*archify-browser-packages*` normally should not be edited independently; they keep emitted names and dependency lists centralized.
 
 ---
 
@@ -71,18 +82,26 @@ Derived parameters such as `*arm-none-eabi-toolchain*`, `*jlink-version-code*`, 
 The generated Dockerfile now installs the AI CLI tools during the image build instead of copying host binaries from `bin/`.
 This makes the example reproducible on any machine with Docker and network access.
 
-- `agy`: `https://antigravity.google/cli/install.sh`
-- `codex`: `npm install -g @openai/codex`
-- `copilot`: `https://gh.io/copilot-install`
-- `kiro-cli`: `https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip`
-- `grok`: `https://x.ai/cli/install.sh`
 - `muse`: `https://dev.meta.ai/install.sh`
+- `claude`: `https://claude.ai/install.sh`
+- `kiro-cli`: `https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-linux.zip`
+- `copilot`: `https://gh.io/copilot-install`
+- `codex`: `npm install -g @openai/codex@<latest>`
+- `agy`: `https://antigravity.google/cli/install.sh`
+- `grok`: `https://x.ai/cli/install.sh`
+- `devin`: `https://cli.devin.ai/install.sh`
+- KiroCrew: `https://download.crew.kiro.dev/cli.sh` (signed release manifest)
+- TeamCity CLI: `https://jb.gg/tc/install`
+- uv: `ghcr.io/astral-sh/uv:latest`
+- Rust: `https://sh.rustup.rs`; probe-rs: GitHub release installer; difftastic: `cargo install`
 - Archify: `npx skills add tt-a1i/archify` from `https://github.com/tt-a1i/archify`
 - Chrome for Testing: `npx @puppeteer/browsers install chrome@<build>`
-- Arm GNU Toolchain: `https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads`
-- SEGGER J-Link: `https://www.segger.com/downloads/jlink/`
+- Arm GNU Toolchain: `https://gitlab.arm.com/tooling/gnu-toolchains-for-arm/` (pinned by `*arm-none-eabi-version*`)
+- SEGGER J-Link: `https://www.segger.com/downloads/jlink/` (pinned by `*jlink-version*`)
 
-The generated image also wraps `agy`, `copilot`, `codex`, and `grok` so they launch with permissive agent flags by default (`--dangerously-skip-permissions`, `--allow-all`, `--dangerously-bypass-approvals-and-sandbox`, and `--always-approve`), `kiro-cli` so `init` skips confirmation by default with `--force`, while still keeping the original binaries available as `*.real`.
+### Reproducibility
+
+Only the Arm toolchain, J-Link, KiroCrew and the CUDA base image are pinned. Everything else follows its upstream “latest/stable” channel (`uv:latest`, the newest Codex npm release, the Kiro/Copilot/Claude/Muse installers, rustup `stable`, probe-rs `latest`, Chrome for Testing `stable`), so two builds on different days can differ. Several tools are installed with `curl … | sh`; for this development image that is a deliberate trade-off of convenience over supply-chain hardening.
 
 `libxml2-utils` is only worth adding if your agents need XML tooling such as `xmllint`; it’s not a general-purpose default for this image.
 
@@ -183,7 +202,18 @@ If you changed `gen_ai_env.lisp`, regenerate the Dockerfile with:
 
 Most users do not need this step because the generated `Dockerfile` is already committed.
 
-When `*enable-tests*` is `t`, the generated image runs the smoke-test entry for each enabled feature. Coverage includes real GCC/Rust/Arm/CUDA compilation, CLI version/help checks, an Emacs/SLIME workflow, and Archify `doctor`, demo rendering, and a real headless-Chrome DOM render. Tests are conditional on the same feature flags as their installations. Run Archify `visual-check` on delivered diagrams at runtime; its multi-viewport screenshot inspection is deliberately not a build gate because Chrome DevTools capture can be flaky in container builds.
+Loading the generator writes `./Dockerfile` (only when its content changes). To generate a variant without touching it, set `AI_ENV_NO_AUTOGEN=1`, change switches with `setf`, and call `generate-ai-env` with another path:
+
+```bash
+AI_ENV_NO_AUTOGEN=1 sbcl --non-interactive --eval '(require "asdf")' --load gen_ai_env.lisp \
+  --eval '(in-package :cl-dockerfile-generator)' \
+  --eval '(setf *enable-cuda* nil *install-emacs* t)' \
+  --eval '(generate-ai-env #p"/tmp/no-cuda.Dockerfile")'
+```
+
+`./test_ai_env_generation.sh` checks the generator without a Docker build: a golden matrix of 8 switch combinations (`../../../plan/20261119_01_refactor_ai_env/golden/`) must produce byte-identical Dockerfiles, derived values must follow `setf`, the wrappers of the daily-use CLIs must be present, and the README defaults must match the code. After an intended change of the output, refresh the golden files with `golden/check.sh --update` and review the diff.
+
+When `*enable-tests*` is `t`, the generated image runs the smoke-test entry for each enabled feature during `docker build`. Coverage includes real GCC/Rust/Arm/CUDA compilation, version checks through the wrappers of muse, claude, kiro-cli (including `acp`), copilot and codex, Python venv imports, an Emacs/SLIME workflow, and Archify `doctor`, demo rendering, and a real headless-Chrome DOM render. Tests are conditional on the same feature flags as their installations. Run Archify `visual-check` on delivered diagrams at runtime; its multi-viewport screenshot inspection is deliberately not a build gate because Chrome DevTools capture can be flaky in container builds.
 
 ## Fountain firmware development
 

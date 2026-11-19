@@ -45,4 +45,18 @@ check "$d" "claude config dir is bind-mountable"    -F 'CLAUDE_CONFIG_DIR=/root/
 check "$d" "copilot allows all"                     -F 'copilot.real --allow-all "$@"'
 check "$d" "kiro-cli init is forced"                -F 'init) exec /usr/local/bin/kiro-cli.real init --force'
 check "$d" "container starts bash"                  -F 'CMD ["/bin/bash"]'
+# 5. README defaults match the scalar defaults in the generator (t, nil, :keyword, "string").
+python3 -I - "$script_dir/gen_ai_env.lisp" "$script_dir/README.md" <<'PY'
+import re, sys
+code, readme = (open(p).read() for p in sys.argv[1:3])
+defaults = dict(re.findall(r'^\(defparameter (\*[a-z0-9-]+\*)\s+(t|nil|:[a-z0-9-]+|"[^"]*")(?=[\s)])', code, re.M))
+rows = dict(re.findall(r'^\| `(\*[a-z0-9-]+\*)` \| `([^`]*)` \|', readme, re.M))
+bad = [f"{k}: code {v}, README {rows.get(k, 'missing')}" for k, v in defaults.items()
+       if k.startswith(("*install-", "*enable-", "*cuda-", "*jlink-version*", "*arm-none-eabi-version*",
+                        "*kirocrew-version*", "*archify-chrome-build*", "*base-image*",
+                        "*builder-base-image*", "*ubuntu-image*")) and rows.get(k) != v]
+for b in bad: print("FAIL: README default", b)
+if bad: sys.exit(1)
+print(f"PASS: README defaults match the generator ({len(defaults)} scalar parameters checked)")
+PY
 echo "All generator tests passed."
