@@ -45,7 +45,10 @@ Options:
   --host-opt     Bind mount host /opt read-only at /host/opt. The container's
                  /opt must remain intact for the NVIDIA CUDA entrypoint.
   --usb          Run privileged so the host USB bus is available (needed for
-                 J-Link probes; grants broad access to host devices).
+                 J-Link probes; grants broad access to host devices) and
+                 bind mount /dev/bus/usb, so re-enumerated USB devices stay
+                 reachable. New /dev/ttyUSB* nodes still need a restart or
+                 mknod with the major:minor from /sys/class/tty/*/dev.
   --source-isolation
                  Mount only the configured project sources (default).
   --no-source-isolation
@@ -280,6 +283,15 @@ if [ "$enable_usb" -eq 1 ] && [ ! -d /dev/bus/usb ]; then
 fi
 if [ "$privileged" -eq 1 ]; then
   set -- "$@" --privileged
+fi
+# --privileged only copies the device nodes that exist at container start into
+# a private /dev. A USB device that re-enumerates (J-Link after a power cycle,
+# hub reset) gets a new device number, and its node would be missing inside
+# the container. Bind-mounting the host's /dev/bus/usb keeps it in sync with
+# the host's udev. udev inside the container does not help: kernel uevents
+# only reach the host network namespace.
+if [ "$enable_usb" -eq 1 ]; then
+  set -- "$@" -v /dev/bus/usb:/dev/bus/usb
 fi
 
 if [ "$enable_host_opt" -eq 1 ]; then
