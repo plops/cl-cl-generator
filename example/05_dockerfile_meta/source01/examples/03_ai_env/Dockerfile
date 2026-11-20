@@ -92,6 +92,8 @@ RUN --mount=type=cache,target=/root/.cache/uv uv tool install conan
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
  && chmod -R a+w /root/.rustup
 ENV PATH=/root/.cargo/bin:$PATH
+# Install additional Rust targets for cross-compilation
+RUN rustup target add thumbv7em-none-eabihf && chmod -R a+w /root/.rustup
 # Install difftastic syntax-aware diff tool
 RUN --mount=type=cache,target=/root/.cargo/registry --mount=type=cache,target=/root/.cargo/git cargo install difftastic \
  && ln -sf /root/.cargo/bin/difft /usr/local/bin/difft
@@ -314,6 +316,17 @@ fn main() {
 R_EOF
 rustc "$tmpdir/test.rs" -o "$tmpdir/test"
 "$tmpdir/test" | grep -qx 'rust-ok'
+rm -rf "$tmpdir"
+
+EOF
+# Smoke test Rust cross targets by compiling a no_std library for each target
+RUN <<'EOF'
+set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-rust-target.XXXXXX)"
+printf '#![no_std]\npub fn inc(x: u32) -> u32 { x + 1 }\n' > "$tmpdir/lib.rs"
+for target in thumbv7em-none-eabihf; do
+  rustc --edition 2021 --crate-type=lib --target "$target" -O "$tmpdir/lib.rs" -o "$tmpdir/lib-$target.rlib"
+done
 rm -rf "$tmpdir"
 
 EOF

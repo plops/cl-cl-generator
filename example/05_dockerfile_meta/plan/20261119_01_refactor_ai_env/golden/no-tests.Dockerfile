@@ -92,6 +92,8 @@ RUN --mount=type=cache,target=/root/.cache/uv uv tool install conan
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
  && chmod -R a+w /root/.rustup
 ENV PATH=/root/.cargo/bin:$PATH
+# Install additional Rust targets for cross-compilation
+RUN rustup target add thumbv7em-none-eabihf && chmod -R a+w /root/.rustup
 # Install difftastic syntax-aware diff tool
 RUN --mount=type=cache,target=/root/.cargo/registry --mount=type=cache,target=/root/.cargo/git cargo install difftastic \
  && ln -sf /root/.cargo/bin/difft /usr/local/bin/difft

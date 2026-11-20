@@ -1,4 +1,4 @@
-# name: space separated overrides of the form *flag*=value (value: t, nil, :keyword or "string")
+# name: space separated overrides of the form *flag*=value (value: t, nil, :keyword, "string" or a flat quoted list)
 default:
 all-off: *enable-cuda*=nil *install-gcc*=nil *install-sbcl*=nil *install-quicklisp*=nil *install-emacs*=nil *install-python*=nil *install-python-libs*=nil *install-docker-cli*=nil *install-arm-none-eabi*=nil *install-jlink*=nil *install-archify*=nil *install-agy*=nil *install-codex*=nil *install-copilot*=nil *install-claude*=nil *install-kiro-cli*=nil *install-kirocrew*=nil *install-azure-cli*=nil *install-teamcity-cli*=nil *install-grok*=nil *install-muse*=nil *install-devin-cli*=nil *install-conan*=nil *install-habit-hooks*=nil *install-deptry*=nil *install-jscpd*=nil *install-rust*=nil *install-probe-rs*=nil *install-difftastic*=nil
 all-on: *install-emacs*=t *install-archify*=t *install-agy*=t *install-kirocrew*=t *install-azure-cli*=t *install-teamcity-cli*=t *install-grok*=t *install-devin-cli*=t *install-habit-hooks*=t *install-deptry*=t *install-jscpd*=t
@@ -7,3 +7,4 @@ cuda-runtime: *cuda-flavor*=:runtime
 daily-agents: *enable-cuda*=nil *install-gcc*=nil *install-sbcl*=nil *install-quicklisp*=nil *install-python-libs*=nil *install-docker-cli*=nil *install-arm-none-eabi*=nil *install-jlink*=nil *install-codex*=nil *install-conan*=nil *install-rust*=nil *install-probe-rs*=nil *install-difftastic*=nil
 emacs-no-sbcl: *install-emacs*=t *install-sbcl*=nil
 no-tests: *enable-tests*=nil
+rust-no-targets: *rust-targets*=nil

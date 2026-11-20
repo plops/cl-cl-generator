@@ -75,6 +75,19 @@
   "Separate uv-built virtual environment /workspace/.venv containing PYTHON-LIBS.")
 (defparameter *install-rust* t
   "Stable Rust toolchain via rustup.")
+;; Rust variants (the Linux host compiler x86_64-unknown-linux-gnu is always
+;; part of *INSTALL-RUST*; targets are only added on top of it):
+;;   Linux only:              *install-rust* t  *rust-targets* nil
+;;   Linux + ARM embedded:    *install-rust* t  *rust-targets* '("thumbv7em-none-eabihf")
+;;                            (for flashing/debugging also *install-arm-none-eabi* t
+;;                             (gdb, objcopy) and *install-jlink* t or *install-probe-rs* t)
+;;   no Rust at all:          *install-rust* nil (*rust-targets* is then ignored)
+(defparameter *rust-targets* '("thumbv7em-none-eabihf")
+  "Cross-compilation targets added with `rustup target add` on top of the
+always-installed Linux host toolchain; ignored unless *INSTALL-RUST* is true.
+thumbv7em-none-eabihf is the bare-metal Cortex-M7 (with FPU) target; without
+it cargo fails with \"can't find crate for `core`\". NIL gives a Linux-only
+Rust installation.")
 (defparameter *install-probe-rs* t
   "probe-rs embedded debugging tools. Requires *INSTALL-RUST*.")
 (defparameter *install-difftastic* t
@@ -596,6 +609,16 @@ rustc "$tmpdir/test.rs" -o "$tmpdir/test"
 "$tmpdir/test" | grep -qx 'rust-ok'
 rm -rf "$tmpdir"
 %)
+   (list (and *install-rust* *rust-targets*)
+         "Rust cross targets by compiling a no_std library for each target"
+         (format nil #r%set -eu
+tmpdir="$(mktemp -d /tmp/ai-env-rust-target.XXXXXX)"
+printf '#![no_std]\npub fn inc(x: u32) -> u32 { x + 1 }\n' > "$tmpdir/lib.rs"
+for target in~{ ~a~}; do
+  rustc --edition 2021 --crate-type=lib --target "$target" -O "$tmpdir/lib.rs" -o "$tmpdir/lib-$target.rlib"
+done
+rm -rf "$tmpdir"
+% *rust-targets*))
    (list (or *install-python* *install-python-libs*) "Python by running a tiny script"
          #r%set -eu
 python3 -c 'print("python-ok")' | grep -qx 'python-ok'
@@ -723,6 +746,10 @@ rm -rf "$tmpdir"
       (run (and "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable"
                 "chmod -R a+w /root/.rustup"))
       (env PATH "/root/.cargo/bin:$PATH")
+      ,@(when *rust-targets*
+          `((comment "Install additional Rust targets for cross-compilation")
+            (run ,(format nil "rustup target add~{ ~a~} && chmod -R a+w /root/.rustup"
+                          *rust-targets*))))
       ,@(when *install-difftastic*
           `((comment "Install difftastic syntax-aware diff tool")
             (run :mount ("type=cache,target=/root/.cargo/registry" "type=cache,target=/root/.cargo/git")

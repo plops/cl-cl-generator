@@ -37,6 +37,7 @@ Sub-features (difftastic, probe-rs, Quicklisp, SLIME) are only installed when th
 | `*install-python*` | `t` | System Python 3 runtime (`python3-full`). |
 | `*install-python-libs*` | `t` | A separate uv-built virtual environment `/workspace/.venv` containing `*python-libs*` (plus `*python-cuda-libs*` with CUDA); a smoke test imports every package. |
 | `*install-rust*` | `t` | Stable Rust via rustup and a compile/run smoke test. |
+| `*rust-targets*` | `("thumbv7em-none-eabihf")` | With Rust: cross targets added (`rustup target add`) on top of the Linux host compiler, which `*install-rust*` always installs; each is checked by cross-compiling a `no_std` library. `nil` = Linux-only Rust; the default adds the bare-metal Cortex-M7 (with FPU) target. For embedded work also keep `*install-arm-none-eabi*` (gdb, objcopy) and `*install-jlink*`/`*install-probe-rs*`. |
 | `*install-difftastic*` | `t` | With Rust: difftastic, configured as git's external diff. |
 | `*install-probe-rs*` | `t` | With Rust: probe-rs embedded debugging tools. |
 | `*install-conan*` | `t` | Conan C/C++ package manager as an isolated uv tool. |
